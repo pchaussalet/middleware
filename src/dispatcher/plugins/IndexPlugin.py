@@ -31,7 +31,7 @@ import libzfs
 import bsd
 from datetime import datetime
 from task import Provider, Task, TaskDescription, TaskException, ProgressTask
-from freenas.rpc import generator
+from freenas.dispatcher.rpc import generator
 from freenas.utils.permissions import get_type, get_unix_permissions
 
 
@@ -53,11 +53,21 @@ class IndexVolumeTask(ProgressTask):
         return ['zpool:{0}'.format(volume)]
 
     def run(self, volume):
-
-
-        # Gather a list of datasets
+        tasks = []
         for ds in self.dispatcher.call_sync('volume.dataset.query', [('volume', '=', volume)]):
-            pass
+            # Check if ref snapshot exists
+            refsnap = self.dispatcher.call_sync(
+                'volume.snapshot.query',
+                [('id', '=', '{0}@org.freenas.indexer:ref'.format(ds['id']))],
+                {'single': True}
+            )
+
+            tasks.append(self.run_subtask(
+                'index.generate.dataset.{0}'.format('incremental' if refsnap else 'full'),
+                ds['id']
+            ))
+
+        self.join_subtasks(*tasks)
 
 
 class IndexDatasetIncrementalTask(ProgressTask):
@@ -187,3 +197,4 @@ def _init(dispatcher, plugin):
     plugin.register_provider('index', IndexProvider)
     plugin.register_task_handler('index.generate', IndexVolumeTask)
     plugin.register_task_handler('index.generate.dataset.full', IndexDatasetFullTask)
+    plugin.register_task_handler('index.generate.dataset.incremental', IndexDatasetIncrementalTask)
