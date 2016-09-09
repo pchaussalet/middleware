@@ -38,7 +38,7 @@ from freenas.utils.permissions import get_type, get_unix_permissions
 class IndexProvider(Provider):
     @generator
     def query(self, filter=None, params=None):
-        return self.datastore.query_stream(*(filter or []), **(params or {}))
+        return self.datastore.query_stream('fileindex', *(filter or []), **(params or {}))
 
 
 class IndexVolumeTask(ProgressTask):
