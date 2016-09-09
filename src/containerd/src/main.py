@@ -370,7 +370,7 @@ class VirtualMachine(object):
         return '/dev/nmdm{0}A'.format(index), '/dev/nmdm{0}B'.format(index)
 
     def start(self):
-        self.context.logger.info('Starting container {0} ({1})'.format(self.name, self.id))
+        self.context.logger.info('Starting VM {0} ({1})'.format(self.name, self.id))
         self.nmdm = self.get_nmdm()
         self.thread = gevent.spawn(self.run)
         self.console_thread = gevent.spawn(self.console_worker)
