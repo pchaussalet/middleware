@@ -46,9 +46,12 @@ def main():
     if not args.r:
         patterns = ['.*{0}.*'.format(i) for i in patterns]
 
-    filters = [('id', '~', p) for p in patterns]
+    filters = [('or', [('id', '~', p) for p in patterns])]
+    if args.v:
+        filters.append(('volume', '=', args.v))
+
     try:
-        for result in client.call_sync('index.query', [('or', filters)]):
+        for result in client.call_sync('index.query', filters):
             print('{0} (type: {1})'.format(result['id'], result['type'].lower()))
     except KeyboardInterrupt:
         pass
