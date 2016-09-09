@@ -95,7 +95,7 @@ class IndexDatasetIncrementalTask(ProgressTask):
         if not ds:
             raise TaskException(errno.ENOENT, 'Dataset {0} not found'.format(dataset))
 
-        for rec in ds.diff('{0}@org.freenas.indexer:ref'.format(dataset), '{0}@org.freenas.indexer.now'.format(dataset)):
+        for rec in ds.diff('{0}@org.freenas.indexer:ref'.format(dataset), '{0}@org.freenas.indexer:now'.format(dataset)):
             collect(self.datastore, rec.path)
 
         self.join_subtasks(self.run_subtask('volume.snapshot.delete', '{0}@org.freenas.indexer:ref'.format(dataset)))
