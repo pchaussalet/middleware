@@ -190,7 +190,8 @@ class PeerDeleteTask(Task):
 @description('Exchanges SSH keys with remote FreeNAS machine')
 @accepts(h.all_of(
     h.ref('peer'),
-    h.required('address', 'type', 'credentials')
+    h.required('address', 'type', 'credentials'),
+    h.forbidden('name')
 ))
 class FreeNASPeerCreateTask(Task):
     @classmethod
@@ -212,7 +213,7 @@ class FreeNASPeerCreateTask(Task):
 
         hostid = self.dispatcher.call_sync('system.info.host_uuid')
         hostname = self.dispatcher.call_sync('system.general.get_config')['hostname']
-        remote_peer_name = peer.get('name', hostname)
+        remote_peer_name = hostname
         remote = peer.get('address')
         credentials = peer['credentials']
         username = credentials.get('username')
@@ -259,7 +260,7 @@ class FreeNASPeerCreateTask(Task):
 
             local_id = remote_client.call_sync('system.info.host_uuid')
             peer['id'] = local_id
-            peer['name'] = peer.get('name', remote_hostname)
+            peer['name'] = remote_hostname
             ip = socket.gethostbyname(peer['address'])
             peer['address'] = remote_hostname
 
@@ -320,7 +321,7 @@ class FreeNASPeerCreateLocalTask(Task):
             finally:
                 s.close()
 
-        if self.datastore.exists('peers', ('name', '=', peer['id'])):
+        if self.datastore.exists('peers', ('id', '=', peer['id'])):
             raise TaskException(errno.EEXIST, 'FreeNAS peer entry {0} already exists'.format(peer['name']))
 
         try:
@@ -463,6 +464,9 @@ class FreeNASPeerUpdateTask(Task):
         peer = self.datastore.get_by_id('peers', id)
         if not peer:
             raise TaskException(errno.ENOENT, 'FreeNAS peer entry {0} does not exist'.format(id))
+
+        if 'name' in updated_fields:
+            raise TaskException(errno.EINVAL, 'Name of FreeNAS peer cannot be updated')
 
         if 'address' in updated_fields:
             raise TaskException(errno.EINVAL, 'Address of FreeNAS peer cannot be updated')
