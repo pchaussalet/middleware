@@ -30,17 +30,21 @@ import errno
 import libzfs
 import bsd
 from datetime import datetime
-from task import Provider, Task, TaskDescription, TaskException, ProgressTask
-from freenas.dispatcher.rpc import generator
+from task import Provider, TaskDescription, TaskException, ProgressTask, query
+from freenas.dispatcher.rpc import generator, description, accepts, private
 from freenas.utils.permissions import get_type, get_unix_permissions
 
 
+@description("Provides access to the filesystem index")
 class IndexProvider(Provider):
     @generator
+    @query('file-index')
     def query(self, filter=None, params=None):
         return self.datastore.query_stream('fileindex', *(filter or []), **(params or {}))
 
 
+@description("Generates index of a specified volume")
+@accepts(str)
 class IndexVolumeTask(ProgressTask):
     @classmethod
     def early_describe(cls):
@@ -78,6 +82,8 @@ class IndexVolumeTask(ProgressTask):
         self.join_subtasks(*tasks)
 
 
+@private
+@accepts(str)
 class IndexDatasetIncrementalTask(ProgressTask):
     @classmethod
     def early_describe(cls):
@@ -122,6 +128,8 @@ class IndexDatasetIncrementalTask(ProgressTask):
         }))
 
 
+@private
+@accepts(str)
 class IndexDatasetFullTask(ProgressTask):
     @classmethod
     def early_describe(cls):
