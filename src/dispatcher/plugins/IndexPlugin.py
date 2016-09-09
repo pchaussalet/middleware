@@ -53,11 +53,7 @@ class IndexVolumeTask(ProgressTask):
         return ['zpool:{0}'.format(volume)]
 
     def run(self, volume):
-        self.run_subtask('volume.snapshot.create', {
-            'dataset': volume,
-            'name': 'org.freenas.indexer:now',
-            'hidden': True
-        }, True)
+
 
         # Gather a list of datasets
         for ds in self.dispatcher.call_sync('volume.dataset.query', [('volume', '=', volume)]):
@@ -65,7 +61,47 @@ class IndexVolumeTask(ProgressTask):
 
 
 class IndexDatasetIncrementalTask(ProgressTask):
-    pass
+    @classmethod
+    def early_describe(cls):
+        return "Indexing a dataset"
+
+    def describe(self, dataset):
+        return TaskDescription("Indexing dataset {name}", name=dataset)
+
+    def verify(self, dataset):
+        return ['zfs:{0}'.format(dataset)]
+
+    def run(self, dataset):
+        self.join_subtasks(self.run_subtask('volume.snapshot.create', {
+            'dataset': dataset,
+            'name': 'org.freenas.indexer:now',
+            'hidden': True
+        }))
+
+        prev = self.dispatcher.call_sync(
+            'volume.snapshot.query',
+            [
+                ('dataset', '=', dataset),
+                ('name', '=', 'org.freenas.indexer:ref')
+            ],
+            {'single': True}
+        )
+
+        if not prev:
+            raise TaskException(errno.ENOENT, 'Reference snapshot not found')
+
+        zfs = libzfs.ZFS()
+        ds = zfs.get_dataset(dataset)
+        if not ds:
+            raise TaskException(errno.ENOENT, 'Dataset {0} not found'.format(dataset))
+
+        for rec in ds.diff('{0}@org.freenas.indexer:ref'.format(dataset), '{0}@org.freenas.indexer.now'.format(dataset)):
+            collect(self.datastore, rec.path)
+
+        self.join_subtasks(self.run_subtask('volume.snapshot.delete', '{0}@org.freenas.indexer:ref'.format(dataset)))
+        self.join_subtasks(self.run_subtask('volume.snapshot.update', '{0}@org.freenas.indexer:now'.format(dataset), {
+            'name': 'org.freenas.indexer:ref',
+        }))
 
 
 class IndexDatasetFullTask(ProgressTask):
@@ -100,6 +136,12 @@ class IndexDatasetFullTask(ProgressTask):
                 path = os.path.join(root, f)
                 collect(self.datastore, path)
                 done_files += 1
+
+        self.join_subtasks(self.run_subtask('volume.snapshot.create', {
+            'dataset': dataset,
+            'name': 'org.freenas.indexer:ref',
+            'hidden': True
+        }))
 
 
 def collect(datastore, path):
