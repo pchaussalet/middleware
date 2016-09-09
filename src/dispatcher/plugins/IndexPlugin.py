@@ -55,6 +55,14 @@ class IndexVolumeTask(ProgressTask):
     def run(self, volume):
         tasks = []
         for ds in self.dispatcher.call_sync('volume.dataset.query', [('volume', '=', volume)]):
+            # Skip zvols and unmounted dataset
+            if not ds['mounted']:
+                continue
+
+            # Skip .system dataset
+            if ds['mountpoint'] == '/var/db/system':
+                continue
+
             # Check if ref snapshot exists
             refsnap = self.dispatcher.call_sync(
                 'volume.snapshot.query',
