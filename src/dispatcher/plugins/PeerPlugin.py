@@ -140,6 +140,12 @@ class PeerUpdateTask(Task):
 
     def run(self, id, updated_fields):
         peer = self.datastore.get_by_id('peers', id)
+        if not peer:
+            raise TaskException(errno.ENOENT, 'Peer {0} does not exist'.format(id))
+
+        if 'type' in updated_fields and peer['type'] != updated_fields['type']:
+            raise TaskException(errno.EINVAL, 'Peer type cannot be updated')
+
         if peer['type'] == 'freenas':
             self.join_subtasks(self.run_subtask('peer.freenas.update', id, updated_fields))
         else:
