@@ -47,8 +47,13 @@ def main():
         patterns = ['.*{0}.*'.format(i) for i in patterns]
 
     filters = [('id', '~', p) for p in patterns]
-    for result in client.call_sync('index.query', [('or', filters)]):
-        print('{0} (type: {1})'.format(result['id'], result['type'].lower()))
+    try:
+        for result in client.call_sync('index.query', [('or', filters)]):
+            print('{0} (type: {1})'.format(result['id'], result['type'].lower()))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        client.disconnect()
 
 
 if __name__ == '__main__':
