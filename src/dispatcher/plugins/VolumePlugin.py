@@ -1035,15 +1035,22 @@ class VolumeUpdateTask(Task):
             )
 
             volume['topology'] = new_topology
-            if 'auto_unlock' in updated_params:
-                auto_unlock = updated_params.get('auto_unlock', False)
-                if auto_unlock and (not volume.get('key_encryption') or volume.get('password_encryption')):
-                    raise TaskException(
-                        errno.EINVAL,
-                        'Automatic volume unlock can be selected for volumes using only key based encryption.'
-                    )
 
-                volume['auto_unlock'] = auto_unlock
+            self.datastore.update('volumes', volume['id'], volume)
+            self.dispatcher.dispatch_event('volume.changed', {
+                'operation': 'update',
+                'ids': [volume['id']]
+            })
+
+        if 'auto_unlock' in updated_params:
+            auto_unlock = updated_params.get('auto_unlock', False)
+            if auto_unlock and (not volume.get('key_encrypted') or volume.get('password_encrypted')):
+                raise TaskException(
+                    errno.EINVAL,
+                    'Automatic volume unlock can be selected for volumes using only key based encryption.'
+                )
+
+            volume['auto_unlock'] = auto_unlock
 
             self.datastore.update('volumes', volume['id'], volume)
             self.dispatcher.dispatch_event('volume.changed', {
@@ -2255,7 +2262,8 @@ class SnapshotCreateTask(Task):
     def run(self, snapshot, recursive=False):
         normalize(snapshot, {
             'replicable': True,
-            'lifetime': None
+            'lifetime': None,
+            'hidden': False
         })
 
         self.join_subtasks(self.run_subtask(
@@ -2265,6 +2273,7 @@ class SnapshotCreateTask(Task):
             recursive,
             {
                 'org.freenas:replicable': {'value': 'yes' if snapshot['replicable'] else 'no'},
+                'org.freenas:hidden': {'value': 'yes' if snapshot['hidden'] else 'no'},
                 'org.freenas:lifetime': {'value': str(snapshot['lifetime'] or 'no')},
                 'org.freenas:uuid': {'value': str(uuid.uuid4())}
             }
@@ -2328,6 +2337,9 @@ class SnapshotConfigureTask(Task):
 
         if 'replicable' in updated_params:
             params['org.freenas:replicable'] = {'value': 'yes' if updated_params['replicable'] else 'no'}
+
+        if 'hidden' in updated_params:
+            params['org.freenas:hidden'] = {'value': 'yes' if updated_params['hidden'] else 'no'}
 
         self.join_subtasks(self.run_subtask('zfs.update', id, params))
 
@@ -2703,6 +2715,7 @@ def _init(dispatcher, plugin):
             'name': name,
             'lifetime': lifetime,
             'replicable': yesno_to_bool(q.get(snapshot, 'properties.org\\.freenas:replicable.value')),
+            'hidden': yesno_to_bool(q.get(snapshot, 'properties.org\\.freenas:hidden.value')),
             'properties': include(
                 snapshot['properties'],
                 'used', 'referenced', 'compressratio', 'clones', 'creation'
@@ -2978,6 +2991,7 @@ def _init(dispatcher, plugin):
             'dataset': {'type': 'string'},
             'name': {'type': 'string'},
             'replicable': {'type': 'boolean'},
+            'hidden': {'type': 'boolean'},
             'lifetime': {'type': ['integer', 'null']},
             'properties': {'$ref': 'volume-snapshot-properties'},
             'holds': {'type': 'object'}

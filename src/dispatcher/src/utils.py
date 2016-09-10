@@ -67,7 +67,11 @@ def delete_config(conf_path, name_mod):
 
 
 def get_replication_client(dispatcher, remote):
-    address = socket.gethostbyname(remote)
+    try:
+        address = socket.gethostbyname(remote)
+    except socket.error as err:
+        raise TaskException(err.errno, '{0} is unreachable'.format(remote))
+
     host = dispatcher.call_sync(
         'peer.query', [
             ('or', [
@@ -89,7 +93,7 @@ def get_replication_client(dispatcher, remote):
     try:
         client = Client()
         with tempfile.NamedTemporaryFile('w') as host_key_file:
-            host_key_file.write(credentials['hostkey'])
+            host_key_file.write(remote + ' ' + credentials['hostkey'])
             host_key_file.flush()
             client.connect(
                 'ws+ssh://replication@{0}'.format(remote),

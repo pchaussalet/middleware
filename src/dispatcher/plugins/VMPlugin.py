@@ -415,6 +415,14 @@ class VMBaseTask(ProgressTask):
                 'link_address': self.dispatcher.call_sync('vm.generate_mac')
             })
 
+            brigde = res['properties'].get('bridge', 'default')
+            if brigde != 'default':
+                if not self.dispatcher.call_sync('network.interface.query', [('id', '=', brigde)], {'single': True}):
+                    raise TaskException(
+                        errno.ENOENT,
+                        'Cannot create a bridge to {0}. Interface does not exist'.format(brigde)
+                    )
+
         if res['type'] == 'VOLUME':
             properties = res['properties']
             mgmt_net = ipaddress.ip_interface(self.configstore.get('container.network.management'))
@@ -481,6 +489,15 @@ class VMBaseTask(ProgressTask):
                     ds_name,
                     {'volsize': {'value': new_res['properties']['size']}}
                 ))
+
+        if new_res['type'] == 'NIC':
+            brigde = new_res['properties'].get('bridge', 'default')
+            if brigde != 'default':
+                if not self.dispatcher.call_sync('network.interface.query', [('id', '=', brigde)], {'single': True}):
+                    raise TaskException(
+                        errno.ENOENT,
+                        'Cannot create a bridge to {0}. Interface does not exist'.format(brigde)
+                    )
 
     def delete_device(self, vm, res):
         reserved_datasets = self.dispatcher.call_sync('vm.get_reserved_datasets', vm['id'])
