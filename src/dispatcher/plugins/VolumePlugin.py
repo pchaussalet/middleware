@@ -1035,15 +1035,22 @@ class VolumeUpdateTask(Task):
             )
 
             volume['topology'] = new_topology
-            if 'auto_unlock' in updated_params:
-                auto_unlock = updated_params.get('auto_unlock', False)
-                if auto_unlock and (not volume.get('key_encryption') or volume.get('password_encryption')):
-                    raise TaskException(
-                        errno.EINVAL,
-                        'Automatic volume unlock can be selected for volumes using only key based encryption.'
-                    )
 
-                volume['auto_unlock'] = auto_unlock
+            self.datastore.update('volumes', volume['id'], volume)
+            self.dispatcher.dispatch_event('volume.changed', {
+                'operation': 'update',
+                'ids': [volume['id']]
+            })
+
+        if 'auto_unlock' in updated_params:
+            auto_unlock = updated_params.get('auto_unlock', False)
+            if auto_unlock and (not volume.get('key_encrypted') or volume.get('password_encrypted')):
+                raise TaskException(
+                    errno.EINVAL,
+                    'Automatic volume unlock can be selected for volumes using only key based encryption.'
+                )
+
+            volume['auto_unlock'] = auto_unlock
 
             self.datastore.update('volumes', volume['id'], volume)
             self.dispatcher.dispatch_event('volume.changed', {
