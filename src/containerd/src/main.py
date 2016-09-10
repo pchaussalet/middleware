@@ -1500,7 +1500,6 @@ class Main(object):
 
             if sysctl.sysctlbyname('hw.vmm.svm.features') != 0:
                 vtx_enabled = True
-                restricted_guest = False
 
             if sysctl.sysctlbyname('hw.vmm.vmx.cap.unrestricted_guest'):
                 restricted_guest = False
