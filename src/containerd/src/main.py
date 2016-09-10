@@ -478,7 +478,7 @@ class VirtualMachine(object):
             self.bhyve_process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
 
             for line in self.bhyve_process.stdout:
-                self.logger.debug('bhyve: {0}'.format(line.decode('utf-8', 'ignore')))
+                self.logger.debug('bhyve: {0}'.format(line.decode('utf-8', 'ignore').strip()))
 
             self.bhyve_process.wait()
 
