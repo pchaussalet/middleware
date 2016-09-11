@@ -26,6 +26,7 @@
 #####################################################################
 
 import os
+import re
 import copy
 import errno
 import gevent
@@ -128,6 +129,27 @@ class DockerImagesProvider(Provider):
             return hub.get_repository(repo_name).get('full_description')
         except ValueError:
             return None
+
+    def labels_to_template(self, labels):
+        result = {
+            'interactive': labels.get('org.freenas.interactive', 'false') == 'true',
+            'upgradeable': labels.get('org.freenas.upgradeable', 'false') == 'true',
+            'expose_ports': labels.get('org.freenas.expose_ports_at_host', 'false') == 'true',
+            'ports': []
+        }
+
+        if 'org.freenas.port_mappings' in labels:
+            for mapping in labels['org.freenas.port_mappings'].split(','):
+                m = re.match(r'^(\d+):(\d+)/(tcp|udp)$', mapping)
+                if not m:
+                     continue
+
+                result['ports'].append({
+                    'container_port': int(m.group(1)),
+                    'host_port': int(m.group(2)),
+                    'protocol': m.group(3).upper()
+                })
+
 
     def get_templates(self):
         return {
