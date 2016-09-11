@@ -31,5 +31,6 @@ do-install:
 	@${INSTALL_DATA} ${FILESDIR}/box.cow ${STAGEDIR}${PREFIX}/share/cows
 	@${INSTALL_DATA} ${FILESDIR}/jkh.cow ${STAGEDIR}${PREFIX}/share/cows
 	@${INSTALL_DATA} ${FILESDIR}/tux-stab.cow ${STAGEDIR}${PREFIX}/share/cows
+	@${INSTALL_DATA} ${FILESDIR}/monkey.cow ${STAGEDIR}${PREFIX}/share/cows
 
 .include <bsd.port.mk>
