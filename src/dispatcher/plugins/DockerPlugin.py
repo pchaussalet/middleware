@@ -39,11 +39,12 @@ from freenas.dispatcher.rpc import generator, accepts, returns, SchemaHelper as 
 
 
 logger = logging.getLogger(__name__)
-
 containers = None
-containers_query = 'containerd.docker.query_containers'
 images = None
-images_query = 'containerd.docker.query_images'
+
+
+CONTAINERS_QUERY = 'containerd.docker.query_containers'
+IMAGES_QUERY = 'containerd.docker.query_images'
 
 
 @description('Provides information about Docker configuration')
@@ -574,18 +575,18 @@ def _init(dispatcher, plugin):
             if args['operation'] == 'create':
                 for host_id in args['ids']:
                     new_images = list(dispatcher.call_sync(
-                        images_query,
+                        IMAGES_QUERY,
                         [('host', '=', host_id)], {'select': 'id'}
                     ))
                     new_containers = list(dispatcher.call_sync(
-                        containers_query,
+                        CONTAINERS_QUERY,
                         [('host', '=', host_id)], {'select': 'id'}
                     ))
 
                     if new_images:
-                        sync_cache(images, images_query, new_images)
+                        sync_cache(images, IMAGES_QUERY, new_images)
                     if new_containers:
-                        sync_cache(containers, containers_query, new_containers)
+                        sync_cache(containers, CONTAINERS_QUERY, new_containers)
 
                     logger.debug('Docker host {0} started'.format(host_id))
 
@@ -664,7 +665,7 @@ def _init(dispatcher, plugin):
             if args['operation'] == 'delete':
                 images.remove_many(args['ids'])
             else:
-                sync_cache(images, images_query, args['ids'])
+                sync_cache(images, IMAGES_QUERY, args['ids'])
 
     def on_container_event(args):
         logger.trace('Received Docker container event: {0}'.format(args))
@@ -672,7 +673,7 @@ def _init(dispatcher, plugin):
             if args['operation'] == 'delete':
                 containers.remove_many(args['ids'])
             else:
-                sync_cache(containers, containers_query, args['ids'])
+                sync_cache(containers, CONTAINERS_QUERY, args['ids'])
 
     def sync_caches():
         interval = dispatcher.configstore.get('container.cache_refresh_interval')
@@ -681,8 +682,8 @@ def _init(dispatcher, plugin):
             if images.ready and containers.ready:
                 logger.trace('Syncing Docker caches')
                 try:
-                    sync_cache(images, images_query)
-                    sync_cache(containers, containers_query)
+                    sync_cache(images, IMAGES_QUERY)
+                    sync_cache(containers, CONTAINERS_QUERY)
                 except RpcException:
                     pass
 
@@ -696,9 +697,9 @@ def _init(dispatcher, plugin):
 
     def init_cache():
         logger.trace('Initializing Docker caches')
-        sync_cache(images, images_query)
+        sync_cache(images, IMAGES_QUERY)
         images.ready = True
-        sync_cache(containers, containers_query)
+        sync_cache(containers, CONTAINERS_QUERY)
         containers.ready = True
 
     plugin.register_provider('docker.config', DockerConfigProvider)
