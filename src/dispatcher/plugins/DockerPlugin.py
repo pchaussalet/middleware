@@ -142,14 +142,13 @@ class DockerImagesProvider(Provider):
             for mapping in labels['org.freenas.port_mappings'].split(','):
                 m = re.match(r'^(\d+):(\d+)/(tcp|udp)$', mapping)
                 if not m:
-                     continue
+                    continue
 
                 result['ports'].append({
                     'container_port': int(m.group(1)),
                     'host_port': int(m.group(2)),
                     'protocol': m.group(3).upper()
                 })
-
 
     def get_templates(self):
         return {
