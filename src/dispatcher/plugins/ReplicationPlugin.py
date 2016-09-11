@@ -121,16 +121,33 @@ class ReplicationLinkProvider(Provider):
     @accepts(h.ref('replication'))
     @returns(h.tuple(bool, str))
     def get_replication_state(self, link):
-        is_master = False
-        remote = ''
-        ips = self.dispatcher.call_sync('network.config.get_my_ips')
-        for ip in ips:
-            for partner in link['partners']:
-                if partner == ip and partner == link['master']:
-                    is_master = True
-        for partner in link['partners']:
-            if partner not in ips:
-                remote = partner
+        def check_partner(partner):
+            address = self.dispatcher.call_sync(
+                'peer.query',
+                [('id', '=', link[partner])],
+                {'single': True, 'select': 'address'}
+            )
+            if not address:
+                raise RpcException(errno.ENOENT, 'FreeNAS peer {0} entry have not been found'.format(link[partner]))
+
+            return partner
+
+        hostid = self.dispatcher.call_sync('system.info.host_uuid')
+        if link['master'] == hostid:
+            is_master = True
+            remote = check_partner('slave')
+
+        elif link['slave'] == hostid:
+            is_master = False
+            remote = check_partner('master')
+
+        else:
+            raise RpcException(
+                errno.EINVAL,
+                'Neither master nor slave of replication link is pointing to {0} host'.format(
+                    self.dispatcher.call_sync('system.general.get_config')['hostname']
+                )
+            )
 
         return is_master, remote
 
@@ -341,7 +358,7 @@ class ReplicationBaseTask(Task):
 @accepts(h.all_of(
         h.ref('replication'),
         h.required(
-            'name', 'partners', 'master', 'datasets', 'replicate_services', 'bidirectional',
+            'name', 'slave', 'master', 'datasets', 'replicate_services', 'bidirectional',
             'auto_recover', 'recursive', 'transport_options', 'snapshot_lifetime', 'followdelete'
         )
     )
@@ -355,32 +372,8 @@ class ReplicationCreateTask(ReplicationBaseTask):
         return TaskDescription("Creating the replication link {name}", name=link.get('name', '') or '')
 
     def verify(self, link):
-        partners = link['partners']
-        ip_matches = False
-
-        ips = self.dispatcher.call_sync('network.config.get_my_ips')
-        for ip in ips:
-            for partner in partners:
-                if partner == ip:
-                    ip_matches = True
-
-        if not ip_matches:
-            raise VerifyException(errno.EINVAL, 'Provided partner IPs do not create a valid pair. Check addresses.')
-
-        if len(partners) != 2:
-            raise VerifyException(
-                errno.EINVAL,
-                'Replication link can only have 2 partners. Value {0} is not permitted.'.format(len(partners))
-            )
-
         if not len(link['datasets']):
             raise VerifyException(errno.ENOENT, 'At least one dataset have to be specified')
-
-        if link['master'] not in partners:
-            raise VerifyException(
-                errno.EINVAL,
-                'Replication master must be one of replication partners {0}, {1}'.format(*partners)
-            )
 
         if not link['bidirectional']:
             if link['replicate_services']:
@@ -702,12 +695,12 @@ class ReplicationUpdateTask(ReplicationBaseTask):
 
         link.update(updated_fields)
 
-        partners = link['partners']
+        partners = (link['master'], link['slave'])
         if 'master' in updated_fields:
             if not updated_fields['master'] in partners:
                 raise TaskException(
                     errno.EINVAL,
-                    'Replication master must be one of replication partners {0}, {1}'.format(*partners)
+                    'Replication master must be one of replication partners'
                 )
 
             if link['auto_recover']:
@@ -716,7 +709,7 @@ class ReplicationUpdateTask(ReplicationBaseTask):
                     'Manual role swap is not available when automatic recovery is selected'
                 )
 
-        if any(key in updated_fields for key in ['id', 'name', 'partners']):
+        if any(key in updated_fields for key in ['id', 'name', 'master', 'slave']):
             new_is_master, new_remote = self.get_replication_state(link)
             try:
                 new_remote_client = get_replication_client(self.dispatcher, new_remote)
@@ -1401,15 +1394,11 @@ class ReplicationGetLatestLinkTask(ReplicationBaseTask):
             raise TaskException(errno.ENOENT, 'Replication link {0} do not exist.'.format(name))
 
         local_link = self.dispatcher.call_sync('replication.get_one_local', name)
-        ips = self.dispatcher.call_sync('network.config.get_my_ips')
-        remote = ''
         client = None
         remote_link = None
         latest_link = local_link
 
-        for partner in local_link['partners']:
-            if partner not in ips:
-                remote = partner
+        is_master, remote = self.get_replication_state(local_link)
 
         try:
             client = get_replication_client(self.dispatcher, remote)
@@ -1466,13 +1455,14 @@ class ReplicationUpdateLinkTask(Task):
             raise TaskException(errno.ENOENT, 'Replication link {0} do not exist.'.format(link['name']))
 
         local_link = self.dispatcher.call_sync('replication.get_one_local', link['name'])
-        for partner in local_link['partners']:
-            if partner not in link.get('partners', []):
+        local_partners = (local_link['master'], local_link['slave'])
+        for partner in local_partners:
+            if partner not in (link['master'], link['slave']):
                 raise TaskException(
                     errno.EINVAL,
                     'One of remote link partners {0} do not match local link partners {1}, {2}'.format(
                         partner,
-                        *link['partners']
+                        *local_partners
                     )
                 )
 
@@ -1609,11 +1599,8 @@ def _init(dispatcher, plugin):
         'properties': {
             'id': {'type': 'string'},
             'name': {'type': 'string'},
-            'partners': {
-                'type': 'array',
-                'items': {'type': 'string'}
-            },
             'master': {'type': 'string'},
+            'slave': {'type': 'string'},
             'initial_master': {'type': 'string'},
             'update_date': {'type': 'string'},
             'datasets': {
@@ -1831,7 +1818,9 @@ def _init(dispatcher, plugin):
                     s.connect((remote, peer_ssh_port))
                 except socket.error:
                     link['update_date'] = str(datetime.utcnow())
-                    link['master'] = link['partners'][1] if link['master'] == link['partners'][0] else link['partners'][0]
+                    old_master = link['master']
+                    link['master'] = link['slave']
+                    link['slave'] = old_master
                     dispatcher.call_task_sync('replication.update_link', link)
                     dispatcher.dispatch_event('replication.changed', {
                         'operation': 'update',
