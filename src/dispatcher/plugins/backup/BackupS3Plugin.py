@@ -31,6 +31,7 @@ import requests
 import boto3
 from task import Task, ProgressTask, TaskException, TaskDescription
 from freenas.dispatcher.rpc import description
+from freenas.utils import normalize
 
 
 CHUNK_SIZE = 5 * 1024 * 1024
@@ -89,7 +90,13 @@ class BackupS3InitTask(Task):
         return []
 
     def run(self, backup):
-        pass
+        normalize(backup['properties'], {
+            'peer': None,
+            'bucket': None,
+            'folder': None
+        })
+
+        return backup['properties']
 
 
 @description('Puts new data onto S3 backup')
@@ -189,7 +196,7 @@ def open_client(dispatcher, backup):
     if not peer:
         raise TaskException(errno.ENOENT, 'Cannot find peer {0}'.format(backup['peer']))
 
-    if peer['type'] != 'amazons3':
+    if peer['type'] != 'amazon-s3':
         raise TaskException(errno.EINVAL, 'Invalid peer type: {0}'.format(peer['type']))
 
     creds = peer['credentials']
