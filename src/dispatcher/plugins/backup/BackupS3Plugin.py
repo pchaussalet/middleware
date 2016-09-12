@@ -49,7 +49,7 @@ class BackupS3ListTask(Task):
         return []
 
     def run(self, backup):
-        client = open_client(backup)
+        client = open_client(self.dispatcher, backup)
         result = []
         marker = None
 
@@ -105,7 +105,7 @@ class BackupS3PutTask(ProgressTask):
         return []
 
     def run(self, backup, name, fd):
-        client = open_client(backup)
+        client = open_client(self.dispatcher, backup)
         folder = backup['folder'] or ''
         key = os.path.join(folder, name)
         parts = []
@@ -167,7 +167,7 @@ class BackupS3GetTask(Task):
         return []
 
     def run(self, backup, name, fd):
-        client = open_client(backup)
+        client = open_client(self.dispatcher, backup)
         folder = backup['folder'] or ''
         key = os.path.join(folder, name)
         url = client.generate_presigned_url(
@@ -184,12 +184,20 @@ class BackupS3GetTask(Task):
                 f.write(chunk)
 
 
-def open_client(backup):
+def open_client(dispatcher, backup):
+    peer = dispatcher.call_sync('peer.query', [('id', '=', backup['peer'])], {'single': True})
+    if not peer:
+        raise TaskException(errno.ENOENT, 'Cannot find peer {0}'.format(backup['peer']))
+
+    if peer['type'] != 'amazons3':
+        raise TaskException(errno.EINVAL, 'Invalid peer type: {0}'.format(peer['type']))
+
+    creds = peer['credentials']
     return boto3.client(
         's3',
-        aws_access_key_id=backup['access_key'],
-        aws_secret_access_key=backup['secret_key'],
-        region_name=backup.get('region')
+        aws_access_key_id=creds['access_key'],
+        aws_secret_access_key=creds['secret_key'],
+        region_name=creds.get('region')
     )
 
 
@@ -210,10 +218,8 @@ def _init(dispatcher, plugin):
         'additionalProperties': False,
         'properties': {
             'type': {'enum': ['backup-s3']},
-            'access_key': {'type': 'string'},
-            'secret_key': {'type': 'string'},
-            'region': {'type': ['string', 'null']},
-            'bucket': {'type': 'string'},
+            'peer': {'type': 'string'},
+            'bucket': {'type': ['string', 'null']},
             'folder': {'type': ['string', 'null']}
         }
     })

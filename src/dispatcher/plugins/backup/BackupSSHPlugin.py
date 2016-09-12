@@ -50,7 +50,7 @@ class BackupSSHListTask(Task):
         return []
 
     def run(self, backup):
-        conn = open_ssh_connection(backup)
+        conn = open_ssh_connection(self.dispatcher, backup)
         sftp = sftp_client.SFTP.from_transport(conn)
         result = []
 
@@ -104,7 +104,7 @@ class BackupSSHPutTask(ProgressTask):
         return []
 
     def run(self, backup, name, fd):
-        conn = open_ssh_connection(backup)
+        conn = open_ssh_connection(self.dispatcher, backup)
         sftp = sftp_client.SFTP.from_transport(conn)
 
         try:
@@ -130,7 +130,7 @@ class BackupSSHGetTask(Task):
         return []
 
     def run(self, backup, name, fd):
-        conn = open_ssh_connection(backup)
+        conn = open_ssh_connection(self.dispatcher, backup)
         sftp = sftp_client.SFTP.from_transport(conn)
 
         try:
@@ -156,7 +156,7 @@ class BackupSSHDeleteTask(Task):
         return []
 
     def run(self, backup, name):
-        conn = open_ssh_connection(backup)
+        conn = open_ssh_connection(self.dispatcher, backup)
         sftp = sftp_client.SFTP.from_transport(conn)
 
         try:
@@ -197,10 +197,10 @@ def try_key_auth(session, creds):
 def open_ssh_connection(dispatcher, backup):
     peer = dispatcher.call_sync('peer.query', [('id', '=', backup['peer'])], {'single': True})
     if not peer:
-        raise TaskException('Cannot find peer {0}'.format(backup['peer']))
+        raise TaskException(errno.ENOENT, 'Cannot find peer {0}'.format(backup['peer']))
 
     if peer['type'] != 'ssh':
-        raise TaskException('Invalid peer type: {0}'.format(peer['type']))
+        raise TaskException(errno.EINVAL, 'Invalid peer type: {0}'.format(peer['type']))
 
     creds = peer['credentials']
     try:
