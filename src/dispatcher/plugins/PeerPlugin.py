@@ -575,7 +575,7 @@ def _init(dispatcher, plugin):
             'username': {'type': 'string'},
             'port': {'type': 'number'},
             'password': {'type': 'string'},
-            'pubkey': {'type': 'string'},
+            'privkey': {'type': 'string'},
             'hostkey': {'type': 'string'},
         },
         'additionalProperties': False
