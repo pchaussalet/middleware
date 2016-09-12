@@ -290,6 +290,16 @@ class BackupSyncTask(ProgressTask):
         except RpcException:
             pass
 
+        if snapshot:
+            self.join_subtasks(self.run_subtask(
+                'volume.snapshot_dataset',
+                backup['dataset'],
+                True,
+                365 * 24 * 60 * 60,
+                'backup',
+                True
+            ))
+
         self.set_progress(0, 'Calculating send delta')
 
         (actions, send_size), = self.join_subtasks(self.run_subtask(
