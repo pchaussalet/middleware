@@ -1,3 +1,6 @@
+# The ascii art is taken from: http://www.ascii-code.com/
+# Please refer to the license available there.
+
 $the_cow = <<EOC;
   $thoughts    
    $thoughts       
