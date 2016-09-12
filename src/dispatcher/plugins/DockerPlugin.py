@@ -762,11 +762,7 @@ def _init(dispatcher, plugin):
                     pass
 
     def sync_cache(cache, query, ids=None):
-        if ids:
-            objects = dispatcher.call_sync(query, [('id', 'in', ids)])
-        else:
-            objects = dispatcher.call_sync(query)
-
+        objects = dispatcher.call_sync(query, [('id', 'in', ids)] if ids else [])
         cache.update(**{i['id']: i for i in objects})
 
     def init_cache():
