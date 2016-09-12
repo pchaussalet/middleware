@@ -32,7 +32,7 @@ import logging
 from freenas.dispatcher.client import Client
 from paramiko import AuthenticationException
 from utils import get_replication_client, call_task_and_check_state
-from freenas.utils import exclude
+from freenas.utils import exclude, query as q
 from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, private, generator
 from task import Task, Provider, TaskException, TaskWarning, VerifyException, query, TaskDescription
 
@@ -74,7 +74,7 @@ class PeerProvider(Provider):
 @description('Creates a peer entry')
 @accepts(h.all_of(
     h.ref('peer'),
-    h.required('address', 'type', 'credentials')
+    h.required('type', 'credentials')
 ))
 class PeerCreateTask(Task):
     @classmethod
@@ -85,23 +85,12 @@ class PeerCreateTask(Task):
         return TaskDescription('Creating peer entry {name}', name=peer.get('name', ''))
 
     def verify(self, peer):
-        if 'address' not in peer:
-            raise VerifyException(errno.EINVAL, 'Address has to be specified')
-
         if peer.get('type') not in self.dispatcher.call_sync('peer.credentials_types'):
             raise VerifyException(errno.EINVAL, 'Unknown credentials type {0}'.format(peer.get('type')))
 
         return ['system']
 
     def run(self, peer):
-        ips = self.dispatcher.call_sync('network.config.get_my_ips')
-
-        if peer['address'] in ips:
-            raise TaskException(
-                errno.EINVAL,
-                'Please specify a remote address. {0} is a local machine address'.format(peer['address'])
-            )
-
         if peer['type'] == 'freenas':
             self.join_subtasks(self.run_subtask('peer.freenas.create', peer))
         else:
@@ -190,7 +179,7 @@ class PeerDeleteTask(Task):
 @description('Exchanges SSH keys with remote FreeNAS machine')
 @accepts(h.all_of(
     h.ref('peer'),
-    h.required('address', 'type', 'credentials'),
+    h.required('type', 'credentials'),
     h.forbidden('name')
 ))
 class FreeNASPeerCreateTask(Task):
@@ -199,23 +188,17 @@ class FreeNASPeerCreateTask(Task):
         return 'Exchanging SSH keys with remote host'
 
     def describe(self, peer):
-        return TaskDescription('Exchanging SSH keys with the remote {name}', name=peer.get('address', ''))
+        return TaskDescription('Exchanging SSH keys with the remote {name}', name=q.get(peer, 'credentials.address', ''))
 
     def verify(self, peer):
         return ['system']
 
     def run(self, peer):
-        if self.datastore.exists('peers', ('address', '=', peer['address']), ('type', '=', 'freenas')):
-            raise TaskException(errno.EEXIST, 'FreeNAS peer entry for {0} already exists'.format(peer['address']))
-
-        if peer['credentials']['type'] != 'ssh':
-            raise TaskException(errno.EINVAL, 'SSH credentials type is needed to perform FreeNAS peer pairing')
-
         hostid = self.dispatcher.call_sync('system.info.host_uuid')
         hostname = self.dispatcher.call_sync('system.general.get_config')['hostname']
         remote_peer_name = hostname
-        remote = peer.get('address')
         credentials = peer['credentials']
+        remote = credentials.get('address')
         username = credentials.get('username')
         port = credentials.get('port', 22)
         password = credentials.get('password')
@@ -228,6 +211,15 @@ class FreeNASPeerCreateTask(Task):
 
         if not password:
             raise TaskException(errno.EINVAL, 'Password has to be specified')
+
+        if self.datastore.exists('peers', ('credentials.address', '=', remote), ('type', '=', 'freenas')):
+            raise TaskException(
+                errno.EEXIST,
+                'FreeNAS peer entry for {0} already exists'.format(remote)
+            )
+
+        if credentials.get('type') != 'ssh':
+            raise TaskException(errno.EINVAL, 'SSH credentials type is needed to perform FreeNAS peer pairing')
 
         remote_client = Client()
         try:
@@ -255,14 +247,14 @@ class FreeNASPeerCreateTask(Task):
                 'pubkey': remote_keys[1],
                 'hostkey': remote_host_key,
                 'port': port,
-                'type': 'freenas'
+                'type': 'freenas',
+                'address': remote_hostname
             }
 
             local_id = remote_client.call_sync('system.info.host_uuid')
             peer['id'] = local_id
             peer['name'] = remote_hostname
-            ip = socket.gethostbyname(peer['address'])
-            peer['address'] = remote_hostname
+            ip = socket.gethostbyname(remote)
 
             self.join_subtasks(self.run_subtask(
                 'peer.freenas.create_local',
@@ -273,12 +265,12 @@ class FreeNASPeerCreateTask(Task):
             peer['id'] = hostid
             peer['name'] = remote_peer_name
 
-            peer['address'] = hostname
             peer['credentials'] = {
                 'pubkey': local_keys[1],
                 'hostkey': local_host_key,
                 'port': local_ssh_config['port'],
-                'type': 'freenas'
+                'type': 'freenas',
+                'address': hostname
             }
 
             try:
@@ -324,21 +316,23 @@ class FreeNASPeerCreateLocalTask(Task):
         if self.datastore.exists('peers', ('id', '=', peer['id'])):
             raise TaskException(errno.EEXIST, 'FreeNAS peer entry {0} already exists'.format(peer['name']))
 
+        credentials = peer['credentials']
+
         try:
-            ping(peer['address'], peer['credentials']['port'])
+            ping(credentials['address'], credentials['port'])
         except socket.error:
             try:
-                ping(ip, peer['credentials']['port'])
-                peer['address'] = ip
+                ping(ip, credentials['port'])
+                credentials['address'] = ip
             except socket.error as err:
-                raise TaskException(err.errno, '{0} is not reachable. Check connection'.format(peer['address']))
+                raise TaskException(err.errno, '{0} is not reachable. Check connection'.format(credentials['address']))
 
-        if ip and socket.gethostbyname(peer['address']) != socket.gethostbyname(ip):
+        if ip and socket.gethostbyname(credentials['address']) != socket.gethostbyname(ip):
             raise TaskException(
                 errno.EINVAL,
                 'Resolved peer {0} IP {1} does not match desired peer IP {2}'.format(
-                    peer['address'],
-                    socket.gethostbyname(peer['address']),
+                    credentials['address'],
+                    socket.gethostbyname(credentials['address']),
                     ip
                 )
             )
@@ -373,7 +367,7 @@ class FreeNASPeerDeleteTask(Task):
         if not peer:
             raise TaskException(errno.ENOENT, 'Peer entry {0} does not exist'.format(id))
 
-        remote = peer['address']
+        remote = q.get(peer, 'credentials.address')
         remote_client = None
         hostid = self.dispatcher.call_sync('system.info.host_uuid')
         try:
@@ -468,9 +462,6 @@ class FreeNASPeerUpdateTask(Task):
         if 'name' in updated_fields:
             raise TaskException(errno.EINVAL, 'Name of FreeNAS peer cannot be updated')
 
-        if 'address' in updated_fields:
-            raise TaskException(errno.EINVAL, 'Address of FreeNAS peer cannot be updated')
-
         if 'type' in updated_fields:
             raise TaskException(errno.EINVAL, 'Type of FreeNAS peer cannot be updated')
 
@@ -509,7 +500,7 @@ class FreeNASPeerUpdateRemoteTask(Task):
             raise TaskException(errno.ENOENT, 'FreeNAS peer entry {0} does not exist'.format(id))
 
         try:
-            remote_client = get_replication_client(self.dispatcher, peer['address'])
+            remote_client = get_replication_client(self.dispatcher, peer['credentials']['address'])
             remote_peer = remote_client.call_sync('peer.query', [('id', '=', hostid)], {'single': True})
             if not remote_peer:
                 raise TaskException(errno.ENOENT, 'Remote side of peer {0} does not exist'.format(peer['name']))
@@ -518,11 +509,10 @@ class FreeNASPeerUpdateRemoteTask(Task):
             hostname = self.dispatcher.call_sync('system.general.get_config')['hostname']
             port = self.dispatcher.call_sync('service.sshd.get_config')['port']
 
-            if remote_peer['address'] == remote_peer['name']:
-                remote_peer['name'] = hostname
+            remote_peer['name'] = hostname
 
             remote_peer['credentials']['port'] = port
-            remote_peer['address'] = hostname
+            remote_peer['credentials']['address'] = hostname
 
             call_task_and_check_state(
                 remote_client,
@@ -558,7 +548,6 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'properties': {
             'name': {'type': 'string'},
-            'address': {'type': 'string'},
             'id': {'type': 'string'},
             'type': {'enum': ['freenas', 'ssh', 'amazon-s3']},
             'credentials': {'$ref': 'peer-credentials'}
@@ -570,6 +559,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'properties': {
             'type': {'enum': ['freenas']},
+            'address': {'type': 'string'},
             'port': {'type': 'number'},
             'pubkey': {'type': 'string'},
             'hostkey': {'type': 'string'}
@@ -581,6 +571,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'properties': {
             'type': {'enum': ['ssh']},
+            'address': {'type': 'string'},
             'username': {'type': 'string'},
             'port': {'type': 'number'},
             'password': {'type': 'string'},

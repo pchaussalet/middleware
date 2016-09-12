@@ -125,7 +125,7 @@ class ReplicationLinkProvider(Provider):
             address = self.dispatcher.call_sync(
                 'peer.query',
                 [('id', '=', link[partner])],
-                {'single': True, 'select': 'address'}
+                {'single': True, 'select': 'credentials.address'}
             )
             if not address:
                 raise RpcException(errno.ENOENT, 'FreeNAS peer {0} entry have not been found'.format(link[partner]))
@@ -1228,7 +1228,7 @@ class ReplicateDatasetTask(ProgressTask):
             remote = self.dispatcher.call_sync(
                 'peer.query',
                 [('type', '=', 'freenas'), ('id', '=', peer)],
-                {'single': True, 'select': 'address'}
+                {'single': True, 'select': 'credentials.address'}
             )
 
             if not remote:
@@ -1807,7 +1807,7 @@ def _init(dispatcher, plugin):
 
                 peer_ssh_port = dispatcher.call_sync(
                     'peer.query',
-                    [('type', '=', 'freenas'), ('address', '=', remote)],
+                    [('type', '=', 'freenas'), ('credentials.address', '=', remote)],
                     {'single': True, 'select': 'credentials.port'}
                 )
                 if not peer_ssh_port:

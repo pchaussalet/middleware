@@ -75,8 +75,8 @@ def get_replication_client(dispatcher, remote):
     host = dispatcher.call_sync(
         'peer.query', [
             ('or', [
-                ('address', '=', remote),
-                ('address', '=', address),
+                ('credentials.address', '=', remote),
+                ('credentials.address', '=', address),
             ]),
             ('type', '=', 'freenas')
         ],
