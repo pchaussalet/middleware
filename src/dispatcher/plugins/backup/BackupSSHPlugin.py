@@ -176,17 +176,17 @@ def split_hostport(string):
         return string, 22
 
 
-def try_key_auth(session, backup):
+def try_key_auth(session, creds):
     try:
-        key = rsakey.RSAKey.from_private_key(backup['privkey'])
-        session.auth_publickey(backup['username'], key)
+        key = rsakey.RSAKey.from_private_key(creds['privkey'])
+        session.auth_publickey(creds['username'], key)
         return True
     except ssh_exception.SSHException:
         pass
 
     try:
-        key = dsskey.DSSKey.from_private_key(backup['privkey'])
-        session.auth_publickey(backup['username'], key)
+        key = dsskey.DSSKey.from_private_key(creds['privkey'])
+        session.auth_publickey(creds['username'], key)
         return True
     except ssh_exception.SSHException:
         pass
@@ -194,21 +194,29 @@ def try_key_auth(session, backup):
     return False
 
 
-def open_ssh_connection(backup):
+def open_ssh_connection(dispatcher, backup):
+    peer = dispatcher.call_sync('peer.query', [('id', '=', backup['peer'])], {'single': True})
+    if not peer:
+        raise TaskException('Cannot find peer {0}'.format(backup['peer']))
+
+    if peer['type'] != 'ssh':
+        raise TaskException('Invalid peer type: {0}'.format(peer['type']))
+
+    creds = peer['credentials']
     try:
-        session = transport.Transport(split_hostport(backup['hostport']))
+        session = transport.Transport(peer['address'], creds.get('port', 22))
         session.window_size = 1024 * 1024 * 1024
         session.packetizer.REKEY_BYTES = pow(2, 48)
         session.packetizer.REKEY_PACKETS = pow(2, 48)
         session.start_client()
 
-        if backup['privkey']:
-            if try_key_auth(session, backup):
+        if creds.get('privkey'):
+            if try_key_auth(session, creds):
                 return session
             else:
                 raise Exception('Cannot authenticate using keys')
 
-        session.auth_password(backup['username'], backup['password'])
+        session.auth_password(creds['username'], creds['password'])
         return session
 
     except socket.gaierror as err:
@@ -234,11 +242,7 @@ def _init(dispatcher, plugin):
         'additionalProperties': False,
         'properties': {
             'type': {'enum': ['backup-ssh']},
-            'hostport': {'type': 'string'},
-            'username': {'type': 'string'},
-            'password': {'type': ['string', 'null']},
-            'privkey': {'type': ['string', 'null']},
-            'hostkey': {'type': ['string', 'null']},
+            'peer': {'type': 'string'},
             'directory': {'type': 'string'}
         }
     })
