@@ -816,6 +816,17 @@ def _init(dispatcher, plugin):
                 'type': 'array',
                 'items': {'type': 'string'}
             },
+            'settings': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'id': {'type': 'string'},
+                        'value': {'type': ['string', 'integer', 'boolean', 'null']}
+                    }
+                }
+            },
             'ports': {
                 'type': 'array',
                 'items': {
