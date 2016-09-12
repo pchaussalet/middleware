@@ -2243,8 +2243,10 @@ class DatasetTemporaryUmountTask(Task):
 @accepts(
     h.all_of(
         h.ref('volume-snapshot'),
-        h.required('dataset', 'name'),
-        h.forbidden('id')
+        h.one_of(
+            h.required('dataset', 'name'),
+            h.required('id')
+        )
     ),
     bool
 )
@@ -2254,7 +2256,8 @@ class SnapshotCreateTask(Task):
         return "Creating a snapshot"
 
     def describe(self, snapshot, recursive=False):
-        return TaskDescription("Creating the snapshot {name}", name=snapshot['name'])
+        name = snapshot.get('id', '{0}@{1}'.format(snapshot['name'], snapshot['dataset']))
+        return TaskDescription("Creating the snapshot {name}", name=name)
 
     def verify(self, snapshot, recursive=False):
         return ['zfs:{0}'.format(snapshot['dataset'])]
@@ -2263,13 +2266,19 @@ class SnapshotCreateTask(Task):
         normalize(snapshot, {
             'replicable': True,
             'lifetime': None,
-            'hidden': False
+            'hidden': False,
         })
+
+        if snapshot.get('id'):
+            name, dataset = snapshot['id'].split('@')
+        else:
+            name = snapshot['name']
+            dataset = snapshot['dataset']
 
         self.join_subtasks(self.run_subtask(
             'zfs.create_snapshot',
-            snapshot['dataset'],
-            snapshot['name'],
+            dataset,
+            name,
             recursive,
             {
                 'org.freenas:replicable': {'value': 'yes' if snapshot['replicable'] else 'no'},
