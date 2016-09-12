@@ -31,6 +31,7 @@ import json
 import copy
 import errno
 import gevent
+import dockerfile_parse
 import dockerhub
 import logging
 from task import Provider, Task, ProgressTask, TaskDescription, TaskException, query, TaskWarning, VerifyException
@@ -112,13 +113,28 @@ class DockerImagesProvider(Provider):
     @returns(h.array(h.ref('docker-hub-image')))
     @generator
     def search(self, term):
+        parser = dockerfile_parse.DockerfileParser()
         hub = dockerhub.DockerHub()
+
         for i in hub.search(term):
+            presets = None
+            icon = None
+
+            if i['is_automated']:
+                # Fetch dockerfile
+                try:
+                    parser.content = hub.get_dockerfile(i['repo_name'])
+                    presets = self.labels_to_template(parser.labels)
+                except:
+                    pass
+
             yield {
                 'name': i['repo_name'],
                 'description': i['short_description'],
                 'star_count': i['star_count'],
-                'pull_count': i['pull_count']
+                'pull_count': i['pull_count'],
+                'icon': icon,
+                'presets': presets
             }
 
     @description('Returns a full description of specified Docker container image')
@@ -165,7 +181,8 @@ class DockerImagesProvider(Provider):
 
                     result['volumes'].append({
                         'description': vol.get('descr'),
-                        'container_path': vol['name']
+                        'container_path': vol['name'],
+                        'readonly': vol.get('readonly', False)
                     })
 
         if 'org.freenas.settings' in labels:
@@ -183,6 +200,8 @@ class DockerImagesProvider(Provider):
                         'description': setting.get('descr'),
                         'optional': setting.get('optional', True)
                     })
+
+        return result
 
     def get_templates(self):
         return {
@@ -900,6 +919,7 @@ def _init(dispatcher, plugin):
             },
             'size': {'type': 'integer'},
             'host': {'type': ['string', 'null']},
+            'presets': {'type': ['object', 'null']},
             'created_at': {'type': 'string'}
         }
     })
@@ -915,6 +935,7 @@ def _init(dispatcher, plugin):
             'pull_count': {'type': 'integer'},
             'star_count': {'type': 'integer'},
             'updated_at': {'type': 'datetime'},
+            'presets': {'type': ['object', 'null']},
         }
     })
 
