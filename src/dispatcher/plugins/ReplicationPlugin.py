@@ -1059,7 +1059,8 @@ class CalculateReplicationDeltaTask(Task):
             return {
                 'name': snap['name'],
                 'snapshot_name': snap['snapshot_name'],
-                'created_at': datetime.fromtimestamp(int(q.get(snap, 'properties.creation.rawvalue'))),
+                'created_at': datetime.utcfromtimestamp(int(q.get(snap, 'properties.creation.rawvalue'))),
+                'txg': int(q.get(snap, 'properties.createtxg.rawvalue')),
                 'uuid': q.get(snap, 'properties.org\\.freenas:uuid')
             }
 
@@ -1080,10 +1081,13 @@ class CalculateReplicationDeltaTask(Task):
             localfs = ds
             remotefs = localfs.replace(localds, remoteds, 1)
 
-            local_snapshots = list(map(
-                convert_snapshot,
-                self.dispatcher.call_sync('zfs.dataset.get_snapshots', localfs)
-            ))
+            local_snapshots = sorted(
+                list(map(
+                    convert_snapshot,
+                    self.dispatcher.call_sync('zfs.dataset.get_snapshots', localfs)
+                )),
+                key=lambda x: x['txg']
+            )
 
             remote_snapshots = q.query(
                 snapshots_list,
@@ -1173,6 +1177,7 @@ class CalculateReplicationDeltaTask(Task):
 
         for action in actions:
             if action.type == ReplicationActionType.SEND_STREAM:
+                logger.warning('localfs={0}, snapshot={1}, anchor={2}'.format(action.localfs, action.snapshot, getattr(action, 'anchor', None)))
                 size = self.dispatcher.call_sync(
                     'zfs.dataset.estimate_send_size',
                     action.localfs,
