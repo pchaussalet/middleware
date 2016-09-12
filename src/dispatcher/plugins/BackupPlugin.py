@@ -365,13 +365,16 @@ class BackupRestoreTask(ProgressTask):
         unique_datasets.sort(key=lambda d: d.count('/'))
         provider = backup['provider']
 
+        total = len(snapshots)
+        done = 0
+
         for i in unique_datasets:
             snaps = list(filter(lambda s: s['name'].split('@')[0] == i, snapshots))
             snap = first_or_default(lambda s: not s['incremental'], snaps)
             local_dataset = i.replace(manifest['dataset'], dataset, 1)
 
             while True:
-                logger.info('Receiving {0} into {1}'.format(snap['name'], local_dataset))
+                self.set_progress(done / total * 100, 'Receiving {0} into {1}'.format(snap['name'], local_dataset))
 
                 if local_dataset != dataset and local_dataset not in created_datasets:
                     self.join_subtasks(self.run_subtask(
@@ -397,6 +400,8 @@ class BackupRestoreTask(ProgressTask):
                 snap = first_or_default(lambda s: '{0}@{1}'.format(i, s['anchor']) == snap['name'], snaps)
                 if not snap:
                     break
+
+                done += 1
 
 
 def _init(dispatcher, plugin):
