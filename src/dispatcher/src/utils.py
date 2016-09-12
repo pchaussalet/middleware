@@ -25,6 +25,7 @@
 #
 #####################################################################
 
+import io
 import os
 import errno
 import tempfile
@@ -85,7 +86,8 @@ def get_replication_client(dispatcher, remote):
     if not host:
         raise TaskException(errno.ENOENT, 'There are no known keys to connect to {0}'.format(remote))
 
-    with open('/etc/replication/key') as f:
+    with io.StringIO as f:
+        f.write(dispatcher.configstore.get('replication.key.private'))
         pkey = RSAKey.from_private_key(f)
 
     credentials = host['credentials']
