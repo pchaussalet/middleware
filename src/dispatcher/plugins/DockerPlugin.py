@@ -27,6 +27,7 @@
 
 import os
 import re
+import json
 import copy
 import errno
 import gevent
@@ -134,12 +135,14 @@ class DockerImagesProvider(Provider):
         result = {
             'interactive': labels.get('org.freenas.interactive', 'false') == 'true',
             'upgradeable': labels.get('org.freenas.upgradeable', 'false') == 'true',
-            'expose_ports': labels.get('org.freenas.expose_ports_at_host', 'false') == 'true',
-            'ports': []
+            'expose_ports': labels.get('org.freenas.expose-ports-at-host', 'false') == 'true',
+            'ports': [],
+            'volumes': [],
+            'settings': []
         }
 
-        if 'org.freenas.port_mappings' in labels:
-            for mapping in labels['org.freenas.port_mappings'].split(','):
+        if 'org.freenas.port-mappings' in labels:
+            for mapping in labels['org.freenas.port-mappings'].split(','):
                 m = re.match(r'^(\d+):(\d+)/(tcp|udp)$', mapping)
                 if not m:
                     continue
@@ -149,6 +152,37 @@ class DockerImagesProvider(Provider):
                     'host_port': int(m.group(2)),
                     'protocol': m.group(3).upper()
                 })
+
+        if 'org.freenas.volumes' in labels:
+            try:
+                j = json.loads(labels['org.freenas.volumes'])
+            except ValueError:
+                pass
+            else:
+                for vol in j:
+                    if 'name' not in vol:
+                        continue
+
+                    result['volumes'].append({
+                        'description': vol.get('descr'),
+                        'container_path': vol['name']
+                    })
+
+        if 'org.freenas.settings' in labels:
+            try:
+                j = json.loads(labels['org.freenas.settings'])
+            except ValueError:
+                pass
+            else:
+                for setting in j:
+                    if 'env' not in setting:
+                        continue
+
+                    result['settings'].append({
+                        'id': setting['env'],
+                        'description': setting.get('descr'),
+                        'optional': setting.get('optional', True)
+                    })
 
     def get_templates(self):
         return {
