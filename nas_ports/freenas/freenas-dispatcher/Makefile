@@ -32,7 +32,7 @@ RUN_DEPENDS=	${PYTHON_PKGNAMEPREFIX}argh>0:${PORTSDIR}/devel/py-argh \
 		${PYTHON_PKGNAMEPREFIX}docker-py>0:${PORTSDIR}/devel/py-docker \
 		${PYTHON_PKGNAMEPREFIX}boto3>0:${PORTSDIR}/devel/py-boto3 \
 		${PYTHON_PKGNAMEPREFIX}dockerhub>0:${PORTSDIR}/freenas/py-dockerhub \
-		${PYTHON_PKGNAMEPREFIX}py-dockerfile-parse>0:${PORTSDIR}/freenas/py-dockerfile-parse \
+		${PYTHON_PKGNAMEPREFIX}py-dockerfile-parse>0:${PORTSDIR}/devel/py-dockerfile-parse \
 		${PYTHON_PKGNAMEPREFIX}python-consul>0:${PORTSDIR}/devel/py-consul \
 		${PYTHON_PKGNAMEPREFIX}sortedcontainers>0:${PORTSDIR}/devel/py-sortedcontainers \
 		${PYTHON_PKGNAMEPREFIX}freenas.dispatcher>0:${PORTSDIR}/freenas/py-freenas.dispatcher \
