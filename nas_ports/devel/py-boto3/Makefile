@@ -1,9 +1,8 @@
 # $FreeBSD$
 
 PORTNAME=	boto3
-PORTVERSION=	1.3.0
+PORTVERSION=	1.4.0
 CATEGORIES=	devel python
-MASTER_SITES=	CHEESESHOP
 PKGNAMEPREFIX=	${PYTHON_PKGNAMEPREFIX}
 MAINTAINER=	dev@FreeBSD.org
 COMMENT=	The AWS SDK for Python
@@ -15,5 +14,7 @@ RUN_DEPENDS=    ${PYTHON_PKGNAMEPREFIX}dateutil>=2.1:${PORTSDIR}/devel/py-dateut
 
 USES=		python
 USE_PYTHON=	autoplist distutils
+USE_GITHUB=	yes
+GH_ACCOUNT=	boto
 
 .include <bsd.port.mk>
