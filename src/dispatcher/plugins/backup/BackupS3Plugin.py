@@ -27,7 +27,6 @@
 
 import os
 import errno
-import requests
 import boto3
 from task import Task, ProgressTask, TaskException, TaskDescription
 from freenas.dispatcher.rpc import description
@@ -177,29 +176,17 @@ class BackupS3GetTask(Task):
         client = open_client(self.dispatcher, backup)
         folder = backup['folder'] or ''
         key = os.path.join(folder, name)
-        url = client.generate_presigned_url(
-            ClientMethod='get_object',
-            Params={
-                'Bucket': backup['bucket'],
-                'Key': key
-            }
+        obj = client.get_object(
+            Bucket=backup['bucket'],
+            Key=key
         )
 
-        req = requests.get(url)
-        if req.status_code == 404:
-            raise TaskException(errno.ENOENT, '{0} not found'.format(name))
-
-        if req.status_code == 403:
-            raise TaskException(errno.EPERM, 'Permission to {0} denied'.format(name))
-
-        if req.status_code != 200:
-            raise TaskException(errno.EINVAL, 'HTTP error code {0} while trying to access {1}'.format(
-                req.status_code,
-                name
-            ))
-
         with os.fdopen(fd.fd, 'wb') as f:
-            for chunk in req.iter_content(CHUNK_SIZE):
+            while True:
+                chunk = obj['Body'].read(CHUNK_SIZE)
+                if chunk == b'':
+                    break
+
                 f.write(chunk)
 
 
