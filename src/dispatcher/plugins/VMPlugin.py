@@ -302,7 +302,7 @@ class VMConfigUpdateTask(Task):
     def verify(self, updated_fields):
         errors = ValidationException()
         if 'network' in updated_fields:
-            for k, v in updated_fields['network'].values():
+            for k, v in updated_fields['network'].items():
                 try:
                     net = ipaddress.ip_network(v)
                     if net.prefixlen != 24:
