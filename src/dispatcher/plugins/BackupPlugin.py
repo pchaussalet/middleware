@@ -240,6 +240,7 @@ class BackupSyncTask(ProgressTask):
                 'incremental': action['incremental'],
                 'created_at': datetime.fromtimestamp(int(q.get(snap, 'properties.creation.rawvalue'))),
                 'uuid': q.get(snap, 'properties.org\\.freenas:uuid.value'),
+                'txg': int(q.get(snap, 'properties.createtxg.rawvalue')),
                 'filename': filename
             }
 
