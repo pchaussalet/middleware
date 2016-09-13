@@ -55,13 +55,13 @@ class BackupS3ListTask(Task):
         marker = None
 
         while True:
-            ret = client.list_objects(
+            ret = client.list_objects_v2(
                 Bucket=backup['bucket'],
-                Marker=marker or '',
-                Prefix='{0}/'.format(backup['folder']) if backup['folder'] else ''
+                Prefix='{0}/'.format(backup['folder']) if backup['folder'] else '',
+                **({'ContinuationToken': marker} if marker else {})
             )
 
-            for i in ret['Contents']:
+            for i in ret.get('Contents', []):
                 result.append({
                     'name': i['Key'],
                     'size': i['Size'],
@@ -69,7 +69,7 @@ class BackupS3ListTask(Task):
                 })
 
             if ret['IsTruncated']:
-                marker = ret['Contents'][-1]['Key']
+                marker = ret['NextContinuationToken']
                 continue
 
             break
