@@ -204,7 +204,7 @@ class BackupQueryTask(ProgressTask):
         try:
             manifest = loads(data)
         except ValueError:
-            raise RpcException(errno.EINVAL, 'Invalid backup manifest')
+            raise TaskException(errno.EINVAL, 'Invalid backup manifest')
 
         return manifest
 
@@ -287,8 +287,9 @@ class BackupSyncTask(ProgressTask):
             manifest, = self.join_subtasks(self.run_subtask('backup.query', id))
             if manifest:
                 snapshots = manifest['snapshots']
-        except RpcException:
-            pass
+        except RpcException as err:
+            if err.code != errno.ENOENT:
+                raise
 
         if snapshot:
             self.join_subtasks(self.run_subtask(
