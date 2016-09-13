@@ -198,7 +198,7 @@ class BackupQueryTask(ProgressTask):
         ))
 
         if not any(e['name'] == MANIFEST_FILENAME for e in dirlist):
-            return None
+            raise TaskException(errno.ENOENT, 'No backup found at specified location')
 
         data = self.download(backup['provider'], backup['properties'], MANIFEST_FILENAME)
         try:
