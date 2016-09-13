@@ -313,6 +313,8 @@ class VMConfigUpdateTask(Task):
         if errors:
             raise errors
 
+        return ['system']
+
     def run(self, updated_fields):
         node = ConfigNode('container', self.configstore)
         node.update(updated_fields)
