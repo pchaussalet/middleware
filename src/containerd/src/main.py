@@ -77,9 +77,7 @@ from proxy import ReverseProxyServer
 
 BOOTROM_PATH = '/usr/local/share/uefi-firmware/BHYVE_UEFI.fd'
 BOOTROM_CSM_PATH = '/usr/local/share/uefi-firmware/BHYVE_UEFI_CSM.fd'
-MGMT_ADDR = ipaddress.ip_interface('172.20.0.1/16')
 MGMT_INTERFACE = 'mgmt0'
-NAT_ADDR = ipaddress.ip_interface('172.21.0.1/16')
 NAT_INTERFACE = 'nat0'
 DEFAULT_CONFIGFILE = '/usr/local/etc/middleware.conf'
 SCROLLBACK_SIZE = 20 * 1024
@@ -370,6 +368,7 @@ class VirtualMachine(object):
         return '/dev/nmdm{0}A'.format(index), '/dev/nmdm{0}B'.format(index)
 
     def start(self):
+        self.context.init_mgmt()
         self.context.logger.info('Starting VM {0} ({1})'.format(self.name, self.id))
         self.nmdm = self.get_nmdm()
         self.thread = gevent.spawn(self.run)
@@ -1271,6 +1270,8 @@ class Main(object):
         self.logger = logging.getLogger('containerd')
         self.bridge_interface = None
         self.used_nmdms = []
+        self.network_initialized = False
+        self.nat_addrs = ()
         self.ec2 = None
         self.default_if = None
         self.proxy_server = ReverseProxyServer()
@@ -1327,19 +1328,30 @@ class Main(object):
         self.connect()
 
     def init_mgmt(self):
-        self.mgmt = ManagementNetwork(self, MGMT_INTERFACE, MGMT_ADDR)
+        if self.network_initialized:
+            return
+
+        mgmt_subnet = ipaddress.ip_network(self.configstore.get('container.network.management'))
+        mgmt_addr = ipaddress.ip_interface('{0}/{1}'.format(next(mgmt_subnet.hosts()), mgmt_subnet.prefixlen))
+        self.mgmt = ManagementNetwork(self, MGMT_INTERFACE, mgmt_addr)
         self.mgmt.up()
         self.mgmt.bridge_if.add_address(netif.InterfaceAddress(
             netif.AddressFamily.INET,
             ipaddress.ip_interface('169.254.169.254/32')
         ))
 
-        self.nat = ManagementNetwork(self, NAT_INTERFACE, NAT_ADDR)
+        nat_subnet = ipaddress.ip_network(self.configstore.get('container.network.nat'))
+        nat_addr = ipaddress.ip_interface('{0}/{1}'.format(next(nat_subnet.hosts()), nat_subnet.prefixlen))
+        self.nat = ManagementNetwork(self, NAT_INTERFACE, nat_addr)
         self.nat.up()
         self.nat.bridge_if.add_address(netif.InterfaceAddress(
             netif.AddressFamily.INET,
             ipaddress.ip_interface('169.254.169.254/32')
         ))
+
+        self.network_initialized = True
+        self.nat_addrs = (mgmt_addr, nat_addr)
+        self.init_nat()
 
     def init_nat(self):
         self.default_if = self.client.call_sync('networkd.configuration.get_default_interface')
@@ -1349,7 +1361,7 @@ class Main(object):
 
         p = pf.PF()
 
-        for addr in (MGMT_ADDR, NAT_ADDR):
+        for addr in self.nat_addrs:
             # Try to find and remove existing NAT rules for the same subnet
             oldrule = first_or_default(
                 lambda r: r.src.address.address == addr.network.network_address,
@@ -1511,8 +1523,6 @@ class Main(object):
         self.config = args.c
         self.init_datastore()
         self.init_dispatcher()
-        self.init_mgmt()
-        self.init_nat()
         self.init_ec2()
         gevent.spawn(self.init_autostart)
         self.logger.info('Started')
