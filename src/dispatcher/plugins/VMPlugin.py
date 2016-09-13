@@ -41,6 +41,7 @@ import tarfile
 import logging
 import datetime
 from task import Provider, Task, ProgressTask, VerifyException, TaskException, query, TaskWarning, TaskDescription
+from datastore.config import ConfigNode
 from freenas.dispatcher.rpc import RpcException, generator
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, private
 from freenas.utils import first_or_default, normalize, deep_update, process_template, in_directory, sha256, query as q
@@ -280,6 +281,28 @@ class VMTemplateProvider(Provider):
                         pass
 
         return q.query(templates, *(filter or []), stream=True, **(params or {}))
+
+
+class VMConfigProvider(Provider):
+    def get_config(self):
+        return ConfigNode('container', self.configstore).__getstate__()
+
+
+class VMConfigUpdateTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return "Updating VM subsystem configuration"
+
+    def describe(self, updated_fields):
+        return TaskDescription("Updating VM subsystem configuration")
+
+    def verify(self, updated_fields):
+        return []
+
+    def run(self, updated_fields):
+        node = ConfigNode('container', self.configstore)
+        node.update(updated_fields)
+        self.add_warning(TaskWarning(errno.EBUSY, 'Changes will be effective on next reboot'))
 
 
 class VMBaseTask(ProgressTask):
@@ -1991,6 +2014,7 @@ def _init(dispatcher, plugin):
                             break
 
     plugin.register_provider('vm', VMProvider)
+    plugin.register_provider('vm.config', VMConfigProvider)
     plugin.register_provider('vm.snapshot', VMSnapshotProvider)
     plugin.register_provider('vm.template', VMTemplateProvider)
     plugin.register_task_handler('vm.create', VMCreateTask)
@@ -2014,6 +2038,7 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('vm.template.fetch', VMTemplateFetchTask)
     plugin.register_task_handler('vm.template.delete', VMTemplateDeleteTask)
     plugin.register_task_handler('vm.template.ipfs.fetch', VMIPFSTemplateFetchTask)
+    plugin.register_task_handler('vm.config.update', VMConfigUpdateTask)
 
     plugin.register_hook('vm.pre_destroy')
 
