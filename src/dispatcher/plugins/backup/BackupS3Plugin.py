@@ -186,6 +186,18 @@ class BackupS3GetTask(Task):
         )
 
         req = requests.get(url)
+        if req.status_code == 404:
+            raise TaskException(errno.ENOENT, '{0} not found'.format(name))
+
+        if req.status_code == 403:
+            raise TaskException(errno.EPERM, 'Permission to {0} denied'.format(name))
+
+        if req.status_code != 200:
+            raise TaskException(errno.EINVAL, 'HTTP error code {0} while trying to access {1}'.format(
+                req.status_code,
+                name
+            ))
+
         with os.fdopen(fd.fd, 'wb') as f:
             for chunk in req.iter_content(CHUNK_SIZE):
                 f.write(chunk)
