@@ -1344,10 +1344,6 @@ class Main(object):
         nat_addr = ipaddress.ip_interface('{0}/{1}'.format(next(nat_subnet.hosts()), nat_subnet.prefixlen))
         self.nat = ManagementNetwork(self, NAT_INTERFACE, nat_addr)
         self.nat.up()
-        self.nat.bridge_if.add_address(netif.InterfaceAddress(
-            netif.AddressFamily.INET,
-            ipaddress.ip_interface('169.254.169.254/32')
-        ))
 
         self.network_initialized = True
         self.nat_addrs = (mgmt_addr, nat_addr)
