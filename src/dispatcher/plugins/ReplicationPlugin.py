@@ -1059,7 +1059,7 @@ class CalculateReplicationDeltaTask(Task):
             return {
                 'name': snap['name'],
                 'snapshot_name': snap['snapshot_name'],
-                'created_at': datetime.utcfromtimestamp(int(q.get(snap, 'properties.creation.rawvalue'))),
+                'created_at': q.get(snap, 'properties.creation.parsed'),
                 'txg': int(q.get(snap, 'properties.createtxg.rawvalue')),
                 'uuid': q.get(snap, 'properties.org\\.freenas:uuid')
             }
