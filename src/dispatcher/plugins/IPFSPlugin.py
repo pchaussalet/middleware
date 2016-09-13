@@ -29,7 +29,7 @@ import errno
 import logging
 import os
 import shutil
-import ipfsApi
+import ipfsapi
 from requests.exceptions import ConnectionError
 from datastore.config import ConfigNode
 from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, returns, private
@@ -99,7 +99,7 @@ def ipfs_enabled_check():
     return wrapped
 
 
-# This is faster as it first tries to execute the ipfsApi call and catches the exception if any
+# This is faster as it first tries to execute the ipfsapi call and catches the exception if any
 def ipfs_enabled_error():
     def wrapped(fn):
         def wrap(self, *args, **kwargs):
@@ -121,7 +121,7 @@ class IPFSServiceProvider(Provider):
 
     def initialize(self, context):
         super(IPFSServiceProvider, self).initialize(context)
-        self.ipfs_api = ipfsApi.Client('127.0.0.1', 5001)
+        self.ipfs_api = ipfsapi.Client('127.0.0.1', 5001)
 
     @private
     @accepts()
@@ -137,7 +137,7 @@ class IPFSProvider(Provider):
 
     def initialize(self, context):
         super(IPFSProvider, self).initialize(context)
-        self.ipfs_api = ipfsApi.Client('127.0.0.1', 5001)
+        self.ipfs_api = ipfsapi.Client('127.0.0.1', 5001)
 
     def hash_to_link(self, hash):
         return 'http://ipfs.io/ipfs/' + hash
@@ -215,7 +215,7 @@ class IPFSBaseTask(Task):
 
     @ipfs_enabled_error()
     def run(self, *args):
-        ipfs_api = ipfsApi.Client('127.0.0.1', 5001)
+        ipfs_api = ipfsapi.Client('127.0.0.1', 5001)
         method = getattr(ipfs_api, self._method)
         kwargs = {}
         for idx, arg in enumerate(args):
@@ -236,7 +236,7 @@ def ipfs_task_factory(method):
         (IPFSBaseTask,),
         {'__init__': __init__, 'early_describe': early_describe}
     )
-    descr_cls = description('Calls ipfsApi {0} method'.format(method))(cls)
+    descr_cls = description('Calls ipfsapi {0} method'.format(method))(cls)
     return private(accepts(*ipfs_tasks[method]['accepts'])(descr_cls))
 
 
@@ -251,7 +251,7 @@ for name in ipfs_rpcs:
         def wrap(self, *args, **kwargs):
             return fn(self.ipfs_api, *args, **kwargs)
         return wrap
-    method = wrapped(getattr(ipfsApi.Client, name))
+    method = wrapped(getattr(ipfsapi.Client, name))
     method.__name__ = name
     decorated_method = private(accepts(*ipfs_rpcs[name]['accepts'])(ipfs_enabled_error()(method)))
     setattr(IPFSProvider, name, decorated_method)
