@@ -174,17 +174,16 @@ class BackupQueryTask(ProgressTask):
 
     def download(self, provider, props, path):
         rfd, wfd = os.pipe()
-        fd = os.fdopen(rfd, 'rb')
         result = None
+        with os.fdopen(rfd, 'rb') as fd:
+            def worker():
+                nonlocal result
+                result = fd.read()
 
-        def worker():
-            nonlocal result
-            result = fd.read()
-
-        thr = threading.Thread(target=worker)
-        thr.start()
-        self.join_subtasks(self.run_subtask('backup.{0}.get'.format(provider), props, path, FileDescriptor(wfd)))
-        thr.join(timeout=1)
+            thr = threading.Thread(target=worker)
+            thr.start()
+            self.join_subtasks(self.run_subtask('backup.{0}.get'.format(provider), props, path, FileDescriptor(wfd)))
+            thr.join(timeout=1)
 
         return result.decode('utf-8')
 
@@ -234,13 +233,14 @@ class BackupSyncTask(ProgressTask):
                 {'single': True}
             )
 
+            txg = q.get(snap, 'properties.createtxg.rawvalue')
             return {
                 'name': snapname,
                 'anchor': action.get('anchor'),
                 'incremental': action['incremental'],
                 'created_at': datetime.fromtimestamp(int(q.get(snap, 'properties.creation.rawvalue'))),
                 'uuid': q.get(snap, 'properties.org\\.freenas:uuid.value'),
-                'txg': int(q.get(snap, 'properties.createtxg.rawvalue')),
+                'txg': int(txg) if txg else None,
                 'filename': filename
             }
 
@@ -263,10 +263,9 @@ class BackupSyncTask(ProgressTask):
 
     def upload(self, provider, props, path, data):
         rfd, wfd = os.pipe()
-        fd = os.fdopen(wfd, 'wb')
 
         def worker():
-            x = fd.write(data.encode('utf-8'))
+            x = os.write(wfd, data.encode('utf-8'))
             os.close(wfd)
             logger.info('written {0} bytes'.format(x))
 
