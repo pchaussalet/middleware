@@ -41,6 +41,7 @@ import tarfile
 import logging
 import datetime
 from task import Provider, Task, ProgressTask, VerifyException, TaskException, query, TaskWarning, TaskDescription
+from task import ValidationException
 from datastore.config import ConfigNode
 from freenas.dispatcher.rpc import RpcException, generator
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, private
@@ -284,10 +285,12 @@ class VMTemplateProvider(Provider):
 
 
 class VMConfigProvider(Provider):
+    @returns(h.ref('vm-config'))
     def get_config(self):
         return ConfigNode('container', self.configstore).__getstate__()
 
 
+@accepts(h.ref('vm-config'))
 class VMConfigUpdateTask(Task):
     @classmethod
     def early_describe(cls):
@@ -297,7 +300,18 @@ class VMConfigUpdateTask(Task):
         return TaskDescription("Updating VM subsystem configuration")
 
     def verify(self, updated_fields):
-        return []
+        errors = ValidationException()
+        if 'network' in updated_fields:
+            for k, v in updated_fields['network'].values():
+                try:
+                    net = ipaddress.ip_network(v)
+                    if net.prefixlen != 24:
+                        raise ValueError('Prefix length must be 24')
+                except ValueError as err:
+                    errors.add((0, 'network', k), str(err))
+
+        if errors:
+            raise errors
 
     def run(self, updated_fields):
         node = ConfigNode('container', self.configstore)
@@ -1979,6 +1993,21 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('vm-device-usb-device', {
         'type': 'string',
         'enum': ['tablet']
+    })
+
+    plugin.register_schema_definition('vm-config', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'network': {
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'management': {'type': 'string'},
+                    'nat': {'type': 'string'}
+                }
+            }
+        }
     })
 
     def volume_pre_detach(args):
