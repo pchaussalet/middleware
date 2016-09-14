@@ -1129,10 +1129,6 @@ class DispatcherConnection(ServerConnection):
         })
 
     def on_rpc_call(self, id, data):
-        if self.user is None:
-            self.emit_rpc_error(id, errno.EACCES, 'Not logged in')
-            return
-
         # Keep session alive
         if self.token:
             try:
