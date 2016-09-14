@@ -109,6 +109,8 @@ class VolumeProvider(Provider):
 
         def extend(vol):
             config = self.dispatcher.call_sync('zfs.pool.query', [('id', '=', vol['id'])], {'single': True})
+            encrypted = vol.get('key_encrypted', False) or vol.get('password_encrypted', False)
+
             if not config:
                 vol['status'] = 'UNKNOWN'
             else:
@@ -121,7 +123,9 @@ class VolumeProvider(Provider):
                         )
                     except RpcException as err:
                         if err.code == errno.ENOENT:
-                            pass
+                            if encrypted:
+                                topology = vol['topology']
+                                break
 
                 vol.update({
                     'rname': 'zpool:{0}'.format(vol['id']),
@@ -147,7 +151,6 @@ class VolumeProvider(Provider):
                         'upgraded': is_upgraded(config),
                     })
 
-            encrypted = vol.get('key_encrypted', False) or vol.get('password_encrypted', False)
             if encrypted is True:
                 online = 0
                 offline = 0
