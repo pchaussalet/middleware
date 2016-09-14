@@ -57,7 +57,7 @@ def export_privatekey(buf, passphrase=None):
 
 def get_cert_info(buf):
     if isinstance(buf, str):
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, buf)
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, buf.encode('utf-8'))
     else:
         cert = buf
 
@@ -310,7 +310,8 @@ class CertificateImportTask(Task):
 
         if certificate['certificate_path']:
             try:
-                crypto.load_certificate(crypto.FILETYPE_PEM, get_file_contents(certificate['certificate_path']))
+                crypto.load_certificate(crypto.FILETYPE_PEM, get_file_contents(
+                    certificate['certificate_path']).encode('utf-8'))
             except Exception:
                 raise VerifyException(errno.EINVAL,
                                       "Invalid certificate file contents: '{0}'".format(
@@ -341,7 +342,7 @@ class CertificateImportTask(Task):
         new_cert_db_entry['type'] = certificate['type']
         if certificate['certificate_path']:
             imported_cert = crypto.load_certificate(
-                crypto.FILETYPE_PEM, get_file_contents(certificate['certificate_path']))
+                crypto.FILETYPE_PEM, get_file_contents(certificate['certificate_path']).encode('utf-8'))
             new_cert_db_entry['certificate'] = crypto.dump_certificate(
                 crypto.FILETYPE_PEM, imported_cert).decode('utf-8')
             new_cert_db_entry.update(get_cert_info(imported_cert))
