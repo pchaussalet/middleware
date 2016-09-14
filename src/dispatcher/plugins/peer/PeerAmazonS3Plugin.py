@@ -29,63 +29,75 @@ import errno
 import logging
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, private, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
+from freenas.utils import query as q
 
 
 logger = logging.getLogger(__name__)
 
 
-@description('Provides information about known peers')
-class PeerProvider(Provider):
+@description('Provides information about Amazon S3 peers')
+class PeerAmazonS3Provider(Provider):
     @query('peer')
     @generator
     def query(self, filter=None, params=None):
-        return self.datastore.query_stream('peers', *(filter or []), **(params or {}))
+        peers = self.datastore.query_stream('peers', ('type', '=', 'amazon-s3'))
 
-    @private
-    def peer_types(self):
-        result = []
-        for p in list(self.dispatcher.plugins.values()):
-            if p.metadata and p.metadata.get('type') == 'peering':
-                result.append(p.metadata.get('subtype'))
-
-        return result
+        return q.query(peers, *(filter or []), stream=True, **(params or {}))
 
 
-@description('Creates a peer entry')
+@private
+@description('Creates a Amazon S3 peer entry')
 @accepts(h.all_of(
     h.ref('peer'),
     h.required('type', 'credentials')
 ))
-class PeerCreateTask(Task):
+class AmazonS3PeerCreateTask(Task):
     @classmethod
     def early_describe(cls):
-        return 'Creating peer entry'
+        return 'Creating Amazon S3 peer entry'
 
     def describe(self, peer):
-        return TaskDescription('Creating peer entry {name}', name=peer.get('name', ''))
+        return TaskDescription('Creating Amazon S3 peer entry {name}', name=peer.get('name', ''))
 
     def verify(self, peer):
-        if peer.get('type') not in self.dispatcher.call_sync('peer.peer_types'):
-            raise VerifyException(errno.EINVAL, 'Unknown peer type {0}'.format(peer.get('type')))
+        if peer.get('type') != 'amazon-s3':
+            raise VerifyException(errno.EINVAL, 'Peer type must be selected as Amazon S3')
 
         return ['system']
 
     def run(self, peer):
-        self.join_subtasks(self.run_subtask('peer.{0}.create', peer.get('type')))
+        if 'name' not in peer:
+            raise TaskException(errno.EINVAL, 'Name has to be specified')
+
+        if self.datastore.exists('peers', ('name', '=', peer['name']), ('type', '=', peer['type'])):
+            raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
+
+        if peer['type'] != peer['credentials']['type']:
+            raise TaskException(errno.EINVAL, 'Peer type and credentials type must match')
+
+        id = self.datastore.insert('peers', peer)
+        self.dispatcher.dispatch_event('peer.changed', {
+            'operation': 'create',
+            'ids': [id]
+        })
 
 
-@description('Updates peer entry')
+@private
+@description('Updates a Amazon S3 peer entry')
 @accepts(str, h.ref('peer'))
-class PeerUpdateTask(Task):
+class AmazonS3PeerUpdateTask(Task):
     @classmethod
     def early_describe(cls):
-        return 'Updating peer entry'
+        return 'Updating Amazon S3 peer entry'
 
     def describe(self, id, updated_fields):
         peer = self.datastore.get_by_id('peers', id)
-        return TaskDescription('Updating peer entry {name}', name=peer.get('name', ''))
+        return TaskDescription('Updating Amazon S3 peer entry {name}', name=peer.get('name', ''))
 
     def verify(self, id, updated_fields):
+        if 'type' in updated_fields:
+            raise VerifyException(errno.EINVAL, 'Type of peer cannot be updated')
+
         return ['system']
 
     def run(self, id, updated_fields):
@@ -96,19 +108,25 @@ class PeerUpdateTask(Task):
         if 'type' in updated_fields and peer['type'] != updated_fields['type']:
             raise TaskException(errno.EINVAL, 'Peer type cannot be updated')
 
-        self.join_subtasks(self.run_subtask('peer.{0}.update', peer.get('type')))
+        peer.update(updated_fields)
+        self.datastore.update('peers', id, peer)
+        self.dispatcher.dispatch_event('peer.changed', {
+            'operation': 'update',
+            'ids': [id]
+        })
 
 
-@description('Deletes peer entry')
+@private
+@description('Deletes Amazon S3 peer entry')
 @accepts(str)
-class PeerDeleteTask(Task):
+class AmazonS3PeerDeleteTask(Task):
     @classmethod
     def early_describe(cls):
-        return 'Deleting peer entry'
+        return 'Deleting Amazon S3 peer entry'
 
     def describe(self, id):
         peer = self.datastore.get_by_id('peers', id)
-        return TaskDescription('Deleting peer entry {name}', name=peer.get('name', ''))
+        return TaskDescription('Deleting Amazon S3 peer entry {name}', name=peer.get('name', ''))
 
     def verify(self, id):
         return ['system']
@@ -117,46 +135,44 @@ class PeerDeleteTask(Task):
         if not self.datastore.exists('peers', ('id', '=', id)):
             raise TaskException(errno.EINVAL, 'Peer entry {0} does not exist'.format(id))
 
-        peer = self.datastore.get_by_id('peers', id)
+        self.datastore.delete('peers', id)
+        self.dispatcher.dispatch_event('peer.changed', {
+            'operation': 'delete',
+            'ids': [id]
+        })
 
-        self.join_subtasks(self.run_subtask('peer.{0}.delete', peer.get('type')))
+
+def _depends():
+    return ['PeerPlugin']
+
+
+def _metadata():
+    return {
+        'type': 'peering',
+        'subtype': 'amazon-s3'
+    }
 
 
 def _init(dispatcher, plugin):
     # Register schemas
-    plugin.register_schema_definition('peer', {
+    plugin.register_schema_definition('amazon-s3-credentials', {
         'type': 'object',
         'properties': {
-            'name': {'type': 'string'},
-            'id': {'type': 'string'},
-            'type': {'type': 'string'},
-            'credentials': {'$ref': 'peer-credentials'}
+            'type': {'enum': ['amazon-s3']},
+            'access_key': {'type': 'string'},
+            'secret_key': {'type': 'string'},
+            'region': {'type': ['string', 'null']},
+            'bucket': {'type': 'string'},
+            'folder': {'type': ['string', 'null']}
         },
         'additionalProperties': False
     })
 
     # Register providers
-    plugin.register_provider('peer', PeerProvider)
-
-    # Register credentials schema
-    def update_peer_credentials_schema():
-        plugin.register_schema_definition('peer-credentials', {
-            'discriminator': 'type',
-            'oneOf': [
-                {'$ref': '{0}-credentials'.format(name)} for name in dispatcher.call_sync('peer.peer_types')
-            ]
-        })
-
-    # Register event handlers
-    dispatcher.register_event_handler('server.plugin.loaded', update_peer_credentials_schema)
+    plugin.register_provider('peer.amazon-s3', PeerAmazonS3Provider)
 
     # Register tasks
-    plugin.register_task_handler("peer.create", PeerCreateTask)
-    plugin.register_task_handler("peer.update", PeerUpdateTask)
-    plugin.register_task_handler("peer.delete", PeerDeleteTask)
+    plugin.register_task_handler("peer.amazon-s3.create", AmazonS3PeerCreateTask)
+    plugin.register_task_handler("peer.amazon-s3.delete", AmazonS3PeerDeleteTask)
+    plugin.register_task_handler("peer.amazon-s3.update", AmazonS3PeerUpdateTask)
 
-    # Register event types
-    plugin.register_event_type('peer.changed')
-
-    # Init peer credentials schema
-    update_peer_credentials_schema()
