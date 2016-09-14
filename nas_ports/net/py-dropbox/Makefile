@@ -1,9 +1,8 @@
 # $FreeBSD$
 
 PORTNAME=	dropbox
-PORTVERSION=	6.8.0
+PORTVERSION=	v6.8.0
 CATEGORIES=	net python
-MASTER_SITES=	CHEESESHOP
 PKGNAMEPREFIX=	${PYTHON_PKGNAMEPREFIX}
 
 MAINTAINER=	dev@ixsystems.com
@@ -15,6 +14,10 @@ RUN_DEPENDS=	${PYTHON_PKGNAMEPREFIX}typing>=3.5.2:devel/py-typing \
 
 USES=		python
 USE_PYTHON=	autoplist distutils
+USE_GITHUB=	yes
+GH_ACCOUNT=	dropbox
+GH_PROJECT=	dropbox-sdk-python
+GH_TAG=		v6.8.0
 
 NO_ARCH=	yes
 
