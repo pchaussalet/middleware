@@ -346,6 +346,10 @@ class CertificateImportTask(Task):
             new_cert_db_entry.update(get_cert_info(imported_cert))
             new_cert_db_entry['serial'] = imported_cert.get_serial_number()
             #certificate['selfsigned'] = False
+            new_cert_db_entry['not_before'] = get_utc_string_from_asn1generalizedtime(
+                imported_cert.get_notBefore().decode('utf-8'))
+            new_cert_db_entry['not_after'] = get_utc_string_from_asn1generalizedtime(
+                imported_cert.get_notAfter().decode('utf-8'))
             new_cert_db_entry['lifetime'] = 3650
         else:
             new_cert_db_entry['certificate'] = ""
