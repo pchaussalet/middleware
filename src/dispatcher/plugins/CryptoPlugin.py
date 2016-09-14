@@ -30,6 +30,7 @@ import os
 import re
 import time
 import datetime
+from pathlib import Path
 from pytz import UTC
 from datastore import DatastoreException
 from freenas.dispatcher.rpc import RpcException, description, accepts, generator
@@ -291,23 +292,40 @@ class CertificateImportTask(Task):
             raise VerifyException(errno.EINVAL, 'Provide certificate name without : `"`')
 
         if certificate['type'] not in ('CERT_EXISTING', 'CA_EXISTING'):
-            raise VerifyException(errno.EINVAL, 'Invalid certificate type')
+            raise VerifyException(errno.EINVAL,
+                                  'Invalid certificate type: {0}. Should be "CERT_EXISTING" or "CA_EXISTING"'.format(
+                                      certificate['type']))
 
-        if certificate['type'] == 'CERT_EXISTING':
-            if 'privatekey' not in certificate:
-                raise VerifyException(errno.EINVAL, 'privatekey to import certificate')
+        if certificate['certificate_path'] and not Path(certificate['certificate_path']).is_file():
+            raise VerifyException(errno.ENFILE,
+                                  "Certificate file: '{0}' does not exist".format(certificate['certificate_path']))
 
-        if 'certificate' in certificate:
+        if certificate['privatekey_path'] and not Path(certificate['privatekey_path']).is_file():
+            raise VerifyException(errno.ENFILE,
+                                  "Certificate's privatekey file: '{0}' does not exist".format(
+                                      certificate['privatekey_path']))
+
+        if certificate['certificate_path']:
             try:
-                crypto.load_certificate(crypto.FILETYPE_PEM, certificate['certificate'])
+                crypto.load_certificate(crypto.FILETYPE_PEM, get_file_contents(certificate['certificate_path']))
             except Exception:
-                raise VerifyException(errno.EINVAL, 'Invalid certificate')
+                raise VerifyException(errno.EINVAL,
+                                      "Invalid certificate file contents: '{0}'".format(
+                                          certificate['certificate_path']))
 
+        if certificate['privatekey_path']:
+            try:
+                crypto.load_privatekey(crypto.FILETYPE_PEM, get_file_contents(certificate['privatekey_path']))
+            except Exception:
+                raise VerifyException(errno.EINVAL,
+                                      "Invalid privatekey file contents: '{0}'".format(certificate['privatekey_path']))
+
+        """
         try:
-            if 'privatekey' in certificate:
-                load_privatekey(certificate['privatekey'], certificate.get('passphrase', None))
+            load_privatekey(certificate['privatekey'], certificate.get('passphrase', None))
         except Exception:
             raise VerifyException(errno.EINVAL, 'Invalid passphrase or privatekey')
+        """
 
         return ['system']
 
@@ -315,18 +333,32 @@ class CertificateImportTask(Task):
         if self.datastore.exists('crypto.certificates', ('name', '=', certificate['name'])):
             raise TaskException(errno.EEXIST, 'Certificate named "{0}" already exists'.format(certificate['name']))
 
-        certificate['certificate'] = certificate.get('certificate', None)
-        certificate['privatekey'] = certificate.get('privatekey', None)
-        certificate['serial'] = None
-        certificate['selfsigned'] = False
-        certificate['key_length'] = 2048
-        certificate['digest_algorithm'] = 'SHA256'
-        certificate['lifetime'] = 3650
+        new_cert_db_entry = {}
+        new_cert_db_entry['name'] = certificate['name']
+        new_cert_db_entry['type'] = certificate['type']
+        if certificate['certificate_path']:
+            imported_cert = crypto.load_certificate(
+                crypto.FILETYPE_PEM, get_file_contents(certificate['certificate_path']))
+            new_cert_db_entry['certificate'] = crypto.dump_certificate(
+                crypto.FILETYPE_PEM, imported_cert).decode('utf-8')
+            new_cert_db_entry.update(get_cert_info(imported_cert))
+            new_cert_db_entry['serial'] = imported_cert.get_serial_number()
+            #certificate['selfsigned'] = False
+            new_cert_db_entry['lifetime'] = 3650
+        else:
+            new_cert_db_entry['certificate'] = ""
+
+        if certificate['privatekey_path']:
+            imported_privkey = crypto.load_privatekey(
+                crypto.FILETYPE_PEM, get_file_contents(certificate['privatekey_path']))
+            new_cert_db_entry['privatekey'] = crypto.dump_privatekey(
+                crypto.FILETYPE_PEM, imported_privkey).decode('utf-8')
+            new_cert_db_entry['key_length'] = imported_privkey.bits()
+        else:
+            new_cert_db_entry['privatekey'] = ""
 
         try:
-            if certificate['certificate']:
-                certificate.update(load_certificate(certificate['certificate']))
-            pkey = self.datastore.insert('crypto.certificates', certificate)
+            pkey = self.datastore.insert('crypto.certificates', new_cert_db_entry)
             self.dispatcher.call_sync('etcd.generation.generate_group', 'crypto')
             self.dispatcher.dispatch_event('crypto.certificate.changed', {
                 'operation': 'create',
@@ -395,7 +427,7 @@ class CertificateUpdateTask(Task):
         try:
             if 'certificate' in updated_fields:
                 cert['certificate'] = updated_fields['certificate']
-                cert.update(load_certificate(cert['certificate']))
+                cert.update(get_cert_info(cert['certificate']))
             if 'privatekey' in updated_fields:
                 cert['privatekey'] = updated_fields['privatekey']
             if 'name' in updated_fields:
