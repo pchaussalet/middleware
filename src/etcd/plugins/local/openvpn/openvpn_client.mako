@@ -7,22 +7,25 @@
     if not os.path.isdir(OPENVPN_DIR):
         os.mkdir(OPENVPN_DIR)
 
-    cert_data = dispatcher.call_sync('crypto.certificate.query',
-                                [('id', '=', openvpn_conf['ca'])], {'single': True})
     
-    openvpn_conf['ca'] = cert_data['certificate_path'].split('/')[-1]
-    openvpn_conf['dev'] = openvpn_conf['dev'].rstrip('0123456789')
+    if openvpn_conf['mode'] == 'pki':
+        cert_data = dispatcher.call_sync('crypto.certificate.query',
+                                    [('id', '=', openvpn_conf['ca'])], {'single': True})
+        
+        openvpn_conf['ca'] = cert_data['certificate_path'].split('/')[-1]
+        openvpn_conf['dev'] = openvpn_conf['dev'].rstrip('0123456789')
 
     CONFIG_MESSAGE = '''
 # This is the OpenVPN client configuration file generated automatically by FreeNas.
-# Copy corresponding private key and certificate signed by {0} certificate authority.
+# Fork pki scenario copy corresponding private key and certificate signed by valid certificate authority.
 # If you are using tls-auth static key you have to copy and paste displayed key
 # to the OpenVPN config directory and name it as "ta.key".
 # The "remote" directive should contain the ip address of device which provide port redirection
 # to the FreeNas appliance configured as OpenVPN server.
-'''.format(openvpn_conf['ca'])
+'''
 
 %>\
+% if openvpn_conf['mode'] == pki:
 ${CONFIG_MESSAGE}
 client
 dev ${openvpn_conf['dev']}
@@ -49,3 +52,11 @@ proto ${openvpn_conf['proto']}
 comp-lzo
 % endif
 verb ${openvpn_conf['verb']}
+% else:
+${CONFIG_MESSAGE}
+secret /usr/local/etc/openvpn/ta.key
+dev ${openvpn_conf['dev']}
+ifconfig ${openvpn_conf['psk_remote_ip']} ${openvpn_conf['psk_server_ip']}
+port ${openvpn_conf['port']}
+% endif
+
