@@ -846,7 +846,11 @@ class ManagementService(RpcService):
             'volume.get_dataset_path',
             os.path.join(container['target'], 'vm', container['name'], 'files')
         )
-        vm.start()
+
+        try:
+            vm.start()
+        except BaseException as err:
+            raise RpcException(errno.EFAULT, 'Cannot start VM: {0}'.format(err))
 
         if vm.config.get('docker_host', False):
             host = DockerHost(self.context, vm)
@@ -1340,16 +1344,16 @@ class Main(object):
                 if alias['type'] != 'INET':
                     continue
 
-                network = ipaddress.ip_network('{0}/{1}'.format(alias['address'], alias['netmask']))
-                if network.overlaps(mgmt_subnet):
+                alias = ipaddress.ip_interface('{0}/{1}'.format(alias['address'], alias['netmask']))
+                if alias.network.overlaps(mgmt_subnet):
                     raise RuntimeError('Subnet {0} on interface {1} overlaps with VM management subnet'.format(
-                        network,
+                        alias.network,
                         iface['id'],
                     ))
 
-                if network.overlaps(nat_subnet):
+                if alias.network.overlaps(nat_subnet):
                     raise RuntimeError('Subnet {0} on interface {1} overlaps with VM NAT subnet'.format(
-                        network,
+                        alias.network,
                         iface['id'],
                     ))
 
