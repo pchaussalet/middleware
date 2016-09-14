@@ -84,7 +84,7 @@ class ReplicationLinkProvider(Provider):
                 obj['status'] = status_cache.get(obj['name'])
             return obj
 
-        links = link_cache.query(*[], **{})
+        links = link_cache.query()
 
         links = list(map(extend, links))
         return q.query(links, *(filter or []), stream=True, **(params or {}))
