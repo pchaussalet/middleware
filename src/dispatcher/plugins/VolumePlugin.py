@@ -1652,11 +1652,13 @@ class VolumeUnlockTask(Task):
             self.join_subtasks(*subtasks)
 
             self.join_subtasks(self.run_subtask('zfs.pool.import', vol['guid'], id, params))
-            self.join_subtasks(self.run_subtask(
-                'zfs.update',
-                id,
-                {'mountpoint': {'value': vol['mountpoint']}}
-            ))
+
+            if vol['mountpoint']:
+                self.join_subtasks(self.run_subtask(
+                    'zfs.update',
+                    id,
+                    {'mountpoint': {'value': vol['mountpoint']}}
+                ))
 
             self.join_subtasks(self.run_subtask('zfs.mount', id))
 
