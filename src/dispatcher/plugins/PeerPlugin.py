@@ -185,6 +185,23 @@ class FreeNASPeerCreateTask(Task):
         return TaskDescription('Exchanging SSH keys with the remote {name}', name=q.get(peer, 'credentials.address', ''))
 
     def verify(self, peer):
+        credentials = peer['credentials']
+        remote = credentials.get('address')
+        username = credentials.get('username')
+        password = credentials.get('password')
+
+        if not username:
+            raise VerifyException(errno.EINVAL, 'Username has to be specified')
+
+        if not remote:
+            raise VerifyException(errno.EINVAL, 'Address of remote host has to be specified')
+
+        if not password:
+            raise VerifyException(errno.EINVAL, 'Password has to be specified')
+
+        if credentials.get('type') != 'ssh':
+            raise VerifyException(errno.EINVAL, 'SSH credentials type is needed to perform FreeNAS peer pairing')
+
         return ['system']
 
     def run(self, peer):
@@ -197,23 +214,11 @@ class FreeNASPeerCreateTask(Task):
         port = credentials.get('port', 22)
         password = credentials.get('password')
 
-        if not username:
-            raise TaskException(errno.EINVAL, 'Username has to be specified')
-
-        if not remote:
-            raise TaskException(errno.EINVAL, 'Address of remote host has to be specified')
-
-        if not password:
-            raise TaskException(errno.EINVAL, 'Password has to be specified')
-
         if self.datastore.exists('peers', ('credentials.address', '=', remote), ('type', '=', 'freenas')):
             raise TaskException(
                 errno.EEXIST,
                 'FreeNAS peer entry for {0} already exists'.format(remote)
             )
-
-        if credentials.get('type') != 'ssh':
-            raise TaskException(errno.EINVAL, 'SSH credentials type is needed to perform FreeNAS peer pairing')
 
         remote_client = Client()
         try:
