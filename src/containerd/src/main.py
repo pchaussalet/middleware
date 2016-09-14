@@ -1332,6 +1332,27 @@ class Main(object):
             return
 
         mgmt_subnet = ipaddress.ip_network(self.configstore.get('container.network.management'))
+        nat_subnet = ipaddress.ip_network(self.configstore.get('container.network.nat'))
+
+        # Check if mgmt or nat subnets collide with any other subnets in the system
+        for iface in self.client.call_sync('network.interface.query'):
+            for alias in q.get(iface, 'status.aliases'):
+                if alias['type'] != 'INET':
+                    continue
+
+                network = ipaddress.ip_network('{0}/{1}'.format(alias['address'], alias['netmask']))
+                if network.overlaps(mgmt_subnet):
+                    raise RuntimeError('Subnet {0} on interface {1} overlaps with VM management subnet'.format(
+                        network,
+                        iface['id'],
+                    ))
+
+                if network.overlaps(nat_subnet):
+                    raise RuntimeError('Subnet {0} on interface {1} overlaps with VM NAT subnet'.format(
+                        network,
+                        iface['id'],
+                    ))
+
         mgmt_addr = ipaddress.ip_interface('{0}/{1}'.format(next(mgmt_subnet.hosts()), mgmt_subnet.prefixlen))
         self.mgmt = ManagementNetwork(self, MGMT_INTERFACE, mgmt_addr)
         self.mgmt.up()
@@ -1340,7 +1361,6 @@ class Main(object):
             ipaddress.ip_interface('169.254.169.254/32')
         ))
 
-        nat_subnet = ipaddress.ip_network(self.configstore.get('container.network.nat'))
         nat_addr = ipaddress.ip_interface('{0}/{1}'.format(next(nat_subnet.hosts()), nat_subnet.prefixlen))
         self.nat = ManagementNetwork(self, NAT_INTERFACE, nat_addr)
         self.nat.up()
