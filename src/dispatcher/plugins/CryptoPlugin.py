@@ -91,6 +91,10 @@ def get_file_contents(path):
         return "".join(f.readlines())
 
 
+def get_utc_string_from_asn1generalizedtime(asn1):
+    return str(datetime.datetime.strptime(asn1, "%Y%m%d%H%M%SZ").replace(tzinfo=UTC))
+
+
 @description("Provider for certificates")
 class CertificateProvider(Provider):
     @query('crypto-certificate')
@@ -160,9 +164,6 @@ class CertificateCreateTask(Task):
         return ['system']
 
     def run(self, certificate):
-        def get_utc_string_from_asn1generalizedtime(asn1):
-            return str(datetime.datetime.strptime(asn1, "%Y%m%d%H%M%SZ").replace(tzinfo=UTC))
-
         def get_x509_inst(cert_info):
             cert = crypto.X509()
             map_x509_subject_info(cert, cert_info)
