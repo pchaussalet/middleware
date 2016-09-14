@@ -1324,9 +1324,13 @@ def zpool_sync_resources(dispatcher, name):
 
 def zpool_try_clear(name, vdev):
     zfs = get_zfs()
-    pool = zfs.get(name)
-    if pool.clear():
-        logger.info('Device {0} reattached successfully to pool {1}'.format(vdev['path'], name))
+    try:
+        pool = zfs.get(name)
+        if pool.clear():
+            logger.info('Device {0} reattached successfully to pool {1}'.format(vdev['path'], name))
+            return
+    except libzfs.ZFSException:
+        # Silently ignore pool not found errors
         return
 
     logger.warning('Device {0} reattach to pool {1} failed'.format(vdev['path'], name))
