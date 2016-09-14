@@ -221,7 +221,7 @@ class CertificateCreateTask(Task):
         if certificate['signing_ca_name']:
             if not self.datastore.exists('crypto.certificates', ('name', '=', certificate['signing_ca_name'])):
                 raise TaskException(errno.ENOENT,
-                                      'Signing certificate "{0}" not found'.format(certificate['signing_ca_name']))
+                                    'Signing certificate "{0}" not found'.format(certificate['signing_ca_name']))
 
         try:
             certificate['selfsigned'] = certificate.get('selfsigned', False)
@@ -256,7 +256,8 @@ class CertificateCreateTask(Task):
                 x509.set_issuer(signing_x509.get_subject())
                 x509.sign(signkey, certificate['digest_algorithm'])
 
-                certificate['not_before'] = get_utc_string_from_asn1generalizedtime(x509.get_notBefore().decode('utf-8'))
+                certificate['not_before'] = get_utc_string_from_asn1generalizedtime(
+                    x509.get_notBefore().decode('utf-8'))
                 certificate['not_after'] = get_utc_string_from_asn1generalizedtime(x509.get_notAfter().decode('utf-8'))
                 certificate['serial'] = x509.get_serial_number()
                 certificate['certificate'] = crypto.dump_certificate(crypto.FILETYPE_PEM, x509).decode('utf-8')
