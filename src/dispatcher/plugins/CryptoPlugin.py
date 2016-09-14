@@ -85,6 +85,11 @@ def load_privatekey(buf, passphrase=None):
     )
 
 
+def get_file_contents(path):
+    with open(path, 'r') as f:
+        return "".join(f.readlines())
+
+
 @description("Provider for certificates")
 class CertificateProvider(Provider):
     @query('crypto-certificate')
