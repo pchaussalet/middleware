@@ -54,6 +54,13 @@ class PeerFreeNASProvider(Provider):
 
         return q.query(peers, *(filter or []), stream=True, **(params or {}))
 
+    @private
+    def get_ssh_keys(self):
+        try:
+            with open('/etc/ssh/ssh_host_rsa_key.pub') as f:
+                return f.read(), self.configstore.get('replication.key.public')
+        except FileNotFoundError:
+            raise RpcException(errno.ENOENT, 'Hostkey file not found')
 
 @description('Exchanges SSH keys with remote FreeNAS machine')
 @accepts(h.all_of(
@@ -113,8 +120,8 @@ class FreeNASPeerCreateTask(Task):
             except (AuthenticationException, OSError, ConnectionRefusedError):
                 raise TaskException(errno.ECONNABORTED, 'Cannot connect to {0}:{1}'.format(remote, port))
 
-            local_host_key, local_pub_key = self.dispatcher.call_sync('peer.get_ssh_keys')
-            remote_host_key, remote_pub_key = remote_client.call_sync('peer.get_ssh_keys')
+            local_host_key, local_pub_key = self.dispatcher.call_sync('peer.freenas.get_ssh_keys')
+            remote_host_key, remote_pub_key = remote_client.call_sync('peer.freenas.get_ssh_keys')
             ip_at_remote_side = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
 
             remote_hostname = remote_client.call_sync('system.general.get_config')['hostname']
