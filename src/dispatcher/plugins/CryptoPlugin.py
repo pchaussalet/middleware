@@ -127,6 +127,7 @@ class CertificateProvider(Provider):
 @accepts(h.all_of(
     h.ref('crypto-certificate'),
     h.required('type', 'name', 'country', 'state', 'city', 'organization', 'email', 'common'),
+    h.forbidden('certificate_path', 'privatekey_path'),
 ))
 @description('Creates a certificate')
 class CertificateCreateTask(Task):
@@ -276,7 +277,7 @@ class CertificateCreateTask(Task):
 
 @accepts(h.all_of(
     h.ref('crypto-certificate'),
-    h.required('name', 'type'),
+    h.required('name', 'type', 'certificate_path', 'privatekey_path'),
 ))
 @description('Imports a certificate')
 class CertificateImportTask(Task):
@@ -374,6 +375,7 @@ class CertificateImportTask(Task):
 
 @accepts(str, h.all_of(
     h.ref('crypto-certificate'),
+    h.forbidden('certificate_path', 'privatekey_path'),
 ))
 @description('Updates a certificate')
 class CertificateUpdateTask(Task):
@@ -527,8 +529,8 @@ def _init(dispatcher, plugin):
             'dn': {'type': 'string', 'readOnly': True},
             'valid_from': {'type': ['string', 'null'], 'readOnly': True},
             'valid_until': {'type': ['string', 'null'], 'readOnly': True},
-            'certificate_path': {'type': ['string', 'null'], 'readOnly': True},
-            'privatekey_path': {'type': ['string', 'null'], 'readOnly': True},
+            'certificate_path': {'type': ['string', 'null']},
+            'privatekey_path': {'type': ['string', 'null']},
             'csr_path': {'type': ['string', 'null'], 'readOnly': True},
         },
         'additionalProperties': False,
