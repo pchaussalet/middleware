@@ -54,8 +54,11 @@ def export_privatekey(buf, passphrase=None):
     ).decode('utf-8')
 
 
-def load_certificate(buf):
-    cert = crypto.load_certificate(crypto.FILETYPE_PEM, buf)
+def get_cert_info(buf):
+    if isinstance(buf, str):
+        cert = crypto.load_certificate(crypto.FILETYPE_PEM, buf)
+    else:
+        cert = buf
 
     cert_info = {
         'country': cert.get_subject().C,
