@@ -259,7 +259,7 @@ class CertificateCreateTask(Task):
                 certificate['not_before'] = get_utc_string_from_asn1generalizedtime(
                     x509.get_notBefore().decode('utf-8'))
                 certificate['not_after'] = get_utc_string_from_asn1generalizedtime(x509.get_notAfter().decode('utf-8'))
-                certificate['serial'] = x509.get_serial_number()
+                certificate['serial'] = str(x509.get_serial_number())
                 certificate['certificate'] = crypto.dump_certificate(crypto.FILETYPE_PEM, x509).decode('utf-8')
                 certificate['privatekey'] = crypto.dump_privatekey(crypto.FILETYPE_PEM, key).decode('utf-8')
 
@@ -346,7 +346,7 @@ class CertificateImportTask(Task):
             new_cert_db_entry['certificate'] = crypto.dump_certificate(
                 crypto.FILETYPE_PEM, imported_cert).decode('utf-8')
             new_cert_db_entry.update(get_cert_info(imported_cert))
-            new_cert_db_entry['serial'] = imported_cert.get_serial_number()
+            new_cert_db_entry['serial'] = str(imported_cert.get_serial_number())
             #certificate['selfsigned'] = False
             new_cert_db_entry['not_before'] = get_utc_string_from_asn1generalizedtime(
                 imported_cert.get_notBefore().decode('utf-8'))
@@ -529,7 +529,7 @@ def _init(dispatcher, plugin):
             'passphrase': {'type': ['string', 'null']},
             'email': {'type': 'string'},
             'common': {'type': 'string'},
-            'serial': {'type': ['integer', 'null']},
+            'serial': {'type': ['string', 'null']},
             'selfsigned': {'type': 'boolean'},
             'signing_ca_name': {'type': 'string'},
             'signing_ca_id': {'type': 'string'},
