@@ -1,9 +1,10 @@
 # $FreeBSD$
 
 PORTNAME=	dropbox
-PORTVERSION=	v6.8.0
+PORTVERSION=	6.8.0
 CATEGORIES=	net python
 PKGNAMEPREFIX=	${PYTHON_PKGNAMEPREFIX}
+DISTVERSIONPREFIX=	v
 
 MAINTAINER=	dev@ixsystems.com
 COMMENT=	Official Dropbox API Client
@@ -17,7 +18,6 @@ USE_PYTHON=	autoplist distutils
 USE_GITHUB=	yes
 GH_ACCOUNT=	dropbox
 GH_PROJECT=	dropbox-sdk-python
-GH_TAG=		v6.8.0
 
 NO_ARCH=	yes
 
