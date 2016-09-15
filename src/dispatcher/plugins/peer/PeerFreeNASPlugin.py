@@ -27,7 +27,6 @@
 
 import io
 import time
-import copy
 import socket
 import errno
 import logging
