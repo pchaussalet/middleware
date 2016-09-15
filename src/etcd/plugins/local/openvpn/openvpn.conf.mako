@@ -30,7 +30,7 @@
             openvpn_conf['server_bridge'] = ' '
 
 %>\
-% if openvpn_conf['mode'] == pki:
+% if openvpn_conf['mode'] == 'pki':
 dev ${openvpn_conf['dev']}
 % if openvpn_conf['persist_key']:
 persist-key
