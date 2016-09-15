@@ -84,6 +84,7 @@ SCROLLBACK_SIZE = 20 * 1024
 
 
 vtx_enabled = False
+amd_arch = False
 restricted_guest = True
 
 
@@ -824,17 +825,28 @@ class ManagementService(RpcService):
 
     @private
     def start_vm(self, id):
-        if not vtx_enabled:
-            raise RpcException(errno.EINVAL, 'Cannot start VM - Intel VT-x instruction support not available.')
+        if not vtx_enabled and not amd_arch:
+            raise RpcException(
+                errno.ENOTSUP,
+                'Cannot start VM {0} - Intel VT-x instruction support not available.'.format(id)
+            )
 
         container = self.context.datastore.get_by_id('vms', id)
         if not container:
             raise RpcException(errno.ENOENT, 'VM {0} not found'.format(id))
 
-        if restricted_guest and container['config']['bootloader'] in ['UEFI', 'UEFI_CSM']:
+        if restricted_guest and vtx_enabled and container['config']['bootloader'] != 'BHYVELOAD':
             raise RpcException(
-                errno.ENOENT,
-                'Cannot start VM {0} - unrestricted guest support is needed to start UEFI VM'.format(id)
+                errno.ENOTSUP,
+                'Cannot start VM {0} - only BHYVELOAD is supported for VT-x without unrestricted guest feature.'.format(
+                    id
+                )
+            )
+
+        if amd_arch and container['config']['bootloader'] != 'GRUB':
+            raise RpcException(
+                errno.ENOTSUP,
+                'Cannot start VM {0}. Only GRUB bootloader is supported for AMD architecture'.format(id)
             )
 
         vm = VirtualMachine(self.context)
@@ -1525,13 +1537,13 @@ class Main(object):
                 self.logger.error('Cannot load PF module: %s', str(err))
                 self.logger.error('NAT unavailable')
 
-        global vtx_enabled, restricted_guest
+        global vtx_enabled, restricted_guest, amd_arch
         try:
             if sysctl.sysctlbyname('hw.vmm.vmx.initialized'):
                 vtx_enabled = True
 
             if sysctl.sysctlbyname('hw.vmm.svm.features') != 0:
-                vtx_enabled = True
+                amd_arch = True
 
             if sysctl.sysctlbyname('hw.vmm.vmx.cap.unrestricted_guest'):
                 restricted_guest = False
