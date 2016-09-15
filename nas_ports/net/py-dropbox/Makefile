@@ -6,7 +6,7 @@ CATEGORIES=	net python
 PKGNAMEPREFIX=	${PYTHON_PKGNAMEPREFIX}
 
 MAINTAINER=	dev@ixsystems.com
-COMMENT=	fficial Dropbox API Client
+COMMENT=	Official Dropbox API Client
 
 RUN_DEPENDS=	${PYTHON_PKGNAMEPREFIX}typing>=3.5.2:devel/py-typing \
 		${PYTHON_PKGNAMEPREFIX}six>=1.3.0:devel/py-six \
