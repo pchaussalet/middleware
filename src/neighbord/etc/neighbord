@@ -1,0 +1,23 @@
+#!/bin/sh
+#
+# $FreeBSD$
+#
+
+# PROVIDE: neighbord
+# REQUIRE: datastore dispatcher
+
+. /etc/rc.subr
+
+name="neighbord"
+rcvar="neighbord_enable"
+pidfile="/var/run/neighbord.pid"
+command="/usr/sbin/daemon"
+start_precmd="prestart"
+
+prestart()
+{
+    rc_flags="-P ${pidfile} -f -r /usr/local/sbin/crash-wrapper /usr/local/sbin/neighbord ${rc_flags}"
+}
+
+load_rc_config $name
+run_rc_command $*
