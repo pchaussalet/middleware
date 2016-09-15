@@ -44,11 +44,10 @@ from task import Task, Provider, TaskException, TaskWarning, VerifyException, qu
 
 logger = logging.getLogger(__name__)
 
-REPL_USR_HOME = '/var/tmp/replication'
-AUTH_FILE = os.path.join(REPL_USR_HOME, '.ssh/authorized_keys')
-
 ssh_port = None
 auth_codes = []
+
+temp_pubkeys = []
 
 
 @description('Provides information about known FreeNAS peers')
@@ -101,6 +100,23 @@ class PeerFreeNASProvider(Provider):
 
     def void_auth_codes(self):
         auth_codes.clear()
+
+    @private
+    def put_temp_pubkey(self, key):
+        temp_pubkeys.append(key)
+
+    @private
+    @generator
+    def get_temp_pubkeys(self):
+        for k in temp_pubkeys:
+            yield k
+
+    @private
+    def remove_temp_pubkey(self, key):
+        try:
+            temp_pubkeys.remove(key)
+        except ValueError:
+            pass
 
 
 @description('Exchanges SSH keys with remote FreeNAS machine')
@@ -313,9 +329,6 @@ class FreeNASPeerCreateLocalTask(Task):
 
         id = self.datastore.insert('peers', peer)
 
-        with open(AUTH_FILE, 'a') as auth_file:
-            auth_file.write(peer['credentials']['pubkey'])
-
         self.dispatcher.dispatch_event('peer.changed', {
             'operation': 'create',
             'ids': [id]
@@ -393,19 +406,7 @@ class FreeNASPeerDeleteLocalTask(Task):
         peer = self.datastore.get_by_id('peers', id)
         if not peer:
             raise TaskException(errno.ENOENT, 'FreeNAS peer entry {0} does not exist'.format(peer['name']))
-        peer_pubkey = peer['credentials']['pubkey']
         self.datastore.delete('peers', id)
-
-        with open(AUTH_FILE, 'r') as auth_file:
-            auth_keys = auth_file.read()
-
-        new_auth_keys = ''
-        for line in auth_keys.splitlines():
-            if peer_pubkey not in line:
-                new_auth_keys = new_auth_keys + '\n' + line
-
-        with open(AUTH_FILE, 'w') as auth_file:
-            auth_file.write(new_auth_keys)
 
         self.dispatcher.dispatch_event('peer.changed', {
             'operation': 'delete',
@@ -599,13 +600,3 @@ def _init(dispatcher, plugin):
     # Register event handlers
     plugin.register_event_handler('service.sshd.changed', on_connection_change)
     plugin.register_event_handler('system.general.changed', on_connection_change)
-
-    # Create home directory and authorized keys file for replication user
-    if not os.path.exists(REPL_USR_HOME):
-        os.mkdir(REPL_USR_HOME)
-    ssh_dir = os.path.join(REPL_USR_HOME, '.ssh')
-    if not os.path.exists(ssh_dir):
-        os.mkdir(ssh_dir)
-    with open(AUTH_FILE, 'w') as auth_file:
-        for host in dispatcher.call_sync('peer.freenas.query'):
-            auth_file.write(host['credentials']['pubkey'])

@@ -32,12 +32,20 @@ from freenas.dispatcher.client import Client
 def main(username):
     c = Client()
     try:
-        c.connect('unix:///var/run/dscached.sock')
-        user = c.call_sync('dscached.account.getpwnam', username)
-        if not user.get('sshpubkey'):
-            return
+        if username == 'replication':
+            c.connect('unix:')
+            c.login_service('authorized-keys-helper')
+            print('\n'.join('ssh-rsa ' + k for k in (
+                c.call_sync('peer.freenas.query', [], {'select': 'credentials.pubkey'}) +
+                c.call_sync('peer.freenas.get_temp_pubkeys')
+            )))
+        else:
+            c.connect('unix:///var/run/dscached.sock')
+            user = c.call_sync('dscached.account.getpwnam', username)
+            if not user.get('sshpubkey'):
+                return
 
-        print(user['sshpubkey'])
+            print(user['sshpubkey'])
     finally:
         c.disconnect()
 
