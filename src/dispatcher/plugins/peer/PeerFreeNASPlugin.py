@@ -192,21 +192,22 @@ class FreeNASPeerCreateTask(Task):
                 except RpcException as err:
                     raise TaskException(err.code, err.message)
 
-                with open(AUTH_FILE, 'a') as auth_file:
-                    auth_file.write(pubkey)
-
-                self.dispatcher.test_or_wait_for_event(
-                    'peer.changed',
-                    lambda ar: ar['operation'] == 'create' and remote_host_uuid in ar['ids'],
-                    lambda: self.datastore.exists('peers', ('id', '=', remote_host_uuid)),
-                    timeout=300
-                )
-
-                if not self.datastore.exists('peers', ('id', '=', remote_host_uuid)):
-                    raise TaskException(
-                        errno.EAUTH,
-                        'FreeNAS peer creation failed. Check connection to host {0}.'.format(remote)
+                try:
+                    self.dispatcher.call_sync('peer.freenas.put_temp_pubkey', pubkey)
+                    self.dispatcher.test_or_wait_for_event(
+                        'peer.changed',
+                        lambda ar: ar['operation'] == 'create' and remote_host_uuid in ar['ids'],
+                        lambda: self.datastore.exists('peers', ('id', '=', remote_host_uuid)),
+                        timeout=300
                     )
+
+                    if not self.datastore.exists('peers', ('id', '=', remote_host_uuid)):
+                        raise TaskException(
+                            errno.EAUTH,
+                            'FreeNAS peer creation failed. Check connection to host {0}.'.format(remote)
+                        )
+                finally:
+                    self.dispatcher.call_sync('peer.freenas.remove_temp_pubkey', pubkey)
 
             else:
                 try:
