@@ -287,7 +287,10 @@ class ConfigureInterfaceTask(Task):
             dhcp_dns = self.configstore.get('network.dhcp.assign_dns')
 
             if dhcp_used and (dhcp_gateway or dhcp_dns):
-                raise TaskException(errno.ENXIO, 'DHCP is already configured on another interface')
+                raise TaskException(
+                    errno.ENXIO,
+                    'DHCP gateway or DNS assignment is already enabled on another interface'
+                )
 
             if dhcp_gateway:
                 self.configstore.set('network.gateway.ipv4', None)
