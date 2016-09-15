@@ -106,9 +106,9 @@ class DiskProvider(Provider):
     @accepts(str)
     @returns(str)
     def partition_to_disk(self, part_name):
-
         if part_name.endswith('.eli'):
             part_name = part_name[:-4]
+
         # Is it disk name?
         d = get_disk_by_path(part_name)
         if d:

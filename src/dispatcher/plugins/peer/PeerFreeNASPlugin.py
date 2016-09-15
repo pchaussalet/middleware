@@ -62,6 +62,7 @@ class PeerFreeNASProvider(Provider):
         except FileNotFoundError:
             raise RpcException(errno.ENOENT, 'Hostkey file not found')
 
+
 @description('Exchanges SSH keys with remote FreeNAS machine')
 @accepts(h.all_of(
     h.ref('peer'),
