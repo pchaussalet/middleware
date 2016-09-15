@@ -25,14 +25,16 @@
 #
 #####################################################################
 
-import os
+import io
+import time
+import copy
 import socket
 import errno
 import logging
 import gevent
 import random
 from freenas.dispatcher.client import Client
-from paramiko import AuthenticationException
+from paramiko import AuthenticationException, RSAKey
 from utils import get_replication_client, call_task_and_check_state
 from freenas.utils import exclude, query as q
 from freenas.utils.decorators import limit
@@ -212,10 +214,22 @@ class FreeNASPeerCreateTask(Task):
             else:
                 try:
                     if key_auth:
-                        remote_client.connect(
-                            'ws+ssh://replication@{0}'.format(remote),
-                            pkey=self.configstore.get('replication.key.private')
-                        )
+                        with io.StringIO() as f:
+                            f.write(self.configstore.get('replication.key.private'))
+                            f.seek(0)
+                            pkey = RSAKey.from_private_key(f)
+
+                        max_tries = 50
+                        while True:
+                            try:
+                                remote_client.connect('ws+ssh://replication@{0}'.format(remote), pkey=pkey, port=port)
+                                break
+                            except AuthenticationException:
+                                if max_tries:
+                                    max_tries -= 1
+                                    time.sleep(1)
+                                else:
+                                    raise
                     else:
                         remote_client.connect('ws+ssh://{0}@{1}'.format(username, remote), port=port, password=password)
                     remote_client.login_service('replicator')
