@@ -86,6 +86,8 @@ class PeerFreeNASProvider(Provider):
                 self.dispatcher.submit_task('peer.freenas.create', {
                     'type': 'freenas',
                     'credentials': {
+                        'type': 'freenas-auth',
+                        'address': address,
                         'key_auth': True,
                         'port': port
                     }
