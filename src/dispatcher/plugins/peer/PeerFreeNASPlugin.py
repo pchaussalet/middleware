@@ -69,7 +69,7 @@ class PeerFreeNASProvider(Provider):
 
     def get_auth_code(self):
         while True:
-            code = random.randint(0, 999999)
+            code = random.randint(100000, 999999)
             if code not in auth_codes:
                 break
 
