@@ -310,7 +310,7 @@ class FreeNASPeerCreateLocalTask(Task):
         return TaskDescription('Creating FreeNAS peer entry {name}', name=peer['name'])
 
     def verify(self, peer, ip):
-        return ['system']
+        return []
 
     def run(self, peer, ip):
         def ping(address, port):
