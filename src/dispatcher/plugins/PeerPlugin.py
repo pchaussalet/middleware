@@ -71,7 +71,7 @@ class PeerCreateTask(Task):
         return ['system']
 
     def run(self, peer):
-        self.join_subtasks(self.run_subtask('peer.{0}.create', peer.get('type')))
+        self.join_subtasks(self.run_subtask('peer.{0}.create'.format(peer.get('type')), peer))
 
 
 @description('Updates peer entry')
@@ -96,7 +96,7 @@ class PeerUpdateTask(Task):
         if 'type' in updated_fields and peer['type'] != updated_fields['type']:
             raise TaskException(errno.EINVAL, 'Peer type cannot be updated')
 
-        self.join_subtasks(self.run_subtask('peer.{0}.update', peer.get('type')))
+        self.join_subtasks(self.run_subtask('peer.{0}.update'.format(peer.get('type')), id, updated_fields))
 
 
 @description('Deletes peer entry')
@@ -119,7 +119,7 @@ class PeerDeleteTask(Task):
 
         peer = self.datastore.get_by_id('peers', id)
 
-        self.join_subtasks(self.run_subtask('peer.{0}.delete', peer.get('type')))
+        self.join_subtasks(self.run_subtask('peer.{0}.delete'.format(peer.get('type')), id))
 
 
 def _init(dispatcher, plugin):
