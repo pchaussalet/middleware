@@ -275,7 +275,7 @@ class VolumeProvider(Provider):
         if tokens[0:2] == ['dev', 'zvol']:
             return tokens[2], '/'.join(tokens[2:]), None
 
-        if tokens[0] != VOLUMES_ROOT[1:]:
+        if tokens[0] != VOLUMES_ROOT[1:] or len(tokens) == 1:
             raise RpcException(errno.EINVAL, 'Invalid path')
 
         volname = tokens[1]
