@@ -359,7 +359,7 @@ class FreeNASPeerDeleteTask(Task):
         hostid = self.dispatcher.call_sync('system.info.host_uuid')
         try:
             try:
-                remote_client = get_replication_client(self.dispatcher, remote)
+                remote_client = get_replication_client(self, remote)
 
                 call_task_and_check_state(
                     remote_client,
@@ -475,7 +475,7 @@ class FreeNASPeerUpdateRemoteTask(Task):
             raise TaskException(errno.ENOENT, 'FreeNAS peer entry {0} does not exist'.format(id))
 
         try:
-            remote_client = get_replication_client(self.dispatcher, peer['credentials']['address'])
+            remote_client = get_replication_client(self, peer['credentials']['address'])
             remote_peer = remote_client.call_sync('peer.query', [('id', '=', hostid)], {'single': True})
             if not remote_peer:
                 raise TaskException(errno.ENOENT, 'Remote side of peer {0} does not exist'.format(peer['name']))

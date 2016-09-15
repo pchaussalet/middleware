@@ -406,7 +406,7 @@ class ReplicationCreateTask(ReplicationBaseTask):
         self.check_datasets_valid(link)
 
         is_master, remote = self.get_replication_state(link)
-        remote_client = get_replication_client(self.dispatcher, remote)
+        remote_client = get_replication_client(self, remote)
 
         remote_link = remote_client.call_sync('replication.get_one_local', link['name'])
         id = self.datastore.insert('replication.links', link)
@@ -454,7 +454,7 @@ class ReplicationPrepareSlaveTask(ReplicationBaseTask):
 
     def run(self, link):
         is_master, remote = self.get_replication_state(link)
-        remote_client = get_replication_client(self.dispatcher, remote)
+        remote_client = get_replication_client(self, remote)
 
         if is_master:
             with self.dispatcher.get_lock('volumes'):
@@ -597,7 +597,7 @@ class ReplicationDeleteTask(ReplicationBaseTask):
         remote_client = None
 
         try:
-            remote_client = get_replication_client(self.dispatcher, remote)
+            remote_client = get_replication_client(self, remote)
         except (SSHException, OSError) as e:
             self.add_warning(TaskWarning(
                 e.code,
@@ -672,7 +672,7 @@ class ReplicationUpdateTask(ReplicationBaseTask):
         remote_available = True
         remote_client = None
         try:
-            remote_client = get_replication_client(self.dispatcher, remote)
+            remote_client = get_replication_client(self, remote)
         except TaskException as e:
             remote_available = False
             self.add_warning(TaskWarning(
@@ -712,7 +712,7 @@ class ReplicationUpdateTask(ReplicationBaseTask):
         if any(key in updated_fields for key in ['id', 'name', 'master', 'slave']):
             new_is_master, new_remote = self.get_replication_state(link)
             try:
-                new_remote_client = get_replication_client(self.dispatcher, new_remote)
+                new_remote_client = get_replication_client(self, new_remote)
             except TaskException as e:
                 raise TaskException(
                     e.code,
@@ -845,7 +845,7 @@ class ReplicationSyncTask(ReplicationBaseTask):
         try:
             link = self.join_subtasks(self.run_subtask('replication.get_latest_link', name))[0]
             is_master, remote = self.get_replication_state(link)
-            remote_client = get_replication_client(self.dispatcher, remote)
+            remote_client = get_replication_client(self, remote)
             if is_master:
                 with self.dispatcher.get_lock('volumes'):
                     parent_datasets = self.get_parent_datasets(link)
@@ -921,7 +921,7 @@ class ReplicationReserveServicesTask(ReplicationBaseTask):
         service_types = ['shares', 'vms']
         link = self.join_subtasks(self.run_subtask('replication.get_latest_link', name))[0]
         is_master, remote = self.get_replication_state(link)
-        remote_client = get_replication_client(self.dispatcher, remote)
+        remote_client = get_replication_client(self, remote)
 
         if is_master:
             call_task_and_check_state(remote_client, 'replication.reserve_services', name)
@@ -1242,7 +1242,7 @@ class ReplicateDatasetTask(ProgressTask):
         if not remote:
             raise TaskException(errno.EINVAL, 'Remote host is not specified')
 
-        remote_client = get_replication_client(self.dispatcher, remote)
+        remote_client = get_replication_client(self, remote)
 
         def is_replicated(snapshot):
             if q.get(snapshot, 'properties.org\\.freenas:replicate.value') != 'yes':
@@ -1406,7 +1406,7 @@ class ReplicationGetLatestLinkTask(ReplicationBaseTask):
         is_master, remote = self.get_replication_state(local_link)
 
         try:
-            client = get_replication_client(self.dispatcher, remote)
+            client = get_replication_client(self, remote)
             remote_link = client.call_sync('replication.get_one_local', name)
             status = client.call_sync('replication.get_status', name)
             if not self.dispatcher.call_sync('replication.get_status', name):

@@ -67,13 +67,13 @@ def delete_config(conf_path, name_mod):
     os.remove(os.path.join(conf_path, '.config-{0}.json'.format(name_mod)))
 
 
-def get_replication_client(dispatcher, remote):
+def get_replication_client(parent, remote):
     try:
         address = socket.gethostbyname(remote)
     except socket.error as err:
         raise TaskException(err.errno, '{0} is unreachable'.format(remote))
 
-    host = dispatcher.call_sync(
+    host = parent.dispatcher.call_sync(
         'peer.query', [
             ('or', [
                 ('credentials.address', '=', remote),
@@ -86,8 +86,9 @@ def get_replication_client(dispatcher, remote):
     if not host:
         raise TaskException(errno.ENOENT, 'There are no known keys to connect to {0}'.format(remote))
 
-    with io.StringIO as f:
-        f.write(dispatcher.configstore.get('replication.key.private'))
+    with io.StringIO() as f:
+        f.write(parent.configstore.get('replication.key.private'))
+        f.seek(0)
         pkey = RSAKey.from_private_key(f)
 
     credentials = host['credentials']

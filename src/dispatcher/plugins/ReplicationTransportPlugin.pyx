@@ -270,7 +270,7 @@ class TransportSendTask(Task):
         try:
             buffer_size = transport.get('buffer_size', 1024*1024)
             client_address = socket.gethostbyname(transport.get('client_address'))
-            remote_client = get_replication_client(self.dispatcher, client_address)
+            remote_client = get_replication_client(self, client_address)
             server_address = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
             server_port = transport.get('server_port', 0)
 
@@ -1064,7 +1064,7 @@ class TransportEncryptTask(Task):
                     )
                 )
 
-        remote_client = get_replication_client(self.dispatcher, remote)
+        remote_client = get_replication_client(self, remote)
         remote_client.call_sync(
             'replication.transport.set_encryption_data',
             token,
