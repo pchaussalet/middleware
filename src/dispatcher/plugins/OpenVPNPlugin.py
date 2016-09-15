@@ -48,6 +48,21 @@ class OpenVpnProvider(Provider):
     def get_config(self):
         return ConfigNode('service.openvpn', self.configstore).__getstate__()
 
+    @returns(h.ref('service-openvpn'))
+    def get_readable_config(self):
+        vpn_config = ConfigNode('service.openvpn', self.configstore).__getstate__()
+
+        if vpn_config['ca']:
+            vpn_config['ca'] = self.datastore.query('crypto.certificates',
+                                                    ('id', '=', vpn_config['ca']), select=('name'))[0]
+        if vpn_config['cert']: 
+            vpn_config['cert'] = self.datastore.query('crypto.certificates',
+                                                      ('id', '=', vpn_config['cert']), select=('name'))[0]
+        if vpn_config['key']:  
+            vpn_config['key'] = self.datastore.query('crypto.certificates',
+                                                     ('id', '=', vpn_config['key']), select=('name'))[0]
+
+        return vpn_config
 
 @description('Provides corresponding OpenVPN client configuration')
 class OpenVPNClientConfigProvider(Provider):
@@ -89,11 +104,14 @@ class OpenVpnConfigureTask(Task):
         if not re.search(interface_pattern, node['dev']):
             raise VerifyException(errno.EINVAL,
                                   '{0} Bad interface name. Allowed values tap/tun[0-9].'.format(node['dev']))
-
-        if node['mode'] == 'pki' and (not node['ca']
-                                      or not node['key'] or not node['cert']):
+        if ((node['mode'] == 'pki' and node['dev'].startswith('tun'))
+                or (node['mode'] == 'psk' and node['dev'].startswith('tap'))):
             raise VerifyException(errno.EINVAL,
-                                  'For pki VPN mode ca, certyficate, and private key values are required')
+                                  'tap interfaces can be used with pki scenario and tun with psk mode')
+
+        if node['mode'] == 'pki' and (not node['ca'] or not node['cert']):
+            raise VerifyException(errno.EINVAL,
+                                  'For pki VPN mode ca and certyficate values are required')
 
         if node['mode'] == 'psk':
             try:
@@ -134,26 +152,28 @@ class OpenVpnConfigureTask(Task):
 
         if node['mode'] == 'pki':
 
-                ca_cert = self.datastore.get_by_id('crypto.certificates', openvpn_updated['ca'])
+                ca_cert = self.datastore.query('crypto.certificates',
+                                               ('name', '=', node['ca']), select=('id'))
                 if not ca_cert:
                     raise TaskException(errno.EINVAL,
                                         'Provided CA certificate does not exist in config database.')
+                else:
+                        openvpn_updated['ca'] = ca_cert[0]
 
-                server_private_key = self.datastore.get_by_id('crypto.certificates', openvpn_updated['key'])
-                if not server_private_key:
-                    raise TaskException(errno.EINVAL,
-                                        'Provided private key does not exist in config database.')
-
-                server_certyficate = self.datastore.get_by_id('crypto.certificates', openvpn_updated['cert'])
+                server_certyficate = self.datastore.query('crypto.certificates',
+                                                          ('name', '=', node['cert']), select=('id'))
                 if not server_certyficate:
                     raise TaskException(errno.EINVAL,
                                         'Provided certificate does not exist in config database.')
+                else:
+                    openvpn_updated['cert'] = server_certyficate[0]
+                    openvpn_updated['key'] = server_certyficate[0]
 
-                openvpn_user = self.datastore.exists('users', ('username', '=', openvpn_updated['user']))
+                openvpn_user = self.datastore.exists('users', ('username', '=', node['user']))
                 if not openvpn_user:
                     raise TaskException(errno.EINVAL, 'Provided user does not exist.')
 
-                openvpn_group = self.datastore.exists('groups', ('name', '=', openvpn_updated['group']))
+                openvpn_group = self.datastore.exists('groups', ('name', '=', node['group']))
                 if not openvpn_group:
                     raise TaskException(errno.EINVAL, 'Provided user does not exist.')
 
@@ -194,6 +214,10 @@ class OpenVPNGenerateKeys(Task):
 
         if key_length and key_type == 'dh-parameters':
             if key_length not in [1024, 2048]:
+                raise VerifyException(errno.EINVAL,
+                                      'You have to chose between 1024 and 2048 bits.')
+
+        if not key_length and key_type == 'dh-parameters':
                 raise VerifyException(errno.EINVAL,
                                       'You have to chose between 1024 and 2048 bits.')
 

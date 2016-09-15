@@ -25,7 +25,7 @@
 '''
 
 %>\
-% if openvpn_conf['mode'] == pki:
+% if openvpn_conf['mode'] == 'pki':
 ${CONFIG_MESSAGE}
 client
 dev ${openvpn_conf['dev']}
@@ -54,7 +54,8 @@ comp-lzo
 verb ${openvpn_conf['verb']}
 % else:
 ${CONFIG_MESSAGE}
-secret /usr/local/etc/openvpn/ta.key
+secret ta.key
+remote
 dev ${openvpn_conf['dev']}
 ifconfig ${openvpn_conf['psk_remote_ip']} ${openvpn_conf['psk_server_ip']}
 port ${openvpn_conf['port']}
