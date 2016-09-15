@@ -152,7 +152,7 @@ class FreeNASPeerCreateTask(Task):
                 raise VerifyException(errno.EINVAL, 'Password has to be specified')
 
         if credentials.get('type') != 'freenas-auth':
-            raise VerifyException(errno.EINVAL, 'SSH credentials type is needed to perform FreeNAS peer pairing')
+            raise VerifyException(errno.EINVAL, 'SSH credentials are needed to perform FreeNAS peer pairing')
 
         return ['system']
 
