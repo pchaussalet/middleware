@@ -29,11 +29,16 @@ import os
 import socket
 import errno
 import logging
+import gevent
+import random
 from freenas.dispatcher.client import Client
 from paramiko import AuthenticationException
 from utils import get_replication_client, call_task_and_check_state
 from freenas.utils import exclude, query as q
-from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, private, generator
+from freenas.utils.decorators import limit
+from freenas.dispatcher.rpc import (
+    RpcException, SchemaHelper as h, description, accepts, private, generator, unauthenticated
+)
 from task import Task, Provider, TaskException, TaskWarning, VerifyException, query, TaskDescription
 
 
@@ -43,6 +48,7 @@ REPL_USR_HOME = '/var/tmp/replication'
 AUTH_FILE = os.path.join(REPL_USR_HOME, '.ssh/authorized_keys')
 
 ssh_port = None
+auth_codes = []
 
 
 @description('Provides information about known FreeNAS peers')
@@ -61,6 +67,40 @@ class PeerFreeNASProvider(Provider):
                 return f.read(), self.configstore.get('replication.key.public')
         except FileNotFoundError:
             raise RpcException(errno.ENOENT, 'Hostkey file not found')
+
+    def get_auth_code(self):
+        while True:
+            code = random.randint(0, 999999)
+            if code not in auth_codes:
+                break
+
+        auth_codes.append(code)
+        gevent.spawn(invalidate_code, code)
+        return code
+
+    @unauthenticated
+    def auth_with_code(self, code, port=22):
+        try:
+            if auth_with_code(code):
+                sender_ip = self.dispatcher.call_sync('management.get_sender_address').split(',', 1)[0]
+                self.dispatcher.submit_task('peer.freenas.create', {
+                    'type': 'freenas',
+                    'credentials': {
+                        'address': sender_ip,
+                        'key_auth': True,
+                        'port': port
+                    }
+                })
+                hostid = self.dispatcher.call_sync('system.info.host_uuid')
+                hostkey, pubkey = self.get_ssh_keys()
+                return hostid, pubkey
+            else:
+                raise RpcException(errno.EAUTH, 'Authentication code {0} is not valid'.format(code))
+        except RuntimeError as err:
+            raise RpcException(errno.EACCES, err)
+
+    def void_auth_codes(self):
+        auth_codes.clear()
 
 
 @description('Exchanges SSH keys with remote FreeNAS machine')
@@ -83,16 +123,17 @@ class FreeNASPeerCreateTask(Task):
         username = credentials.get('username')
         password = credentials.get('password')
 
-        if not username:
-            raise VerifyException(errno.EINVAL, 'Username has to be specified')
-
         if not remote:
             raise VerifyException(errno.EINVAL, 'Address of remote host has to be specified')
 
-        if not password:
-            raise VerifyException(errno.EINVAL, 'Password has to be specified')
+        if not credentials.get('auth_code') and not credentials.get('key_auth'):
+            if not username:
+                raise VerifyException(errno.EINVAL, 'Username has to be specified')
 
-        if credentials.get('type') != 'ssh':
+            if not password:
+                raise VerifyException(errno.EINVAL, 'Password has to be specified')
+
+        if credentials.get('type') != 'freenas-auth':
             raise VerifyException(errno.EINVAL, 'SSH credentials type is needed to perform FreeNAS peer pairing')
 
         return ['system']
@@ -106,6 +147,10 @@ class FreeNASPeerCreateTask(Task):
         username = credentials.get('username')
         port = credentials.get('port', 22)
         password = credentials.get('password')
+        auth_code = credentials.get('auth_code')
+        key_auth = credentials.get('key_auth')
+
+        local_ssh_config = self.dispatcher.call_sync('service.sshd.get_config')
 
         if self.datastore.exists('peers', ('credentials.address', '=', remote), ('type', '=', 'freenas')):
             raise TaskException(
@@ -114,71 +159,108 @@ class FreeNASPeerCreateTask(Task):
             )
 
         remote_client = Client()
+
         try:
-            try:
-                remote_client.connect('ws+ssh://{0}@{1}'.format(username, remote), port=port, password=password)
-                remote_client.login_service('replicator')
-            except (AuthenticationException, OSError, ConnectionRefusedError):
-                raise TaskException(errno.ECONNABORTED, 'Cannot connect to {0}:{1}'.format(remote, port))
+            if auth_code:
+                try:
+                    remote_client.connect('ws://{0}'.format(remote))
+                except (AuthenticationException, OSError, ConnectionRefusedError):
+                    raise TaskException(errno.ECONNABORTED, 'Cannot connect to {0}:{1}'.format(remote, port))
 
-            local_host_key, local_pub_key = self.dispatcher.call_sync('peer.freenas.get_ssh_keys')
-            remote_host_key, remote_pub_key = remote_client.call_sync('peer.freenas.get_ssh_keys')
-            ip_at_remote_side = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
+                try:
+                    remote_host_uuid, pubkey = remote_client.call_sync(
+                        'peer.freenas.auth_with_code',
+                        auth_code,
+                        local_ssh_config['port']
+                    )
+                except RpcException as err:
+                    raise TaskException(err.code, err.message)
 
-            remote_hostname = remote_client.call_sync('system.general.get_config')['hostname']
+                with open(AUTH_FILE, 'a') as auth_file:
+                    auth_file.write(pubkey)
 
-            remote_host_key = remote_host_key.rsplit(' ', 1)[0]
-            local_host_key = local_host_key.rsplit(' ', 1)[0]
+                self.dispatcher.test_or_wait_for_event(
+                    'peer.changed',
+                    lambda ar: ar['operation'] == 'create' and remote_host_uuid in ar['ids'],
+                    lambda: self.datastore.exists('peers', ('id', '=', remote_host_uuid)),
+                    timeout=300
+                )
 
-            local_ssh_config = self.dispatcher.call_sync('service.sshd.get_config')
+                if not self.datastore.exists('peers', ('id', '=', remote_host_uuid)):
+                    raise TaskException(
+                        errno.EAUTH,
+                        'FreeNAS peer creation failed. Check connection to host {0}.'.format(remote)
+                    )
 
-            if remote_client.call_sync('peer.query', [('id', '=', hostid)]):
-                raise TaskException(errno.EEXIST, 'Peer entry of {0} already exists at {1}'.format(hostname, remote))
+            else:
+                try:
+                    if key_auth:
+                        remote_client.connect(
+                            'ws+ssh://replication@{0}'.format(remote),
+                            pkey=self.configstore.get('replication.key.private')
+                        )
+                    else:
+                        remote_client.connect('ws+ssh://{0}@{1}'.format(username, remote), port=port, password=password)
+                    remote_client.login_service('replicator')
+                except (AuthenticationException, OSError, ConnectionRefusedError):
+                    raise TaskException(errno.ECONNABORTED, 'Cannot connect to {0}:{1}'.format(remote, port))
 
-            peer['credentials'] = {
-                'pubkey': remote_pub_key,
-                'hostkey': remote_host_key,
-                'port': port,
-                'type': 'freenas',
-                'address': remote_hostname
-            }
+                local_host_key, local_pub_key = self.dispatcher.call_sync('peer.freenas.get_ssh_keys')
+                remote_host_key, remote_pub_key = remote_client.call_sync('peer.freenas.get_ssh_keys')
+                ip_at_remote_side = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
 
-            local_id = remote_client.call_sync('system.info.host_uuid')
-            peer['id'] = local_id
-            peer['name'] = remote_hostname
-            ip = socket.gethostbyname(remote)
+                remote_hostname = remote_client.call_sync('system.general.get_config')['hostname']
 
-            self.join_subtasks(self.run_subtask(
-                'peer.freenas.create_local',
-                peer,
-                ip
-            ))
+                remote_host_key = remote_host_key.rsplit(' ', 1)[0]
+                local_host_key = local_host_key.rsplit(' ', 1)[0]
 
-            peer['id'] = hostid
-            peer['name'] = remote_peer_name
+                if remote_client.call_sync('peer.query', [('id', '=', hostid)]):
+                    raise TaskException(errno.EEXIST, 'Peer entry of {0} already exists at {1}'.format(hostname, remote))
 
-            peer['credentials'] = {
-                'pubkey': local_pub_key,
-                'hostkey': local_host_key,
-                'port': local_ssh_config['port'],
-                'type': 'freenas',
-                'address': hostname
-            }
+                peer['credentials'] = {
+                    'pubkey': remote_pub_key,
+                    'hostkey': remote_host_key,
+                    'port': port,
+                    'type': 'freenas',
+                    'address': remote_hostname
+                }
 
-            try:
-                call_task_and_check_state(
-                    remote_client,
+                local_id = remote_client.call_sync('system.info.host_uuid')
+                peer['id'] = local_id
+                peer['name'] = remote_hostname
+                ip = socket.gethostbyname(remote)
+
+                self.join_subtasks(self.run_subtask(
                     'peer.freenas.create_local',
                     peer,
-                    ip_at_remote_side
-                )
-            except TaskException:
-                self.datastore.delete('peers', local_id)
-                self.dispatcher.dispatch_event('peer.changed', {
-                    'operation': 'delete',
-                    'ids': [local_id]
-                })
-                raise
+                    ip
+                ))
+
+                peer['id'] = hostid
+                peer['name'] = remote_peer_name
+
+                peer['credentials'] = {
+                    'pubkey': local_pub_key,
+                    'hostkey': local_host_key,
+                    'port': local_ssh_config['port'],
+                    'type': 'freenas',
+                    'address': hostname
+                }
+
+                try:
+                    call_task_and_check_state(
+                        remote_client,
+                        'peer.freenas.create_local',
+                        peer,
+                        ip_at_remote_side
+                    )
+                except TaskException:
+                    self.datastore.delete('peers', local_id)
+                    self.dispatcher.dispatch_event('peer.changed', {
+                        'operation': 'delete',
+                        'ids': [local_id]
+                    })
+                    raise
         finally:
             remote_client.disconnect()
 
@@ -425,6 +507,23 @@ class FreeNASPeerUpdateRemoteTask(Task):
                 remote_client.disconnect()
 
 
+def invalidate_code(code, lifetime=300):
+    gevent.sleep(lifetime)
+    try:
+        auth_codes.remove(code)
+    except ValueError:
+        pass
+
+
+@limit(limit=300, hours=1)
+def auth_with_code(code):
+    try:
+        auth_codes.remove(code)
+        return True
+    except ValueError:
+        return False
+
+
 def _depends():
     return ['PeerPlugin', 'SSHPlugin', 'SystemInfoPlugin']
 
@@ -451,6 +550,20 @@ def _init(dispatcher, plugin):
             'port': {'type': 'number'},
             'pubkey': {'type': 'string'},
             'hostkey': {'type': 'string'}
+        },
+        'additionalProperties': False
+    })
+
+    plugin.register_schema_definition('freenas-auth-credentials', {
+        'type': 'object',
+        'properties': {
+            'type': {'enum': ['freenas-auth']},
+            'address': {'type': 'string'},
+            'username': {'type': 'string'},
+            'port': {'type': 'number'},
+            'password': {'type': 'string'},
+            'key_auth': {'type': 'boolean'},
+            'auth_code': {'type': 'integer'}
         },
         'additionalProperties': False
     })
