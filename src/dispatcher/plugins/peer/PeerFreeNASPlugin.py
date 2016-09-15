@@ -78,14 +78,12 @@ class PeerFreeNASProvider(Provider):
         return code
 
     @unauthenticated
-    def auth_with_code(self, code, port=22):
+    def auth_with_code(self, code, address, port=22):
         try:
             if auth_with_code(code):
-                sender_ip = self.dispatcher.call_sync('management.get_sender_address').split(',', 1)[0]
                 self.dispatcher.submit_task('peer.freenas.create', {
                     'type': 'freenas',
                     'credentials': {
-                        'address': sender_ip,
                         'key_auth': True,
                         'port': port
                     }
@@ -184,9 +182,11 @@ class FreeNASPeerCreateTask(Task):
                     raise TaskException(errno.ECONNABORTED, 'Cannot connect to {0}:{1}'.format(remote, port))
 
                 try:
+                    ip_at_remote_side = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
                     remote_host_uuid, pubkey = remote_client.call_sync(
                         'peer.freenas.auth_with_code',
                         auth_code,
+                        ip_at_remote_side,
                         local_ssh_config['port']
                     )
                 except RpcException as err:
