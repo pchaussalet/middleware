@@ -36,7 +36,7 @@ from resources import Resource
 from gevent.event import Event
 from gevent.lock import Semaphore
 from gevent.backdoor import BackdoorServer
-from freenas.dispatcher.rpc import RpcService, RpcException, pass_sender, private, generator
+from freenas.dispatcher.rpc import RpcService, RpcException, pass_sender, private, generator, unauthenticated
 from auth import ShellToken
 from task import TaskState, query
 from freenas.utils import first_or_default
@@ -91,6 +91,7 @@ class ManagementService(RpcService):
         session.logout('Kicked out by {0}'.format(sender.user.name))
 
     @pass_sender
+    @unauthenticated
     def get_sender_address(self, sender):
         return sender.client_address
 
