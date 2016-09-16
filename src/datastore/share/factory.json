@@ -558,16 +558,21 @@
                 ],
                 "name": "replication"
             },
-	    "4f8f208c-046d-41d0-9628-d0699a4e4cdb":{
- 	       "dependencies": [
+            "4f8f208c-046d-41d0-9628-d0699a4e4cdb":{
+                "dependencies": [
                     "group:services",
                     "file:local/openvpn/openvpn.conf",
                     "file:local/openvpn/openvpn_client",
                     "plugin:local/openvpn/gen_crypto_files"
                 ],
                 "name": "openvpn"
-	    },
-
+            },
+            "ec021fab-7c53-11e6-aefb-000c29796bea": {
+                "dependencies": [
+                    "plugin:local/consul"
+                ],
+                "name": "consul"
+            },
             "ff61a205-7efa-11e5-bbec-005056826348": {
                 "dependencies": [
                     "file:rc.conf"
@@ -970,8 +975,17 @@
                 "task": "service.openvpn.update",
                 "get_config_rpc": "service.openvpn.get_config",
                 "name": "openvpn"
+            },
+            "9486ab01-7c53-11e6-aefb-000c29796bea": {
+                "rcng": {
+                    "rc-scripts": "consul"
+                },
+                "builtin": false,
+                "task": "service.consul.update",
+                "get_config_rpc": "service.consul.get_config",
+                "etcd-group": "consul",
+                "name": "consul"
             }
-
         },
         "metadata": {
             "attributes": {
