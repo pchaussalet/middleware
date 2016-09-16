@@ -10,7 +10,7 @@ VALID_CATEGORIES+= freenas
 MAINTAINER=	dev@ixsystems.com
 COMMENT=	FreeNAS neighbor discovery daemon
 
-RUN_DEPENDS=	${PYTHON_PKGNAMEPREFIX}consul>0:${PORTSDIR}/devel/py-consul \
+RUN_DEPENDS=	${PYTHON_PKGNAMEPREFIX}python-consul>0:${PORTSDIR}/devel/py-consul \
 		${PYTHON_PKGNAMEPREFIX}bonjour>0:${PORTSDIR}/dns/py-bonjour \
 		${PYTHON_PKGNAMEPREFIX}freenas.utils>0:${PORTSDIR}/freenas/py-freenas.utils \
 		${PYTHON_PKGNAMEPREFIX}freenas.dispatcher>0:${PORTSDIR}/freenas/py-freenas.dispatcher \
