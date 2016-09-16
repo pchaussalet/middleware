@@ -32,10 +32,12 @@ import errno
 import logging
 import gevent
 import random
+import copy
+from datetime import datetime, timedelta
 from freenas.dispatcher.client import Client
 from paramiko import AuthenticationException, RSAKey
 from utils import get_replication_client, call_task_and_check_state
-from freenas.utils import exclude, query as q
+from freenas.utils import exclude, query as q, first_or_default
 from freenas.utils.decorators import limit
 from freenas.dispatcher.rpc import (
     RpcException, SchemaHelper as h, description, accepts, private, generator, unauthenticated
@@ -44,6 +46,8 @@ from task import Task, Provider, TaskException, TaskWarning, VerifyException, qu
 
 
 logger = logging.getLogger(__name__)
+
+auth_code_lifetime = 300
 
 ssh_port = None
 auth_codes = []
@@ -68,14 +72,17 @@ class PeerFreeNASProvider(Provider):
         except FileNotFoundError:
             raise RpcException(errno.ENOENT, 'Hostkey file not found')
 
-    def get_auth_code(self):
+    def create_auth_code(self):
         while True:
             code = random.randint(100000, 999999)
             if code not in auth_codes:
                 break
 
-        auth_codes.append(code)
-        gevent.spawn(invalidate_code, code)
+        auth_codes.append({
+            'code': code,
+            'expires_at': datetime.now() + timedelta(seconds=auth_code_lifetime)
+        })
+        gevent.spawn(cycle_code_lifetime, code)
         return code
 
     @unauthenticated
@@ -101,6 +108,28 @@ class PeerFreeNASProvider(Provider):
 
     def void_auth_codes(self):
         auth_codes.clear()
+
+    def invalidate_code(self, code):
+        minimal_match = lambda k: k['expires_at'] == code['expires_at'] and k['code'].startswith(code['code'][:2])
+        code_match = lambda k: str(k['code']).startswith(str(code)[:str(code).find('*')])
+        m_funct = minimal_match
+
+        if not isinstance(code_match, (str, int)):
+            m_funct = code_match
+
+        match = first_or_default(
+            m_funct,
+            auth_codes
+        )
+        if match:
+            invalidate_code(match['code'])
+
+    @generator
+    def get_auth_codes(self):
+        current_codes = copy.deepcopy(auth_codes)
+        for code in current_codes:
+            code['code'] = str(code['code'])[:-4] + '****'
+            yield code
 
     @private
     def put_temp_pubkey(self, key):
@@ -524,21 +553,28 @@ class FreeNASPeerUpdateRemoteTask(Task):
                 remote_client.disconnect()
 
 
-def invalidate_code(code, lifetime=300):
-    gevent.sleep(lifetime)
-    try:
-        auth_codes.remove(code)
-    except ValueError:
-        pass
+def cycle_code_lifetime(code):
+    gevent.sleep(auth_code_lifetime)
+    invalidate_code(code)
 
 
 @limit(limit=300, hours=1)
 def auth_with_code(code):
-    try:
-        auth_codes.remove(code)
+    code_data = first_or_default(lambda c: c['code'] == code, auth_codes)
+    if code_data:
+        invalidate_code(code)
         return True
-    except ValueError:
+    else:
         return False
+
+
+def invalidate_code(code):
+    code_data = first_or_default(lambda c: c['code'] == code, auth_codes)
+    if code_data:
+        try:
+            auth_codes.remove(code_data)
+        except ValueError:
+            pass
 
 
 def _depends():
