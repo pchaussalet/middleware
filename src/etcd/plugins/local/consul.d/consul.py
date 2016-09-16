@@ -25,26 +25,29 @@
 #
 #####################################################################
 
+import os
 import json
 import socket
 from datastore.config import ConfigNode
 
 
 def run(context):
-    node = ConfigNode('service.consul', context.configstore)
+    node = ConfigNode('service.consul', context.configstore).__getstate__()
     config = {
+        'bind_addr': node['bind_address'],
         'datacenter': node['datacenter'],
         'data_dir': '/var/tmp/consul',
-        'node_name': node['node_name'],
-        'server': node['server'] or socket.gethostname(),
+        'node_name': node['node_name'] or socket.gethostname(),
+        'server': node['server'],
         'start_join': node['start_join'],
-        'start_join_wan': node['start_join_wan'],
-        'retry_join': node['retry_join'],
+        'start_join_wan': node['start_join_wan']
     }
 
-    with open('/usr/local/etc/consul.conf', 'w') as f:
+    os.makedirs('/usr/local/etc/consul.d', exist_ok=True)
+
+    with open('/usr/local/etc/consul.d/consul.conf', 'w') as f:
         json.dump(config, f, indent=4)
 
     context.emit_event('etcd.file_generated', {
-        'name': '/usr/local/etc/consul.conf'
+        'name': '/usr/local/etc/consul.d/consul.conf'
     })

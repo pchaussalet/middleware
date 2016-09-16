@@ -231,3 +231,7 @@ powerd_enable="YES"
 openvpn_enable="YES"
 openvpn_configfile="/usr/local/etc/openvpn/openvpn.conf"
 % endif
+
+% if config.get("service.consul.enable"):
+consul_enable="YES"
+% endif

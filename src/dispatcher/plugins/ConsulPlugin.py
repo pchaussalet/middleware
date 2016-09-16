@@ -65,6 +65,7 @@ def _init(dispatcher, plugin):
         'additionalProperties': False,
         'properties': {
             'type': {'enum': ['service-consul']},
+            'bind_address': {'type': ['string', 'null']},
             'enable': {'type': 'boolean'},
             'datacenter': {'type': 'string'},
             'node_name': {'type': ['string', 'null']},
