@@ -266,6 +266,7 @@
             "service.webdav.authentication": "DIGEST",
             "service.webdav.certificate": null,
             "service.consul.enable": false,
+            "service.consul.bind_address": null,
             "service.consul.datacenter": "dc1",
             "service.consul.node_name": null,
             "service.consul.server": false,
@@ -569,7 +570,8 @@
             },
             "ec021fab-7c53-11e6-aefb-000c29796bea": {
                 "dependencies": [
-                    "plugin:local/consul"
+                    "group:services",
+                    "plugin:local/consul.d/consul"
                 ],
                 "name": "consul"
             },
@@ -981,7 +983,6 @@
                     "rc-scripts": "consul"
                 },
                 "builtin": false,
-                "task": "service.consul.update",
                 "get_config_rpc": "service.consul.get_config",
                 "etcd-group": "consul",
                 "name": "consul"
