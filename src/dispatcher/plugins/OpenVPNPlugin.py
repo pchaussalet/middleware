@@ -24,7 +24,6 @@
 #
 #####################################################################
 
-import re
 import netif
 import errno
 import logging
@@ -55,10 +54,10 @@ class OpenVpnProvider(Provider):
         if vpn_config['ca']:
             vpn_config['ca'] = self.datastore.query('crypto.certificates',
                                                     ('id', '=', vpn_config['ca']), select=('name'))[0]
-        if vpn_config['cert']: 
+        if vpn_config['cert']:
             vpn_config['cert'] = self.datastore.query('crypto.certificates',
                                                       ('id', '=', vpn_config['cert']), select=('name'))[0]
-        if vpn_config['key']:  
+        if vpn_config['key']:
             vpn_config['key'] = self.datastore.query('crypto.certificates',
                                                      ('id', '=', vpn_config['key']), select=('name'))[0]
 
@@ -97,13 +96,12 @@ class OpenVpnConfigureTask(Task):
         return TaskDescription('Configuring OpenVPN service')
 
     def verify(self, openvpn_updated):
-        interface_pattern = '(tap|tun)[0-9]'
         node = ConfigNode('service.openvpn', self.configstore).__getstate__()
         node.update(openvpn_updated)
 
-        if not re.search(interface_pattern, node['dev']):
+        if node['dev'] not in ['tap', 'tun']:
             raise VerifyException(errno.EINVAL,
-                                  '{0} Bad interface name. Allowed values tap/tun[0-9].'.format(node['dev']))
+                                  '{0} Bad interface name. Allowed values tap/tun.'.format(node['dev']))
         if ((node['mode'] == 'pki' and node['dev'].startswith('tun'))
                 or (node['mode'] == 'psk' and node['dev'].startswith('tap'))):
             raise VerifyException(errno.EINVAL,
@@ -257,9 +255,7 @@ class OpenVPNGenerateKeys(Task):
 @accepts()
 @description("Bridges VPN tap interface to the main iterface provided by networkd")
 class BridgeOpenVPNtoLocalNetwork(Task):
-    """ This is acctually all wrong. This interfere with containterd and should be managed by networkd.
-        Look at it as a PoC of my approach.
-    """
+
     @classmethod
     def early_describe(cls):
         return 'Bridging OpenVPN to main interface'
@@ -271,19 +267,30 @@ class BridgeOpenVPNtoLocalNetwork(Task):
         return['system']
 
     def run(self):
+        vpn_state = self.dispatcher.call_sync('service.query', [('name', '=', 'openvpn')], {'single': True})
         node = ConfigNode('service.openvpn', self.configstore).__getstate__()
-        vpn_interface = self.configstore.get('service.openvpn.dev')
+
+        if vpn_state['state'] != 'RUNNING':
+            raise TaskException(errno.EPERM, 'For bridging VPN capabilities openvpn needs to be running.')
 
         if node['mode'] == 'psk':
             raise TaskException(errno.EPERM, 'Bridging VPN capabilities only in pki mode.')
 
+        vpn_service_files = system('/usr/local/sbin/lsof', '-p', str(vpn_state['pid']))[0]
+
+        for line in vpn_service_files.split('\n'):
+            if '/dev/tap' in line:
+                vpn_dev_name = line.split()[-1]
+                break
+        vpn_interface_name = vpn_dev_name.split('/')[2]
+
         try:
-            vpn_interface = netif.get_interface(vpn_interface)
+            vpn_interface = netif.get_interface(vpn_interface_name)
 
         except KeyError:
             raise TaskException(
                 errno.EINVAL,
-                '{0} interface does not exist - Verify OpenVPN status'.format(vpn_interface)
+                '{0} interface does not exist - Verify OpenVPN status'.format(vpn_interface_name)
             )
         else:
             vpn_interface.up()
@@ -292,7 +299,6 @@ class BridgeOpenVPNtoLocalNetwork(Task):
         if not default_interface:
             raise TaskException(errno.EINVAL, 'No default interface configured. Verify network setup.')
 
-        node = ConfigNode('service.openvpn', self.configstore).__getstate__()
         interface_list = list(netif.list_interfaces().keys())
 
         if 'VPNbridge' not in interface_list:
@@ -322,7 +328,7 @@ class BridgeOpenVPNtoLocalNetwork(Task):
                                 'Default interface busy - check other bridge interfaces. {0}'.format(e))
 
         try:
-            bridge_interface.add_member(self.configstore.get('service.openvpn.dev'))
+            bridge_interface.add_member(vpn_interface_name)
 
         except FileExistsError as e:
             logger.info('OpenVPN interface already bridged: {0}'.format(e))
