@@ -26,21 +26,23 @@
 #
 #####################################################################
 
+import os
 import sys
 import logging
 import socket
 import argparse
 import datastore
 import time
+import json
 import setproctitle
-import select
-import threading
-import pybonjour
 from datastore.config import ConfigStore
 from freenas.dispatcher.client import Client, ClientError
-from freenas.dispatcher.rpc import RpcService, RpcException
-from freenas.utils import configure_logging
+from freenas.dispatcher.rpc import RpcService, RpcException, generator
+from freenas.utils import configure_logging, load_module_from_file
 from freenas.utils.debug import DebugService
+
+
+DEFAULT_CONFIGFILE = '/usr/local/etc/middleware.conf'
 
 
 class ManagementService(RpcService):
@@ -55,81 +57,12 @@ class DiscoveryService(RpcService):
     def __init__(self, context):
         self.context = context
 
+    @generator
     def find(self, regtype):
-        services = []
-        found = 0
-        done = False
-        cv = threading.Condition()
-
-        def resolve_callback(sdref, flags, ifindex, error, fullname, hosttarget, port, txt_record):
-            with cv:
-                services.append({
-                    'fullname': fullname,
-                    'hosttarget': hosttarget,
-                    'port': port
-                })
-                cv.notify()
-
-        def browse_callback(sdref, flags, ifindex, error, service_name, regtype, reply_domain):
-            nonlocal found, done
-
-            if error != pybonjour.kDNSServiceErr_NoError or (not flags & pybonjour.kDNSServiceFlagsMoreComing):
-                self.context.event_loop.unregister(sdref)
-                with cv:
-                    done = True
-                    cv.notify()
-                return
-
-            self.context.event_loop.register(pybonjour.DNSServiceResolve(
-                0, ifindex, service_name,
-                regtype, reply_domain, resolve_callback
-            ))
-
-            with cv:
-                found += 1
-                cv.notify()
-
-        sdref = pybonjour.DNSServiceBrowse(regtype=regtype, callBack=browse_callback)
-        self.context.event_loop.register(sdref)
-        with cv:
-            cv.wait_for(lambda: done and found == len(services))
-            return services
-
-
-class EventLoop(object):
-    def __init__(self):
-        self.kq = select.kqueue()
-        self.sdrefs = {}
-        self.lock = threading.RLock()
-        self.thread = threading.Thread(target=self.run, daemon=True)
-        self.thread.start()
-
-    def register(self, sd_ref, timeout=0):
-        with self.lock:
-            kev = select.kevent(sd_ref.fileno(), select.KQ_FILTER_READ, select.KQ_EV_ADD | select.KQ_EV_ENABLE)
-            self.kq.control([kev], 0)
-            self.sdrefs[sd_ref.fileno()] = (sd_ref, timeout)
-
-    def unregister(self, sd_ref):
-        with self.lock:
-            kev = select.kevent(sd_ref.fileno(), select.KQ_FILTER_READ, select.KQ_EV_DELETE)
-            self.kq.control([kev], 0)
-            del self.sdrefs[sd_ref.fileno()]
-            sd_ref.close()
-
-    def run(self):
-        while True:
-            with self.lock:
-                events = self.kq.control(None, 16, 1)
-                for i in events:
-                    if i.ident not in self.sdrefs:
-                        continue
-
-                    sdref, _ = self.sdrefs.get(i.ident)
-                    if not sdref:
-                        continue
-
-                    pybonjour.DNSServiceProcessResult(sdref)
+        for name, plugin in self.context.plugins.items():
+            for svc in plugin.find(regtype):
+                svc['source'] = name
+                yield svc
 
 
 class Main(object):
@@ -139,8 +72,23 @@ class Main(object):
         self.datastore = None
         self.configstore = None
         self.client = None
+        self.config = None
         self.logger = logging.getLogger()
-        self.event_loop = EventLoop()
+        self.plugin_dirs = []
+        self.plugins = {}
+
+    def parse_config(self, filename):
+        try:
+            with open(filename, 'r') as f:
+                self.config = json.load(f)
+        except IOError as err:
+            self.logger.error('Cannot read config file: %s', err.message)
+            sys.exit(1)
+        except ValueError:
+            self.logger.error('Config file has unreadable format (not valid JSON)')
+            sys.exit(1)
+
+        self.plugin_dirs = self.config['neighbord']['plugin-dirs']
 
     def init_datastore(self):
         try:
@@ -161,20 +109,37 @@ class Main(object):
         self.client.on_error(on_error)
         self.connect()
 
-    def register_service(self, name, regtype, port):
-        def callback(sdref, flags, error, name, regtype, domain):
-            self.logger.info('Registered service {0} (regtype {1}, domain {2})'.format(
-                name,
-                regtype,
-                domain
-            ))
+    def scan_plugins(self):
+        for i in self.plugin_dirs:
+            self.scan_plugin_dir(i)
 
-        sdref = pybonjour.DNSServiceRegister(name=name, regtype=regtype, port=port, callBack=callback)
-        self.event_loop.register(sdref)
+    def scan_plugin_dir(self, dir):
+        self.logger.debug('Scanning plugin directory %s', dir)
+        for f in os.listdir(dir):
+            name, ext = os.path.splitext(os.path.basename(f))
+            if ext != '.py':
+                continue
+
+            try:
+                plugin = load_module_from_file(name, os.path.join(dir, f))
+                plugin._init(self)
+            except:
+                self.logger.error('Cannot initialize plugin {0}'.format(f), exc_info=True)
+
+    def register_plugin(self, name, cls):
+        self.plugins[name] = cls(self)
+        self.logger.info('Registered plugin {0} (class {1})'.format(name, cls))
+
+    def register_service(self, name, regtype, port, properties=None):
+        pass
 
     def register(self):
         hostname = socket.gethostname()
-        self.register_service(hostname, '_freenas._tcp.', 80)
+        properties = {
+            'version': self.client.call_sync('system.info.version')
+        }
+
+        self.register_service(hostname, '_freenas._tcp.', 80, properties)
         self.register_service(hostname, '_http._tcp.', 80)
         self.register_service(hostname, '_ssh._tcp.', 22)
         self.register_service(hostname, '_sftp-ssh._tcp.', 22)
@@ -198,12 +163,16 @@ class Main(object):
 
     def main(self):
         parser = argparse.ArgumentParser()
+        parser.add_argument('-c', metavar='CONFIG', default=DEFAULT_CONFIGFILE, help='Middleware config file')
         args = parser.parse_args()
+        self.config = args.c
         configure_logging('/var/log/neighbord.log', 'DEBUG')
 
         setproctitle.setproctitle('neighbord')
+        self.parse_config(self.config)
         self.init_datastore()
         self.init_dispatcher()
+        self.scan_plugins()
         self.register()
         self.client.wait_forever()
 

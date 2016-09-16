@@ -10,7 +10,8 @@ VALID_CATEGORIES+= freenas
 MAINTAINER=	dev@ixsystems.com
 COMMENT=	FreeNAS neighbor discovery daemon
 
-RUN_DEPENDS=	${PYTHON_PKGNAMEPREFIX}bonjour>0:${PORTSDIR}/dns/py-bonjour \
+RUN_DEPENDS=	consul>0:${PORTSDIR}/sysutils/consul \
+		${PYTHON_PKGNAMEPREFIX}bonjour>0:${PORTSDIR}/dns/py-bonjour \
 		${PYTHON_PKGNAMEPREFIX}freenas.utils>0:${PORTSDIR}/freenas/py-freenas.utils \
 		${PYTHON_PKGNAMEPREFIX}freenas.dispatcher>0:${PORTSDIR}/freenas/py-freenas.dispatcher \
 
@@ -35,5 +36,10 @@ post-install:
 		| ${SED} -e 's,^\./,,g' \
 		| ${AWK} '{print length, $$0}' | ${SORT} -rn \
 		| ${AWK} '{print "lib/neighbord/"$$2 }' >> ${TMPPLIST})
+
+	(cd ${STAGEDIR}${PREFIX}/lib/neighbord/plugins; ${FIND} . -type f -regex ".*.pyc?" \
+		| ${SED} -e 's,^\./,,g' \
+		| ${AWK} '{print length, $$0}' | ${SORT} -rn \
+		| ${AWK} '{print "lib/neighbord/plugins/"$$2 }' >> ${TMPPLIST})
 
 .include <bsd.port.mk>
