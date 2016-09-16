@@ -982,6 +982,7 @@
                 "rcng": {
                     "rc-scripts": "consul"
                 },
+                "pidfile": "/var/run/consul.pid",
                 "builtin": false,
                 "get_config_rpc": "service.consul.get_config",
                 "etcd-group": "consul",
