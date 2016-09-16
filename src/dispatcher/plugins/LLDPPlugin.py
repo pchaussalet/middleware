@@ -26,10 +26,9 @@
 
 import errno
 import logging
-
 from datastore.config import ConfigNode
 from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, returns, private
-from task import Task, Provider, TaskException, ValidationException, TaskDescription
+from task import Task, Provider, TaskException, TaskDescription
 
 logger = logging.getLogger('LLDPPlugin')
 
@@ -83,18 +82,17 @@ def _depends():
 
 
 def _init(dispatcher, plugin):
-
     # Register schemas
     plugin.register_schema_definition('service-lldp', {
         'type': 'object',
+        'additionalProperties': False,
         'properties': {
             'type': {'enum': ['service-lldp']},
             'enable': {'type': 'boolean'},
             'save_description': {'type': 'boolean'},
             'country_code': {'type': ['string', 'null']},
             'location': {'type': ['string', 'null']},
-        },
-        'additionalProperties': False,
+        }
     })
 
     # Register providers
