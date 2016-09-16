@@ -435,6 +435,20 @@
     },
     {
         "created_at": {
+            "$date": "2016-03-08 22:21:50.012000"
+        },
+        "name": "consul",
+        "builtin": true,
+        "updated_at": {
+            "$date": "2016-03-08 22:21:50.012000"
+        },
+        "gid": 469,
+        "members": [],
+        "id": "e8fd57b3-7c48-11e6-a313-0cc47a3511b4",
+        "sudo": false
+    },
+    {
+        "created_at": {
             "$date": "2016-03-08 22:21:49.977000"
         },
         "name": "messagebus",

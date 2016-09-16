@@ -601,6 +601,31 @@
         }
     },
     {
+        "uid": 469,
+        "full_name": "Consul Daemon",
+        "shell": "/usr/sbin/nologin",
+        "id": "0ed12ffc-7c49-11e6-a313-0cc47a3511b4",
+        "password_disabled": false,
+        "group": "e8fd57b3-7c48-11e6-a313-0cc47a3511b4",
+        "locked": false,
+        "username": "consul",
+        "nthash": null,
+        "email": null,
+        "sshpubkey": null,
+        "updated_at": {
+            "$date": "2016-03-08 22:21:49.909000"
+        },
+        "builtin": true,
+        "attributes": {},
+        "sudo": false,
+        "groups": [],
+        "home": "/var/tmp/consul",
+        "unixhash": "*",
+        "created_at": {
+            "$date": "2016-03-08 22:21:49.909000"
+        }
+    },
+    {
         "uid": 556,
         "full_name": "D-BUS Daemon User",
         "shell": "/usr/sbin/nologin",
