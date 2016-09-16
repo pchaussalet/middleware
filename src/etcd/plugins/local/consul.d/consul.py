@@ -39,6 +39,7 @@ def run(context):
         'data_dir': '/var/tmp/consul',
         'node_name': node['node_name'] or socket.gethostname(),
         'server': node['server'],
+        'rejoin_after_leave': True,
         'start_join': node['start_join'],
         'start_join_wan': node['start_join_wan']
     }
