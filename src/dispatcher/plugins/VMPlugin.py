@@ -29,7 +29,6 @@ import ipaddress
 import errno
 import os
 import random
-import json
 import gzip
 import uuid
 import pygit2
@@ -43,6 +42,7 @@ import datetime
 from task import Provider, Task, ProgressTask, VerifyException, TaskException, query, TaskWarning, TaskDescription
 from task import ValidationException
 from datastore.config import ConfigNode
+from freenas.dispatcher.jsonenc import loads, dumps
 from freenas.dispatcher.rpc import RpcException, generator
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, private
 from freenas.utils import first_or_default, normalize, deep_update, process_template, in_directory, sha256, query as q
@@ -258,7 +258,7 @@ class VMTemplateProvider(Provider):
             if 'template.json' in files:
                 with open(os.path.join(root, 'template.json'), encoding='utf-8') as template_file:
                     try:
-                        template = json.loads(template_file.read())
+                        template = loads(template_file.read())
                         readme = get_readme(root)
                         if readme:
                             with open(readme, 'r') as readme_file:
@@ -1373,7 +1373,7 @@ class VMSnapshotPublishTask(ProgressTask):
             pass
 
         with open(os.path.join(template_path, 'template.json'), 'w') as f:
-            f.write(json.dumps(template))
+            f.write(dumps(template))
 
         ipfs_hashes = self.join_subtasks(self.run_subtask('ipfs.add', template_path, True))[0]
         ipfs_link = 'ipfs://' + self.get_path_hash(ipfs_hashes, template_path)
@@ -1693,7 +1693,7 @@ class VMIPFSTemplateFetchTask(ProgressTask):
         new_template_dir = os.path.join(ipfs_templates_dir, raw_hash)
         try:
             with open(os.path.join(new_template_dir, 'template.json'), encoding='utf-8') as template_file:
-                template = json.loads(template_file.read())
+                template = loads(template_file.read())
                 with open(os.path.join(new_template_dir, 'hash'), 'w') as hash_file:
                     hash_file.write(ipfs_hash)
                 template_name = template['template']['name']
