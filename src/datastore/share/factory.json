@@ -181,8 +181,6 @@
             "service.rsyncd.enable": false,
             "service.rsyncd.port": 873,
             "service.rsyncd.auxiliary": null,
-            "service.glusterd.enable": false,
-            "service.glusterd.working_directory": "glusterd",
             "service.tftpd.enable": false,
             "service.tftpd.path": null,
             "service.tftpd.allow_new_files": false,
@@ -548,16 +546,6 @@
                 ],
                 "name": "webdav"
             },
-            "df9c5217-700e-11e5-ae5b-3b8c385e7527": {
-                "dependencies": [
-                    "file:local/glusterfs/glusterd.vol",
-                    "file:local/glusterfs/glusterfs-logrotate",
-                    "file:local/glusterfs/glusterfs-georep-logrotate",
-                    "file:local/glusterfs/gluster-rsyslog-5.8.conf",
-                    "file:local/glusterfs/gluster-rsyslog-7.2.conf"
-                ],
-                "name": "glusterd"
-            },
             "8f4794b6-aaa1-41ee-9ac7-9f925d3b3318": {
                 "dependencies": [
                     "plugin:ctl"
@@ -805,14 +793,6 @@
                 "get_config_rpc": "service.dyndns.get_config",
                 "task": "service.dyndns.update",
                 "name": "dyndns"
-            },
-            "3993a3f3-7010-11e5-ae5b-3b8c385e7527": {
-                "rcng": {
-                    "rc-scripts": "glusterd"
-                },
-                "pidfile": "/var/run/glusterd.pid",
-                "builtin": false,
-                "name": "glusterd"
             },
             "efc90340-f09f-43dc-a1ab-20467f0a148a": {
                 "rcng": {
