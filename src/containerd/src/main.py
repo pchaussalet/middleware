@@ -84,7 +84,7 @@ SCROLLBACK_SIZE = 20 * 1024
 
 
 vtx_enabled = False
-amd_arch = False
+svm_features = False
 restricted_guest = True
 
 
@@ -825,7 +825,7 @@ class ManagementService(RpcService):
 
     @private
     def start_vm(self, id):
-        if not vtx_enabled and not amd_arch:
+        if not vtx_enabled and not svm_features:
             raise RpcException(
                 errno.ENOTSUP,
                 'Cannot start VM {0} - Intel VT-x instruction support not available.'.format(id)
@@ -843,7 +843,7 @@ class ManagementService(RpcService):
                 )
             )
 
-        if amd_arch and container['config']['bootloader'] != 'GRUB':
+        if not vtx_enabled and svm_features and container['config']['bootloader'] != 'GRUB':
             raise RpcException(
                 errno.ENOTSUP,
                 'Cannot start VM {0}. Only GRUB bootloader is supported for AMD architecture'.format(id)
@@ -1537,13 +1537,13 @@ class Main(object):
                 self.logger.error('Cannot load PF module: %s', str(err))
                 self.logger.error('NAT unavailable')
 
-        global vtx_enabled, restricted_guest, amd_arch
+        global vtx_enabled, restricted_guest, svm_features
         try:
             if sysctl.sysctlbyname('hw.vmm.vmx.initialized'):
                 vtx_enabled = True
 
             if sysctl.sysctlbyname('hw.vmm.svm.features') != 0:
-                amd_arch = True
+                svm_features = True
 
             if sysctl.sysctlbyname('hw.vmm.vmx.cap.unrestricted_guest'):
                 restricted_guest = False
