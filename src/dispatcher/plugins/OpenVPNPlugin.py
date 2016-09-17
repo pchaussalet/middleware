@@ -118,6 +118,16 @@ class OpenVpnConfigureTask(Task):
             except ValueError as e:
                 raise VerifyException(errno.EINVAL, str(e))
 
+        if (node['server_bridge_extended']
+            and not (node['server_bridge_ip'] or node['server_bridge_netmask']
+                     or node['server_bridge_range_begin'] or node['server_bridge_range_end'])):
+
+            raise VerifyException(errno.EINVAL,
+                                  'For pki server_bridge_extended mode all server_bridge values are required')
+
+
+
+
         if node['mode'] == 'pki' and node['server_bridge_extended']:
             try:
                 bridge_ip = ipaddress.ip_address(node['server_bridge_ip'])
@@ -286,13 +296,12 @@ class BridgeOpenVPNtoLocalNetwork(Task):
             raise TaskException(errno.EPERM, 'Bridging VPN capabilities only in pki mode.')
 
         # This feels like a not so good solution - feel free to change
-        vpn_service_files = system('/usr/local/sbin/lsof', '-p', str(vpn_state['pid']))[0]
+        tap_interfaces = netif.get_ifgroup('tap')
 
-        for line in vpn_service_files.split('\n'):
-            if '/dev/tap' in line:
-                vpn_dev_name = line.split()[-1]
-                break
-        vpn_interface_name = vpn_dev_name.split('/')[2]
+        for vpn_interface_name in tap_interfaces:
+            tap_pids = system('/usr/bin/fuser', '/dev/' + vpn_interface_name)[0].split()
+            if vpn_state['pid'] in tap_pids:
+                    break
 
         try:
             vpn_interface = netif.get_interface(vpn_interface_name)
