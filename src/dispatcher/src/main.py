@@ -763,7 +763,7 @@ class Dispatcher(object):
         }
 
         try:
-            with tempfile.NamedTemporaryFile(dir='/var/tmp/crash', suffix='.json', prefix='report-', delete=False) as f:
+            with tempfile.NamedTemporaryFile(dir='/var/tmp/crash', mode='w', suffix='.json', prefix='report-', delete=False) as f:
                 json.dump(report, f, indent=4)
         except:
             # at least we tried
