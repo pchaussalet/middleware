@@ -3,10 +3,10 @@
 
     OPENVPN_DIR = '/etc/local/openvpn'
     openvpn_conf = dispatcher.call_sync('service.openvpn.get_config')
+    system_info = dispatcher.call_sync('system.general.get_config')
 
     if not os.path.isdir(OPENVPN_DIR):
         os.mkdir(OPENVPN_DIR)
-
     
     if openvpn_conf['mode'] == 'pki':
         cert_data = dispatcher.call_sync('crypto.certificate.query',
@@ -36,7 +36,7 @@ nobind
 % if openvpn_conf['persist_tun']:
 persist-tun
 % endif
-remote
+remote ${system_info['hostname']}
 ca ${openvpn_conf['ca']}
 cert 
 key 
@@ -54,8 +54,8 @@ comp-lzo
 verb ${openvpn_conf['verb']}
 % else:
 ${CONFIG_MESSAGE}
-secret ta.key
-remote
+secret 
+remote ${system_info['hostname']}
 dev ${openvpn_conf['dev']}
 ifconfig ${openvpn_conf['psk_remote_ip']} ${openvpn_conf['psk_server_ip']}
 port ${openvpn_conf['port']}
