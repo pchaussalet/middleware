@@ -54,7 +54,7 @@ comp-lzo
 verb ${openvpn_conf['verb']}
 % else:
 ${CONFIG_MESSAGE}
-secret 
+secret ta.key
 remote ${system_info['hostname']}
 dev ${openvpn_conf['dev']}
 ifconfig ${openvpn_conf['psk_remote_ip']} ${openvpn_conf['psk_server_ip']}
