@@ -168,6 +168,7 @@ class VirtualMachine(object):
         self.name = None
         self.nmdm = None
         self.state = VirtualMachineState.STOPPED
+        self.guest_type = 'other'
         self.config = None
         self.devices = []
         self.files_root = None
@@ -261,8 +262,14 @@ class VirtualMachine(object):
                     self.init_vnc(index, vnc_enabled=True, vnc_port=port)
                 else:
                     self.init_vnc(index, vnc_enabled=False)
+
                 w, h = i['properties']['resolution'].split('x')
-                args += ['-s', '{0}:0,fbuf,unix={1},w={2},h={3},vncserver'.format(index, self.vnc_socket, w, h)]
+                vga = self.guest_type not in ('openbsd32', 'openbsd64')
+                args += ['-s', '{0}:0,fbuf,unix={1},w={2},h={3},vncserver,vga={4}'.format(
+                    index, self.vnc_socket, w, h,
+                    'io' if vga else 'off'
+                )]
+
                 index += 1
 
             if i['type'] == 'USB':
@@ -852,6 +859,7 @@ class ManagementService(RpcService):
         vm = VirtualMachine(self.context)
         vm.id = container['id']
         vm.name = container['name']
+        vm.guest_type = container['guest_type']
         vm.config = container['config']
         vm.devices = container['devices']
         vm.files_root = self.context.client.call_sync(
