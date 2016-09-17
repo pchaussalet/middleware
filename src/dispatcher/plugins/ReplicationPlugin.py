@@ -27,7 +27,6 @@
 
 import enum
 import uuid
-import io
 import os
 import errno
 import time
@@ -37,13 +36,13 @@ import socket
 import logging
 from cache import CacheStore
 from resources import Resource
-from paramiko import RSAKey, SSHException
+from paramiko import SSHException
 from datetime import datetime
 from dateutil.parser import parse as parse_datetime
 from task import Provider, Task, ProgressTask, VerifyException, TaskException, TaskWarning, query, TaskDescription
 from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, returns, private, generator
 from freenas.dispatcher.fd import FileDescriptor
-from utils import get_replication_client, call_task_and_check_state
+from utils import get_freenas_peer_client, call_task_and_check_state
 from freenas.utils import first_or_default, query as q
 
 logger = logging.getLogger(__name__)
@@ -406,7 +405,7 @@ class ReplicationCreateTask(ReplicationBaseTask):
         self.check_datasets_valid(link)
 
         is_master, remote = self.get_replication_state(link)
-        remote_client = get_replication_client(self, remote)
+        remote_client = get_freenas_peer_client(self, remote)
 
         remote_link = remote_client.call_sync('replication.get_one_local', link['name'])
         id = self.datastore.insert('replication.links', link)
@@ -454,7 +453,7 @@ class ReplicationPrepareSlaveTask(ReplicationBaseTask):
 
     def run(self, link):
         is_master, remote = self.get_replication_state(link)
-        remote_client = get_replication_client(self, remote)
+        remote_client = get_freenas_peer_client(self, remote)
 
         if is_master:
             with self.dispatcher.get_lock('volumes'):
@@ -597,7 +596,7 @@ class ReplicationDeleteTask(ReplicationBaseTask):
         remote_client = None
 
         try:
-            remote_client = get_replication_client(self, remote)
+            remote_client = get_freenas_peer_client(self, remote)
         except (SSHException, OSError) as e:
             self.add_warning(TaskWarning(
                 e.code,
@@ -672,7 +671,7 @@ class ReplicationUpdateTask(ReplicationBaseTask):
         remote_available = True
         remote_client = None
         try:
-            remote_client = get_replication_client(self, remote)
+            remote_client = get_freenas_peer_client(self, remote)
         except TaskException as e:
             remote_available = False
             self.add_warning(TaskWarning(
@@ -712,7 +711,7 @@ class ReplicationUpdateTask(ReplicationBaseTask):
         if any(key in updated_fields for key in ['id', 'name', 'master', 'slave']):
             new_is_master, new_remote = self.get_replication_state(link)
             try:
-                new_remote_client = get_replication_client(self, new_remote)
+                new_remote_client = get_freenas_peer_client(self, new_remote)
             except TaskException as e:
                 raise TaskException(
                     e.code,
@@ -845,7 +844,7 @@ class ReplicationSyncTask(ReplicationBaseTask):
         try:
             link = self.join_subtasks(self.run_subtask('replication.get_latest_link', name))[0]
             is_master, remote = self.get_replication_state(link)
-            remote_client = get_replication_client(self, remote)
+            remote_client = get_freenas_peer_client(self, remote)
             if is_master:
                 with self.dispatcher.get_lock('volumes'):
                     parent_datasets = self.get_parent_datasets(link)
@@ -921,7 +920,7 @@ class ReplicationReserveServicesTask(ReplicationBaseTask):
         service_types = ['shares', 'vms']
         link = self.join_subtasks(self.run_subtask('replication.get_latest_link', name))[0]
         is_master, remote = self.get_replication_state(link)
-        remote_client = get_replication_client(self, remote)
+        remote_client = get_freenas_peer_client(self, remote)
 
         if is_master:
             call_task_and_check_state(remote_client, 'replication.reserve_services', name)
@@ -1242,7 +1241,7 @@ class ReplicateDatasetTask(ProgressTask):
         if not remote:
             raise TaskException(errno.EINVAL, 'Remote host is not specified')
 
-        remote_client = get_replication_client(self, remote)
+        remote_client = get_freenas_peer_client(self, remote)
 
         def is_replicated(snapshot):
             if q.get(snapshot, 'properties.org\\.freenas:replicate.value') != 'yes':
@@ -1406,7 +1405,7 @@ class ReplicationGetLatestLinkTask(ReplicationBaseTask):
         is_master, remote = self.get_replication_state(local_link)
 
         try:
-            client = get_replication_client(self, remote)
+            client = get_freenas_peer_client(self, remote)
             remote_link = client.call_sync('replication.get_one_local', name)
             status = client.call_sync('replication.get_status', name)
             if not self.dispatcher.call_sync('replication.get_status', name):
@@ -1716,20 +1715,6 @@ def _init(dispatcher, plugin):
 
     plugin.register_event_type('replication.changed')
 
-    # Generate replication key pair on first run
-    if not dispatcher.configstore.get('replication.key.private') or not dispatcher.configstore.get('replication.key.public'):
-        key = RSAKey.generate(bits=2048)
-        buffer = io.StringIO()
-        key.write_private_key(buffer)
-        dispatcher.configstore.set('replication.key.private', buffer.getvalue())
-        dispatcher.configstore.set('replication.key.public', key.get_base64())
-
-    def on_etcd_resume(args):
-        if args.get('name') != 'etcd.generation':
-            return
-
-        dispatcher.call_sync('etcd.generation.generate_group', 'replication')
-
     def on_replication_change(args):
         for i in args['ids']:
             link = dispatcher.call_sync('replication.local_query', [('name', '=', i)], {'single': True})
@@ -1833,7 +1818,6 @@ def _init(dispatcher, plugin):
                     })
                 s.close()
 
-    plugin.register_event_handler('plugin.service_resume', on_etcd_resume)
     plugin.register_event_handler('replication.changed', on_replication_change)
     plugin.register_event_handler('network.changed', update_link_cache)
     plugin.register_event_handler('zfs.dataset.changed', update_resources)

@@ -557,7 +557,7 @@
         "password_disabled": false,
         "group": "78c17920-b366-4a48-87a1-e7a64eb00450",
         "locked": false,
-        "username": "replication",
+        "username": "freenas",
         "nthash": null,
         "email": null,
         "sshpubkey": null,
@@ -568,7 +568,7 @@
         "attributes": {},
         "sudo": false,
         "groups": ["36dd1308-699e-45b9-ba9e-d3253a14e1d5", "0562d3be-679b-45e3-a220-f9d9a2e938a9"],
-        "home": "/var/tmp/replication",
+        "home": "/nonexistent",
         "unixhash": "*",
         "smbhash": "*",
         "created_at": {

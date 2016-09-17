@@ -1,6 +1,5 @@
-#!/usr/local/bin/python3
-#
-# Copyright 2014-2016 iXsystems, Inc.
+#+
+# Copyright 2016 iXsystems, Inc.
 # All rights reserved
 #
 # Redistribution and use in source and binary forms, with or without
@@ -24,31 +23,13 @@
 # IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #
-
-import sys
-from freenas.dispatcher.client import Client
+#####################################################################
 
 
-def main(username):
-    c = Client()
-    try:
-        if username == 'freenas':
-            c.connect('unix:')
-            c.login_service('authorized-keys-helper')
-            print('\n'.join('ssh-rsa ' + k for k in (
-                c.call_sync('peer.freenas.query', [], {'select': 'credentials.pubkey'}) +
-                c.call_sync('peer.freenas.get_temp_pubkeys')
-            )))
-        else:
-            c.connect('unix:///var/run/dscached.sock')
-            user = c.call_sync('dscached.account.getpwnam', username)
-            if not user.get('sshpubkey'):
-                return
-
-            print(user['sshpubkey'])
-    finally:
-        c.disconnect()
+def probe(obj, ds):
+    return obj['id'].startswith('replication.key')
 
 
-if __name__ == '__main__':
-    main(sys.argv[1])
+def apply(obj, ds):
+    obj['id'] = obj['id'].replace('replication', 'peer.freenas')
+    return obj

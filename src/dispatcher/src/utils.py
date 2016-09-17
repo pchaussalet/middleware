@@ -67,7 +67,7 @@ def delete_config(conf_path, name_mod):
     os.remove(os.path.join(conf_path, '.config-{0}.json'.format(name_mod)))
 
 
-def get_replication_client(parent, remote):
+def get_freenas_peer_client(parent, remote):
     try:
         address = socket.gethostbyname(remote)
     except socket.error as err:
@@ -87,7 +87,7 @@ def get_replication_client(parent, remote):
         raise TaskException(errno.ENOENT, 'There are no known keys to connect to {0}'.format(remote))
 
     with io.StringIO() as f:
-        f.write(parent.configstore.get('replication.key.private'))
+        f.write(parent.configstore.get('peer.freenas.key.private'))
         f.seek(0)
         pkey = RSAKey.from_private_key(f)
 
@@ -99,7 +99,7 @@ def get_replication_client(parent, remote):
             host_key_file.write(remote + ' ' + credentials['hostkey'])
             host_key_file.flush()
             client.connect(
-                'ws+ssh://replication@{0}'.format(remote),
+                'ws+ssh://freenas@{0}'.format(remote),
                 port=credentials['port'],
                 host_key_file=host_key_file.name,
                 pkey=pkey

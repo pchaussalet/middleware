@@ -359,8 +359,8 @@
             "network.netwait.enabled": false,
             "network.netwait.addresses": [],
             "peer.freenas.token_lifetime": 300,
-            "replication.key.public": null,
-            "replication.key.private": null,
+            "peer.freenas.key.public": null,
+            "peer.freenas.key.private": null,
             "replication.auto_recovery_ping_interval": 60,
             "container.network.management": "172.31.254.0/24",
             "container.network.nat": "172.31.255.0/24",
@@ -553,12 +553,6 @@
                     "plugin:ctl"
                 ],
                 "name": "ctl"
-            },
-            "384706a4-6501-4455-91fc-1b9a6c6540b8": {
-                "dependencies": [
-                    "plugin:replication/keys"
-                ],
-                "name": "replication"
             },
             "4f8f208c-046d-41d0-9628-d0699a4e4cdb":{
                 "dependencies": [

@@ -35,7 +35,7 @@ from freenas.dispatcher import AsyncResult
 from freenas.utils import first_or_default
 from freenas.dispatcher.fd import FileDescriptor
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, private
-from utils import get_replication_client, call_task_and_check_state
+from utils import get_freenas_peer_client, call_task_and_check_state
 from task import Task, ProgressTask, Provider, TaskException, VerifyException, TaskDescription
 from libc.stdlib cimport malloc, free
 from posix.unistd cimport read, write
@@ -270,7 +270,7 @@ class TransportSendTask(Task):
         try:
             buffer_size = transport.get('buffer_size', 1024*1024)
             client_address = socket.gethostbyname(transport.get('client_address'))
-            remote_client = get_replication_client(self, client_address)
+            remote_client = get_freenas_peer_client(self, client_address)
             server_address = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
             server_port = transport.get('server_port', 0)
 
@@ -1064,7 +1064,7 @@ class TransportEncryptTask(Task):
                     )
                 )
 
-        remote_client = get_replication_client(self, remote)
+        remote_client = get_freenas_peer_client(self, remote)
         remote_client.call_sync(
             'replication.transport.set_encryption_data',
             token,

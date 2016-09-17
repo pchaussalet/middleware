@@ -36,7 +36,7 @@ import copy
 from datetime import datetime, timedelta
 from freenas.dispatcher.client import Client
 from paramiko import AuthenticationException, RSAKey
-from utils import get_replication_client, call_task_and_check_state
+from utils import get_freenas_peer_client, call_task_and_check_state
 from freenas.utils import exclude, query as q, first_or_default
 from freenas.utils.decorators import limit
 from freenas.dispatcher.rpc import (
@@ -68,7 +68,7 @@ class PeerFreeNASProvider(Provider):
     def get_ssh_keys(self):
         try:
             with open('/etc/ssh/ssh_host_rsa_key.pub') as f:
-                return f.read(), self.configstore.get('replication.key.public')
+                return f.read(), self.configstore.get('peer.freenas.key.public')
         except FileNotFoundError:
             raise RpcException(errno.ENOENT, 'Hostkey file not found')
 
@@ -245,14 +245,14 @@ class FreeNASPeerCreateTask(Task):
                 try:
                     if key_auth:
                         with io.StringIO() as f:
-                            f.write(self.configstore.get('replication.key.private'))
+                            f.write(self.configstore.get('peer.freenas.key.private'))
                             f.seek(0)
                             pkey = RSAKey.from_private_key(f)
 
                         max_tries = 50
                         while True:
                             try:
-                                remote_client.connect('ws+ssh://replication@{0}'.format(remote), pkey=pkey, port=port)
+                                remote_client.connect('ws+ssh://freenas@{0}'.format(remote), pkey=pkey, port=port)
                                 break
                             except AuthenticationException:
                                 if max_tries:
@@ -404,7 +404,7 @@ class FreeNASPeerDeleteTask(Task):
         hostid = self.dispatcher.call_sync('system.info.host_uuid')
         try:
             try:
-                remote_client = get_replication_client(self, remote)
+                remote_client = get_freenas_peer_client(self, remote)
 
                 call_task_and_check_state(
                     remote_client,
@@ -520,7 +520,7 @@ class FreeNASPeerUpdateRemoteTask(Task):
             raise TaskException(errno.ENOENT, 'FreeNAS peer entry {0} does not exist'.format(id))
 
         try:
-            remote_client = get_replication_client(self, peer['credentials']['address'])
+            remote_client = get_freenas_peer_client(self, peer['credentials']['address'])
             remote_peer = remote_client.call_sync('peer.query', [('id', '=', hostid)], {'single': True})
             if not remote_peer:
                 raise TaskException(errno.ENOENT, 'Remote side of peer {0} does not exist'.format(peer['name']))
@@ -654,3 +654,11 @@ def _init(dispatcher, plugin):
     # Register event handlers
     plugin.register_event_handler('service.sshd.changed', on_connection_change)
     plugin.register_event_handler('system.general.changed', on_connection_change)
+
+    # Generate freenas key pair on first run
+    if not dispatcher.configstore.get('peer.freenas.key.private') or not dispatcher.configstore.get('peer.freenas.key.public'):
+        key = RSAKey.generate(bits=2048)
+        buffer = io.StringIO()
+        key.write_private_key(buffer)
+        dispatcher.configstore.set('peer.freenas.key.private', buffer.getvalue())
+        dispatcher.configstore.set('peer.freenas.key.public', key.get_base64())
