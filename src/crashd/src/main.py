@@ -42,7 +42,8 @@ from bsd import sysctl
 
 LOGGING_FORMAT = '%(asctime)s %(levelname)s %(filename)s:%(lineno)d %(message)s'
 REPORTS_PATH = '/var/tmp/crash'
-API_ENDPOINT_PATH = 'https://ext-data.ixsystems.com/wormhole/api/v1/errors/add/index.php'
+API_ENDPOINT_PATH = 'https://api.rollbar.com/api/1/item/'
+ACCESS_TOKEN = 'f65476dd78a74cde8ce5899aa3f4b58c'
 RETRY_INTERVAL = 1800
 logger = logging.getLogger('crashd')
 
@@ -79,16 +80,16 @@ class Main(object):
         if ext == '.json':
             try:
                 jdata = json.loads(data)
-                jdata['type'] = int(getattr(ReportType, jdata['type'].upper()))
+                jdata['type'] = getattr(ReportType, jdata['type'].upper()).name
             except ValueError:
                 logger.warning('Cannot decode JSON from {0}'.format(path))
-                os.unlink(path)
+                #os.unlink(path)
                 return
 
         elif ext == '.log':
             jdata = {
                 'timestamp': datetime.datetime.now(),
-                'type': int(ReportType.ERROR)
+                'type': ReportType.ERROR.name
             }
 
         else:
@@ -98,12 +99,23 @@ class Main(object):
 
         jdata['uuid'] = self.hostuuid
         jdata['format'] = 'json'
+        jdata['body'] = jdata['message']
 
         logger.info('Sending report {0}...'.format(path))
         logger.debug('jdata: {0}'.format(json.dumps(jdata)))
 
+        report = {
+            'access_token': ACCESS_TOKEN,
+            'data': {
+                'environment': 'production',
+                'body': {
+                    'message': jdata
+                }
+            }
+        }
+
         try:
-            response = requests.post(API_ENDPOINT_PATH, json=jdata, headers={'Content-Type': 'application/json'})
+            response = requests.post(API_ENDPOINT_PATH, json=report, headers={'Content-Type': 'application/json'})
             if response.status_code != 200:
                 logger.warning('Cannot send report {0}: Server error code: {1}'.format(path, response.status_code))
                 return
