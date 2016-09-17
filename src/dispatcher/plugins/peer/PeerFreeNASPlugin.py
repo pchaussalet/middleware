@@ -47,7 +47,7 @@ from task import Task, Provider, TaskException, TaskWarning, VerifyException, qu
 
 logger = logging.getLogger(__name__)
 
-auth_code_lifetime = 300
+auth_code_lifetime = None
 
 ssh_port = None
 auth_codes = []
@@ -591,8 +591,10 @@ def _metadata():
 def _init(dispatcher, plugin):
     global ssh_port
     global hostname
+    global auth_code_lifetime
     ssh_port = dispatcher.call_sync('service.sshd.get_config')['port']
     hostname = dispatcher.call_sync('system.general.get_config')['hostname']
+    auth_code_lifetime = dispatcher.configstore.get('peer.freenas.token_lifetime')
 
     # Register schemas
     plugin.register_schema_definition('freenas-credentials', {

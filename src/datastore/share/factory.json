@@ -358,6 +358,7 @@
             "network.dhcp.assign_dns": true,
             "network.netwait.enabled": false,
             "network.netwait.addresses": [],
+            "peer.freenas.token_lifetime": 300,
             "replication.key.public": null,
             "replication.key.private": null,
             "replication.auto_recovery_ping_interval": 60,
