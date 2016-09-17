@@ -82,10 +82,12 @@ class MDNSDiscoveryPlugin(NeighborDiscoveryPlugin):
 
         def resolve_callback(sdref, flags, ifindex, error, fullname, hosttarget, port, txt_record):
             with cv:
+                txt = pybonjour.TXTRecord.parse(txt_record)
                 services.append({
                     'fullname': fullname,
                     'hosttarget': hosttarget,
-                    'port': port
+                    'port': port,
+                    'properties': {n: txt[n] for n in txt}
                 })
                 cv.notify()
 
