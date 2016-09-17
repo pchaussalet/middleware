@@ -105,7 +105,7 @@ Group www
 </IfModule>
 
 <IfModule dir_module>
-    DirectoryIndex index.html
+    DirectoryIndex disabled
 </IfModule>
 
 <Files ".ht*">
