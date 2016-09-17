@@ -746,12 +746,13 @@ class Dispatcher(object):
         return ServerLockProxy(self, name)
 
     def report_error(self, message, exception):
-        if not os.path.isdir('/var/tmp/crash'):
-            try:
-                os.mkdir('/var/tmp/crash')
-            except:
-                # at least we tried
-                return
+        self.logger.debug('Reporting error: {0}'.format(message))
+
+        try:
+            os.makedirs('/var/tmp/crash', exist_ok=True)
+        except:
+            # at least we tried
+            return
 
         report = {
             'timestamp': str(datetime.datetime.utcnow()),
@@ -759,14 +760,14 @@ class Dispatcher(object):
             'application': 'dispatcher',
             'message': message,
             'exception': str(exception),
-            'traceback': traceback.format_exc()
+            'traceback': '\n'.join(traceback.format_tb(exception.__traceback__))
         }
 
         try:
             with tempfile.NamedTemporaryFile(dir='/var/tmp/crash', mode='w', suffix='.json', prefix='report-', delete=False) as f:
                 json.dump(report, f, indent=4)
-        except:
-            # at least we tried
+        except BaseException as err:
+            self.logger.debug('Cannot write error report: {0}'.format(str(err)))
             pass
 
     def die(self):
