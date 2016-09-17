@@ -150,22 +150,31 @@ class OpenVpnConfigureTask(Task):
 
         if node['mode'] == 'pki':
 
-                ca_cert = self.datastore.query('crypto.certificates',
-                                               ('name', '=', node['ca']), select=('id'))
-                if not ca_cert:
-                    raise TaskException(errno.EINVAL,
-                                        'Provided CA certificate does not exist in config database.')
-                else:
-                        openvpn_updated['ca'] = ca_cert[0]
+                ca_cert_id = self.datastore.query('crypto.certificates',
+                                                  ('name', '=', node['ca']), select=('id'))
+                ca_cert_name = self.datastore.query('crypto.certificates',
+                                                    ('id', '=', node['ca']), select=('name'))
 
-                server_certyficate = self.datastore.query('crypto.certificates',
-                                                          ('name', '=', node['cert']), select=('id'))
-                if not server_certyficate:
-                    raise TaskException(errno.EINVAL,
-                                        'Provided certificate does not exist in config database.')
+                if not ca_cert_id:
+                    if not ca_cert_name:
+                        raise TaskException(errno.EINVAL,
+                                            'Provided CA certificate does not exist in config database.')
+
                 else:
-                    openvpn_updated['cert'] = server_certyficate[0]
-                    openvpn_updated['key'] = server_certyficate[0]
+                        openvpn_updated['ca'] = ca_cert_id[0]
+
+                cert_id = self.datastore.query('crypto.certificates',
+                                               ('name', '=', node['cert']), select=('id'))
+                cert_name = self.datastore.query('crypto.certificates',
+                                                 ('id', '=', node['cert']), select=('name'))
+
+                if not cert_id:
+                    if not cert_name:
+                        raise TaskException(errno.EINVAL,
+                                            'Provided certificate does not exist in config database.')
+                else:
+                    openvpn_updated['cert'] = cert_id[0]
+                    openvpn_updated['key'] = cert_id[0]
 
                 openvpn_user = self.datastore.exists('users', ('username', '=', node['user']))
                 if not openvpn_user:
@@ -276,6 +285,7 @@ class BridgeOpenVPNtoLocalNetwork(Task):
         if node['mode'] == 'psk':
             raise TaskException(errno.EPERM, 'Bridging VPN capabilities only in pki mode.')
 
+        # This feels like a not so good solution - feel free to change
         vpn_service_files = system('/usr/local/sbin/lsof', '-p', str(vpn_state['pid']))[0]
 
         for line in vpn_service_files.split('\n'):
@@ -299,15 +309,27 @@ class BridgeOpenVPNtoLocalNetwork(Task):
         if not default_interface:
             raise TaskException(errno.EINVAL, 'No default interface configured. Verify network setup.')
 
-        interface_list = list(netif.list_interfaces().keys())
+        # Heavily inspired by containterd
+        available_bridges = list(b for b in netif.list_interfaces().keys()
+                                 if isinstance(netif.get_interface(b), netif.BridgeInterface))
 
-        if 'VPNbridge' not in interface_list:
-            bridge_interface = netif.get_interface(netif.create_interface('bridge'))
-            bridge_interface.rename('VPNbridge')
-            bridge_interface.description = 'OpenVPN bridge interface'
+        for b in available_bridges:
+            bridge_interface = netif.get_interface(b, bridge=True)
+            if default_interface in bridge_interface.members:
+                try:
+                    bridge_interface.add_member(vpn_interface_name)
+                except FileExistsError:
+                    pass
+
+                break
 
         else:
-            bridge_interface = netif.get_interface('VPNbridge')
+            bridge_interface = netif.get_interface(netif.create_interface('bridge'))
+            bridge_interface.rename('brg{0}'.format(len(available_bridges)))
+            bridge_interface.description = 'OpenVPN bridge interface'
+            bridge_interface.up()
+            bridge_interface.add_member(default_interface)
+            bridge_interface.add_member(vpn_interface_name)
 
         if node['server_bridge_extended']:
             subnet = ipaddress.ip_interface('{0}/{1}'.format(node['server_bridge_ip'],
@@ -316,29 +338,6 @@ class BridgeOpenVPNtoLocalNetwork(Task):
                 netif.AddressFamily.INET,
                 subnet
             ))
-
-        try:
-            bridge_interface.add_member(default_interface)
-
-        except FileExistsError as e:
-            logger.info('Default interface already bridged: {0}'.format(e))
-
-        except OSError as e:
-            raise TaskException(errno.EBUSY,
-                                'Default interface busy - check other bridge interfaces. {0}'.format(e))
-
-        try:
-            bridge_interface.add_member(vpn_interface_name)
-
-        except FileExistsError as e:
-            logger.info('OpenVPN interface already bridged: {0}'.format(e))
-
-        except OSError as e:
-            raise TaskException(errno.EBUSY,
-                                'VPN interface busy - check other bridge interfaces. {0}'.format(e))
-
-        else:
-            bridge_interface.up()
 
 
 def _depends():
