@@ -122,6 +122,8 @@ class SystemGeneralProvider(Provider):
     def get_config(self):
         return {
             'hostname': self.configstore.get('system.hostname'),
+            'description': self.configstore.get('system.description'),
+            'tags': self.configstore.get('system.tags'),
             'language': self.configstore.get('system.language'),
             'timezone': self.configstore.get('system.timezone'),
             'syslog_server': self.configstore.get('system.syslog_server'),
@@ -259,6 +261,12 @@ class SystemGeneralConfigureTask(Task):
     def run(self, props):
         if 'hostname' in props:
             netif.set_hostname(props['hostname'])
+
+        if 'description' in props:
+            self.configstore.set('system.description', props['description'])
+
+        if 'tags' in props:
+            self.configstore.set('system.tags', props['tags'])
 
         if 'language' in props:
             self.configstore.set('system.language', props['language'])
@@ -643,6 +651,11 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'properties': {
             'hostname': {'type': 'string'},
+            'description': {'type': 'string'},
+            'tags': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            },
             'language': {'type': 'string'},
             'timezone': {'type': 'string'},
             'console_keymap': {'type': 'string'},
