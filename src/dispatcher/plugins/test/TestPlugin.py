@@ -224,6 +224,21 @@ class FailingTask(ProgressTask):
         os.abort()
 
 
+class UnreasonableErrorTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return 'Task raising unreasonable error test'
+
+    def describe(self):
+        return TaskDescription('Task raising unreasonable error test')
+
+    def verify(self):
+        return []
+
+    def run(self):
+        raise ZeroDivisionError('universe explodes')
+
+
 class TestAbortTask(Task):
     @classmethod
     def early_describe(cls):
