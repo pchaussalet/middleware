@@ -318,11 +318,12 @@ class BackupSyncTask(ProgressTask):
         new_manifest, snaps = self.generate_manifest(backup, manifest, actions)
 
         for idx, i in enumerate(snaps):
+            ds, tosnap = i['name'].split('@')
             rfd, wfd = os.pipe()
             progress = float(idx) / len(snaps) * 100
             self.set_progress(progress, 'Uploading stream of {0}'.format(i['name']))
             self.join_subtasks(
-                self.run_subtask('zfs.send', i['name'], i.get('anchor'), i.get('anchor'), FileDescriptor(wfd)),
+                self.run_subtask('zfs.send', ds, i.get('anchor'), tosnap, FileDescriptor(wfd)),
                 self.run_subtask(
                     'backup.{0}.put'.format(backup['provider']),
                     backup['properties'],
