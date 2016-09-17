@@ -276,5 +276,6 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('test.test_warnings', TestWarningsTask)
     plugin.register_task_handler('test.progress', ProgressTestTask)
     plugin.register_task_handler('test.failing', FailingTask)
+    plugin.register_task_handler('test.unreasonable_error', UnreasonableErrorTask)
     plugin.register_task_handler('test.abort', TestAbortTask)
     plugin.register_task_handler('test.abort.subtask', TestAbortSubtask)
