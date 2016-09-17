@@ -83,11 +83,6 @@ class BackupSSHInitTask(Task):
         return []
 
     def run(self, backup):
-        normalize(backup['properties'], {
-            'privkey': None,
-            'hostkey': None
-        })
-
         return backup['properties']
 
 
@@ -204,7 +199,7 @@ def open_ssh_connection(dispatcher, backup):
 
     creds = peer['credentials']
     try:
-        session = transport.Transport(peer['address'], creds.get('port', 22))
+        session = transport.Transport(creds['address'], creds.get('port', 22))
         session.window_size = 1024 * 1024 * 1024
         session.packetizer.REKEY_BYTES = pow(2, 48)
         session.packetizer.REKEY_PACKETS = pow(2, 48)
