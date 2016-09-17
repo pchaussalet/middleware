@@ -79,6 +79,7 @@ class MDNSDiscoveryPlugin(NeighborDiscoveryPlugin):
         found = 0
         done = False
         cv = threading.Condition()
+        regtype = '_{0}._tcp'.format(type)
 
         def resolve_callback(sdref, flags, ifindex, error, fullname, hosttarget, port, txt_record):
             with cv:
@@ -110,7 +111,7 @@ class MDNSDiscoveryPlugin(NeighborDiscoveryPlugin):
                 found += 1
                 cv.notify()
 
-        sdref = pybonjour.DNSServiceBrowse(regtype=type, callBack=browse_callback)
+        sdref = pybonjour.DNSServiceBrowse(regtype=regtype, callBack=browse_callback)
         self.event_loop.register(sdref)
         with cv:
             cv.wait_for(lambda: done and found == len(services))
@@ -124,8 +125,9 @@ class MDNSDiscoveryPlugin(NeighborDiscoveryPlugin):
                 domain
             ))
 
+        regtype = '_{0}._tcp'.format(type)
         txt = pybonjour.TXTRecord(items=(properties or {}))
-        sdref = pybonjour.DNSServiceRegister(name=name, regtype=type, port=port, callBack=callback, txtRecord=txt)
+        sdref = pybonjour.DNSServiceRegister(name=name, regtype=regtype, port=port, callBack=callback, txtRecord=txt)
         self.event_loop.register(sdref)
 
     def unregister(self, type, name, port):
