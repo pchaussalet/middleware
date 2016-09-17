@@ -46,9 +46,9 @@ def run(context):
 
     os.makedirs('/usr/local/etc/consul.d', exist_ok=True)
 
-    with open('/usr/local/etc/consul.d/consul.conf', 'w') as f:
+    with open('/usr/local/etc/consul.d/consul.json', 'w') as f:
         json.dump(config, f, indent=4)
 
     context.emit_event('etcd.file_generated', {
-        'name': '/usr/local/etc/consul.d/consul.conf'
+        'name': '/usr/local/etc/consul.d/consul.json'
     })
