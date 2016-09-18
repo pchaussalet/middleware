@@ -113,7 +113,11 @@ class VMProvider(Provider):
             return os.path.join('/dev/zvol', vm['target'], 'vm', vm['name'], disk_name)
 
         if disk['type'] == 'CDROM':
-            return disk['properties']['path']
+            path = disk['properties']['path']
+            if os.path.isabs(path):
+                return path
+            else:
+                return os.path.join(self.dispatcher.call_sync('vm.get_dataset', vm_id), path)
 
     @private
     @accepts(str, str)
