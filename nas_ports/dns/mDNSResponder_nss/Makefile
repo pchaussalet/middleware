@@ -1,10 +1,9 @@
 # $FreeBSD$
 
 PORTNAME=	mDNSResponder
-PORTVERSION=	576.30.4
+PORTVERSION=	625.41.2
 PORTREVISION=	1
 CATEGORIES=	dns net
-MASTER_SITES=	http://opensource.apple.com/tarballs/mDNSResponder/
 PKGNAMESUFFIX=	_nss
 
 MAINTAINER=	mazhe@alkumuna.eu
@@ -16,14 +15,24 @@ LICENSE_COMB=	dual
 LIB_DEPENDS=	libdns_sd.so:${PORTSDIR}/net/mDNSResponder
 
 CONFLICTS_INSTALL=	nss_mdns-[0-9]*
+EXTRACT_ONLY=
 
-WRKSRC=		${WRKDIR}/${PORTNAME:S/_nss//}-${PORTVERSION}
+WRKSRC=		/usr/mDNSResponder_src
 
 .include <bsd.port.pre.mk>
 
 .if ${ARCH:C/^(...).*/\1/} == "arm"
 LD=${CC}
 .endif
+
+checksum:
+	${ECHO_CMD} ${.TARGET} not needed because building direct
+
+fetch:
+	:
+
+extract:
+	:
 
 post-extract:
 	@${CP} ${FILESDIR}/nss_mdns_freebsd.c ${WRKSRC}/mDNSPosix
