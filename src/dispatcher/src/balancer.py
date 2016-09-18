@@ -683,7 +683,7 @@ class Balancer(object):
                 task.ended.set()
                 self.distribution_lock.release()
 
-                if not isinstance(Exception, VerifyException):
+                if not isinstance(err, VerifyException):
                     self.dispatcher.report_error('Task {0} verify() method raised invalid exception', err)
 
                 continue
