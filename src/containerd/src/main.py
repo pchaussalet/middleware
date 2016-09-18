@@ -321,6 +321,14 @@ class VirtualMachine(object):
                     if bridge_if == 'default':
                         bridge_if = self.context.client.call_sync('networkd.configuration.get_default_interface')
 
+                    if_by_description = self.context.client.call_sync(
+                        'network.interface.query',
+                        [('name', '=', bridge_if)],
+                        {'single': True, 'select': 'id'}
+                    )
+                    if if_by_description:
+                        bridge_if = if_by_description
+
                     try:
                         target_if = netif.get_interface(bridge_if)
                     except KeyError:

@@ -456,7 +456,12 @@ class VMBaseTask(ProgressTask):
 
             brigde = res['properties'].get('bridge', 'default')
             if brigde != 'default':
-                if not self.dispatcher.call_sync('network.interface.query', [('id', '=', brigde)], {'single': True}):
+                if_exists = self.dispatcher.call_sync(
+                    'network.interface.query',
+                    [('or', [('id', '=', brigde), ('name', '=', brigde)])],
+                    {'single': True}
+                )
+                if not if_exists:
                     raise TaskException(
                         errno.ENOENT,
                         'Cannot create a bridge to {0}. Interface does not exist'.format(brigde)
@@ -532,7 +537,12 @@ class VMBaseTask(ProgressTask):
         if new_res['type'] == 'NIC':
             brigde = new_res['properties'].get('bridge', 'default')
             if brigde != 'default':
-                if not self.dispatcher.call_sync('network.interface.query', [('id', '=', brigde)], {'single': True}):
+                if_exists = self.dispatcher.call_sync(
+                    'network.interface.query',
+                    [('or', [('id', '=', brigde), ('name', '=', brigde)])],
+                    {'single': True}
+                )
+                if not if_exists:
                     raise TaskException(
                         errno.ENOENT,
                         'Cannot create a bridge to {0}. Interface does not exist'.format(brigde)
