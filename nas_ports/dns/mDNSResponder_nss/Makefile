@@ -34,9 +34,6 @@ fetch:
 extract:
 	:
 
-post-extract:
-	@${CP} ${FILESDIR}/nss_mdns_freebsd.c ${WRKSRC}/mDNSPosix
-
 do-build:
 	(cd ${WRKSRC}/mDNSPosix && ${CC} ${CFLAGS} -c -std=c99 -Wall -fPIC \
 		-I. -I${PREFIX}/include -DPREFIX=\"${PREFIX}\" \
