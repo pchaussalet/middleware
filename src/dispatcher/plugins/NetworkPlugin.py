@@ -170,6 +170,7 @@ class CreateInterfaceTask(Task):
         name = self.dispatcher.call_sync('networkd.configuration.get_next_name', type)
         normalize(iface, {
             'id': name,
+            'name': None,
             'type': type,
             'cloned': True,
             'enabled': True,
