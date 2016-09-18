@@ -32,7 +32,7 @@ import bsd.kld
 from task import Provider
 from lib.system import system, SubprocessException
 from lib.geom import confxml
-from freenas.dispatcher.rpc import accepts, returns, description, SchemaHelper as h
+from freenas.dispatcher.rpc import RpcException, accepts, returns, description, SchemaHelper as h
 from freenas.utils.decorators import delay
 from freenas.utils.trace_logger import TRACE
 
@@ -52,7 +52,11 @@ class SwapProvider(Provider):
 def get_available_disks(dispatcher):
     disks = []
     for i in dispatcher.call_sync('volume.query'):
-        disks += dispatcher.call_sync('volume.get_volume_disks', i['id'])
+        try:
+            disks += dispatcher.call_sync('volume.get_volume_disks', i['id'])
+        except RpcException as err:
+            logger.warning('Cannot get disks from volume {0}: {1}'.format(i['id'], str(err)))
+            continue
 
     return disks
 
