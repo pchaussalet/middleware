@@ -1558,7 +1558,7 @@ class Main(object):
             if sysctl.sysctlbyname('hw.vmm.vmx.initialized'):
                 vtx_enabled = True
 
-            if sysctl.sysctlbyname('hw.vmm.svm.features') != 0:
+            if sysctl.sysctlbyname('hw.vmm.svm.features') > 0:
                 svm_features = True
 
             if sysctl.sysctlbyname('hw.vmm.vmx.cap.unrestricted_guest'):
