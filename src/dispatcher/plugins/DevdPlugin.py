@@ -30,10 +30,10 @@ import re
 import netif
 import time
 import io
-import errno
 from xml.etree import ElementTree
 from bsd import geom
 from bsd import devinfo
+from bsd import sysctl
 from event import EventSource
 from task import Provider
 from freenas.dispatcher.rpc import accepts, returns, description
@@ -41,7 +41,7 @@ from freenas.dispatcher.rpc import RpcException, SchemaHelper as h
 from gevent import socket
 from lib.freebsd import get_sysctl
 from lib.system import system, SubprocessException
-from freenas.utils import exclude
+from freenas.utils import exclude, query as q
 
 
 @description("Provides information about devices installed in the system")
@@ -428,3 +428,9 @@ def _init(dispatcher, plugin):
 
     plugin.register_provider('system.device', DeviceInfoProvider)
     plugin.register_provider('system.dmi', DMIDataProvider)
+
+    # Set kern.hostuuid to the correct thing
+    dmi = dispatcher.call_sync('system.dmi.get')
+    hostuuid = q.get(dmi, 'System Information.UUID')
+    if hostuuid:
+        sysctl.sysctlbyname('kern.hostuuid', new=hostuuid.lower())
