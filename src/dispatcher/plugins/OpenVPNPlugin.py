@@ -24,7 +24,6 @@
 #
 #####################################################################
 
-import re
 import netif
 import errno
 import logging
@@ -41,19 +40,34 @@ logger = logging.getLogger(__name__)
 
 @description('Provides OpenVPN service configuration')
 class OpenVpnProvider(Provider):
-    """ I think that some of the information here needs to be excluded using exclude() 
-        I need consultaion on that.        
+    """ I think that some of the information here needs to be excluded using exclude()
+        I need consultaion on that.
     """
     @returns(h.ref('service-openvpn'))
     def get_config(self):
         return ConfigNode('service.openvpn', self.configstore).__getstate__()
 
+    @returns(h.ref('service-openvpn'))
+    def get_readable_config(self):
+        vpn_config = ConfigNode('service.openvpn', self.configstore).__getstate__()
+
+        if vpn_config['ca']:
+            vpn_config['ca'] = self.datastore.query('crypto.certificates',
+                                                    ('id', '=', vpn_config['ca']), select=('name'))[0]
+        if vpn_config['cert']:
+            vpn_config['cert'] = self.datastore.query('crypto.certificates',
+                                                      ('id', '=', vpn_config['cert']), select=('name'))[0]
+        if vpn_config['key']:
+            vpn_config['key'] = self.datastore.query('crypto.certificates',
+                                                     ('id', '=', vpn_config['key']), select=('name'))[0]
+
+        return vpn_config
 
 @description('Provides corresponding OpenVPN client configuration')
 class OpenVPNClientConfigProvider(Provider):
     """This provider is responsible for returning corresponding client configuration.
        provide_tls_auth_key retruns generated static key which needs to by copied to
-       the client OpenVPN directory with 'ta.key' file name. 
+       the client OpenVPN directory with 'ta.key' file name.
     """
     @returns(str)
     def provide_config(self):
@@ -67,16 +81,12 @@ class OpenVPNClientConfigProvider(Provider):
 
     @returns(str)
     def provide_tls_auth_key(self):
-        node = ConfigNode('service.openvpn', self.configstore).__getstate__()	
+        node = ConfigNode('service.openvpn', self.configstore).__getstate__()
         return node['tls_auth']
 
 
 @description('Creates OpenVPN config file')
-@accepts(
-    h.all_of(
-        h.ref('service-openvpn'),
-        h.required('dev', 'ca', 'cert', 'key', 'cipher', 'port', 'proto')
-    ))
+@accepts(h.ref('service-openvpn'))
 class OpenVpnConfigureTask(Task):
     @classmethod
     def early_describe(cls):
@@ -85,21 +95,40 @@ class OpenVpnConfigureTask(Task):
     def describe(self, openvpn):
         return TaskDescription('Configuring OpenVPN service')
 
-    def verify(self, openvpn):
-        return ['system']
-
-    def run(self, openvpn):
-        interface_pattern = '(tap|tun)[0-9]'
+    def verify(self, openvpn_updated):
         node = ConfigNode('service.openvpn', self.configstore).__getstate__()
-        node.update(openvpn)
+        node.update(openvpn_updated)
 
-        if not re.search(interface_pattern, node['dev']):
-            raise TaskException(
-                errno.EINVAL,
-                '{0} Bad interface name. Allowed values tap/tun[0-9].'.format(node['dev'])
-            )
+        if node['dev'] not in ['tap', 'tun']:
+            raise VerifyException(errno.EINVAL,
+                                  '{0} Bad interface name. Allowed values tap/tun.'.format(node['dev']))
+        if ((node['mode'] == 'pki' and node['dev'].startswith('tun'))
+                or (node['mode'] == 'psk' and node['dev'].startswith('tap'))):
+            raise VerifyException(errno.EINVAL,
+                                  'tap interfaces can be used with pki scenario and tun with psk mode')
 
-        if node['server_bridge_extended']:
+        if node['mode'] == 'pki' and (not node['ca'] or not node['cert']):
+            raise VerifyException(errno.EINVAL,
+                                  'For pki VPN mode ca and certyficate values are required')
+
+        if node['mode'] == 'psk':
+            try:
+                ipaddress.ip_address(node['psk_server_ip'])
+                ipaddress.ip_address(node['psk_remote_ip'])
+            except ValueError as e:
+                raise VerifyException(errno.EINVAL, str(e))
+
+        if (node['server_bridge_extended']
+            and not (node['server_bridge_ip'] or node['server_bridge_netmask']
+                     or node['server_bridge_range_begin'] or node['server_bridge_range_end'])):
+
+            raise VerifyException(errno.EINVAL,
+                                  'For pki server_bridge_extended mode all server_bridge values are required')
+
+
+
+
+        if node['mode'] == 'pki' and node['server_bridge_extended']:
             try:
                 bridge_ip = ipaddress.ip_address(node['server_bridge_ip'])
                 netmask = node['server_bridge_netmask']
@@ -108,54 +137,66 @@ class OpenVpnConfigureTask(Task):
                 subnet = ipaddress.ip_network('{0}/{1}'.format(bridge_ip, netmask), strict=False)
 
             except ValueError as e:
-                raise TaskException(errno.EINVAL, str(e))
+                raise VerifyException(errno.EINVAL, str(e))
 
             if (ip_range_begin not in subnet) or (ip_range_end not in subnet):
-                raise TaskException(
-                    errno.EINVAL,
-                    'Provided range of remote client IP adresses is invalid.'
-                )
+                raise VerifyException(errno.EINVAL,
+                                      'Provided range of remote client IP adresses is invalid.')
 
             if (bridge_ip >= ip_range_begin) and (bridge_ip <= ip_range_end):
-                raise TaskException(
-                    errno.EINVAL,
-                    'Provided bridge IP address is in the client ip range.'
-                )
+                raise VerifyException(errno.EINVAL,
+                                      'Provided bridge IP address is in the client ip range.')
+        if node['mode'] == 'pki':
+            if (node['keepalive_ping_interval'] * 2) >= node['keepalive_peer_down']:
+                raise VerifyException(errno.EINVAL, 'The second parameter to keepalive must be'
+                                      'at least twice the value of the first parameter.'
+                                      'Recommended setting is keepalive 10 60.')
 
-        if (node['keepalive_ping_interval'] * 2) >= node['keepalive_peer_down']:
-            raise TaskException(
-                errno.EINVAL,
-                'The second parameter to keepalive must be'
-                'at least twice the value of the first parameter.'
-                'Recommended setting is keepalive 10 60.'
-            )
+        return ['system']
 
-        ca_cert = self.datastore.get_by_id('crypto.certificates', node['ca'])
-        if not ca_cert:
-            raise TaskException(errno.EINVAL,
-                                'Provided CA certificate does not exist in config database.')
+    def run(self, openvpn_updated):
+        node = ConfigNode('service.openvpn', self.configstore).__getstate__()
+        node.update(openvpn_updated)
 
-        server_private_key = self.datastore.get_by_id('crypto.certificates', node['key'])
-        if not server_private_key:
-            raise TaskException(errno.EINVAL,
-                                'Provided private key does not exist in config database.')
+        if node['mode'] == 'pki':
 
-        server_certyficate = self.datastore.get_by_id('crypto.certificates', node['cert'])
-        if not server_certyficate:
-            raise TaskException(errno.EINVAL,
-                                'Provided certificate does not exist in config database.')
+                ca_cert_id = self.datastore.query('crypto.certificates',
+                                                  ('name', '=', node['ca']), select=('id'))
+                ca_cert_name = self.datastore.query('crypto.certificates',
+                                                    ('id', '=', node['ca']), select=('name'))
 
-        openvpn_user = self.datastore.exists('users', ('username', '=', node['user']))
-        if not openvpn_user:
-            raise TaskException(errno.EINVAL, 'Provided user does not exist.')
+                if not ca_cert_id:
+                    if not ca_cert_name:
+                        raise TaskException(errno.EINVAL,
+                                            'Provided CA certificate does not exist in config database.')
 
-        openvpn_group = self.datastore.exists('groups', ('name', '=', node['group']))
-        if not openvpn_group:
-            raise TaskException(errno.EINVAL, 'Provided user does not exist.')
+                else:
+                        openvpn_updated['ca'] = ca_cert_id[0]
+
+                cert_id = self.datastore.query('crypto.certificates',
+                                               ('name', '=', node['cert']), select=('id'))
+                cert_name = self.datastore.query('crypto.certificates',
+                                                 ('id', '=', node['cert']), select=('name'))
+
+                if not cert_id:
+                    if not cert_name:
+                        raise TaskException(errno.EINVAL,
+                                            'Provided certificate does not exist in config database.')
+                else:
+                    openvpn_updated['cert'] = cert_id[0]
+                    openvpn_updated['key'] = cert_id[0]
+
+                openvpn_user = self.datastore.exists('users', ('username', '=', node['user']))
+                if not openvpn_user:
+                    raise TaskException(errno.EINVAL, 'Provided user does not exist.')
+
+                openvpn_group = self.datastore.exists('groups', ('name', '=', node['group']))
+                if not openvpn_group:
+                    raise TaskException(errno.EINVAL, 'Provided user does not exist.')
 
         try:
             node = ConfigNode('service.openvpn', self.configstore)
-            node.update(openvpn)
+            node.update(openvpn_updated)
 
             self.dispatcher.call_sync('etcd.generation.generate_group', 'openvpn')
             self.dispatcher.dispatch_event('service.openvpn.changed', {
@@ -175,7 +216,7 @@ class OpenVpnConfigureTask(Task):
 class OpenVPNGenerateKeys(Task):
     """ To get it working properly you need to set appropriate timeout on dipatcher client.
         Generation of 2048 bit dh parameters can take a long time.
-        Maybe this task should be ProgressTask type? - need consultation on that 
+        Maybe this task should be ProgressTask type? - need consultation on that
     """
     @classmethod
     def early_describe(cls):
@@ -189,7 +230,11 @@ class OpenVPNGenerateKeys(Task):
             raise VerifyException(errno.EINVAL, 'Type dh-parameters or tls-auth-key')
 
         if key_length and key_type == 'dh-parameters':
-            if key_length not in [1024, 2048]:	
+            if key_length not in [1024, 2048]:
+                raise VerifyException(errno.EINVAL,
+                                      'You have to chose between 1024 and 2048 bits.')
+
+        if not key_length and key_type == 'dh-parameters':
                 raise VerifyException(errno.EINVAL,
                                       'You have to chose between 1024 and 2048 bits.')
 
@@ -220,111 +265,122 @@ class OpenVPNGenerateKeys(Task):
         except RpcException as e:
             raise TaskException(errno.ENXIO,
                                 'Cannot reconfigure OpenVPN: {0}'.format(str(e)))
-            
+
         except SubprocessException as e:
             raise TaskException(errno.ENOENT,
                                 'Cannont create requested key - check your system setup {0}'.format(e))
 
 
-@accepts(bool)
+@accepts()
 @description("Bridges VPN tap interface to the main iterface provided by networkd")
 class BridgeOpenVPNtoLocalNetwork(Task):
-    """ This is acctually all wrong. This interfere with containterd and should be managed by networkd.
-        Look at it as a PoC of my approach. 
-    """
+
     @classmethod
     def early_describe(cls):
         return 'Bridging OpenVPN to main interface'
 
-    def describe(self, enabled):
+    def describe(self):
         return TaskDescription('Bridging OpenVPN to main interface')
 
-    def verify(self, bridge_enable=False):
+    def verify(self):
         return['system']
 
-    def run(self, bridge_enable=False):
-        vpn_interface = self.configstore.get('service.openvpn.dev')
-        if bridge_enable:
-            try:
-                vpn_interface = netif.get_interface(vpn_interface)
-
-            except KeyError:
-                raise TaskException(
-                    errno.EINVAL,
-                    '{0} interface does not exist - Verify OpenVPN status'.format(vpn_interface)
-                )
-
-            default_interface = self.dispatcher.call_sync('networkd.configuration.get_default_interface')
-            if not default_interface:
-                raise TaskException(errno.EINVAL, 'No default interface configured. Verify network setup.')
-
+    def run(self):
+        vpn_state = self.dispatcher.call_sync('service.query', [('name', '=', 'openvpn')], {'single': True})
         node = ConfigNode('service.openvpn', self.configstore).__getstate__()
-        interface_list = list(netif.list_interfaces().keys())
+
+        if vpn_state['state'] != 'RUNNING':
+            raise TaskException(errno.EPERM, 'For bridging VPN capabilities openvpn needs to be running.')
+
+        if node['mode'] == 'psk':
+            raise TaskException(errno.EPERM, 'Bridging VPN capabilities only in pki mode.')
+
+        # This feels like a not so good solution - feel free to change
+        tap_interfaces = netif.get_ifgroup('tap')
+
+        for vpn_interface_name in tap_interfaces:
+            tap_pids = system('/usr/bin/fuser', '/dev/' + vpn_interface_name)[0].split()
+            if vpn_state['pid'] in tap_pids:
+                    break
+
+        try:
+            vpn_interface = netif.get_interface(vpn_interface_name)
+
+        except KeyError:
+            raise TaskException(
+                errno.EINVAL,
+                '{0} interface does not exist - Verify OpenVPN status'.format(vpn_interface_name)
+            )
+        else:
+            vpn_interface.up()
+
         default_interface = self.dispatcher.call_sync('networkd.configuration.get_default_interface')
+        if not default_interface:
+            raise TaskException(errno.EINVAL, 'No default interface configured. Verify network setup.')
 
-        vpn_interface = netif.get_interface(self.configstore.get('service.openvpn.dev'))	
-        vpn_interface.up()
+        # Heavily inspired by containterd
+        available_bridges = list(b for b in netif.list_interfaces().keys()
+                                 if isinstance(netif.get_interface(b), netif.BridgeInterface))
 
-        if 'VPNbridge' not in interface_list:		
-            bridge_interface = netif.get_interface(netif.create_interface('bridge'))
-            bridge_interface.rename('VPNbridge')
-            bridge_interface.description = 'OpenVPN bridge interface'
+        for b in available_bridges:
+            bridge_interface = netif.get_interface(b, bridge=True)
+            if default_interface in bridge_interface.members:
+                try:
+                    bridge_interface.add_member(vpn_interface_name)
+                except FileExistsError:
+                    pass
+
+                break
 
         else:
-            bridge_interface = netif.get_interface('VPNbridge')
+            bridge_interface = netif.get_interface(netif.create_interface('bridge'))
+            bridge_interface.rename('brg{0}'.format(len(available_bridges)))
+            bridge_interface.description = 'OpenVPN bridge interface'
+            bridge_interface.up()
+            bridge_interface.add_member(default_interface)
+            bridge_interface.add_member(vpn_interface_name)
 
         if node['server_bridge_extended']:
-            subnet = ipaddress.ip_interface('{0}/{1}'.format(node['server_bridge_ip'], node['server_bridge_netmask']))
+            subnet = ipaddress.ip_interface('{0}/{1}'.format(node['server_bridge_ip'],
+                                                             node['server_bridge_netmask']))
             bridge_interface.add_address(netif.InterfaceAddress(
                 netif.AddressFamily.INET,
                 subnet
             ))
 
-        try:
-            bridge_interface.add_member(default_interface)
-        
-        except FileExistsError as e:
-            logger.info('Default interface already bridged: {0}'.format(e))
 
-        except OSError as e:
-            raise TaskException(errno.EBUSY, 
-                                'Default interface busy - check other bridge interfaces. {0}'.format(e))
-
-        try:
-            bridge_interface.add_member(self.configstore.get('service.openvpn.dev'))
-
-        except FileExistsError as e:
-            logger.info('OpenVPN interface already bridged: {0}'.format(e))
-
-        except OSError as e:
-            raise TaskException(errno.EBUSY,
-                                'VPN interface busy - check other bridge interfaces. {0}'.format(e))
-
-        else:
-            bridge_interface.up()
-
-
-def _depends(): 
-    return ['ServiceManagePlugin'] 
+def _depends():
+    return ['ServiceManagePlugin']
 
 
 def _init(dispatcher, plugin):
-    """Generation of 1024 bit dh-parameters shouldn't take to long..."""
+    """Generation of 1024 bit dh-parameters and default psk key shouldn't take to long..."""
     if not dispatcher.configstore.get('service.openvpn.dh'):
         try:
             dhparams = system('/usr/bin/openssl', 'dhparam', '1024')[0]
 
-        except SubprocessException as e: 
+        except SubprocessException as e:
             logger.warning('Cannot create initial dh parameters. Check openssl setup: {0}'.format(e))
 
         else:
             dispatcher.configstore.set('service.openvpn.dh', dhparams)
+
+    if not dispatcher.configstore.get('service.openvpn.tls_auth'):
+        try:
+            tls_auth_key = system('/usr/local/sbin/openvpn', '--genkey', '--secret', '/dev/stdout')[0]
+
+        except SubprocessException as e:
+            logger.warning('Cannot create initial dh parameters. Check openvpn setup: {0}'.format(e))
+
+        else:
+            dispatcher.configstore.set('service.openvpn.tls_auth', tls_auth_key)
 
     plugin.register_schema_definition('service-openvpn', {
         'type': 'object',
         'properties': {
             'type': {'enum': ['service-openvpn']},
             'enable': {'type': 'boolean'},
+            'mode': {'type': 'string', 'enum': ['pki', 'psk']},
             'dev': {'type': 'string'},
             'persist_key': {'type': 'boolean'},
             'persist_tun': {'type': 'boolean'},
@@ -340,6 +396,8 @@ def _init(dispatcher, plugin):
             'server_bridge_range_end': {'type': 'string'},
             'server_bridge_netmask': {'type': 'string'},
             'server_bridge_ip': {'type': 'string', "format": "ip-address"},
+            'psk_server_ip': {'type': 'string'},
+            'psk_remote_ip': {'type': 'string'},
             'max_clients': {'type': 'integer'},
             'crl_verify': {'type': ['string', 'null']},
             'keepalive_ping_interval': {'type': 'integer'},
@@ -365,7 +423,7 @@ def _init(dispatcher, plugin):
     })
 
     plugin.register_provider("service.openvpn", OpenVpnProvider)
-    plugin.register_provider("service.openvpn.client_config", OpenVPNClientConfigProvider)		
+    plugin.register_provider("service.openvpn.client_config", OpenVPNClientConfigProvider)
 
     plugin.register_task_handler('service.openvpn.update', OpenVpnConfigureTask)
     plugin.register_task_handler('service.openvpn.gen_key', OpenVPNGenerateKeys)

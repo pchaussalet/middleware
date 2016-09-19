@@ -7,29 +7,30 @@
     if not os.path.isdir(OPENVPN_DIR):
         os.mkdir(OPENVPN_DIR)
 
-    for cert in ['ca', 'key', 'cert']:
-        cert_data = dispatcher.call_sync('crypto.certificate.query',
-                                        [('id', '=', openvpn_conf[cert])], {'single': True})         
-        if cert != 'key':
-            openvpn_conf[cert] = cert_data['certificate_path'] 
-        else:
-            openvpn_conf[cert] = cert_data['privatekey_path'] 
+    if openvpn_conf['mode'] == 'pki':
+        for cert in ['ca', 'key', 'cert']:
+            cert_data = dispatcher.call_sync('crypto.certificate.query',
+                                            [('id', '=', openvpn_conf[cert])], {'single': True})         
+            if cert != 'key':
+                openvpn_conf[cert] = cert_data['certificate_path'] 
+            else:
+                openvpn_conf[cert] = cert_data['privatekey_path'] 
 
-    if openvpn_conf['server_bridge_extended']:
-        processed = []
+        if openvpn_conf['server_bridge_extended']:
+            processed = []
 
-        processed.append(openvpn_conf['server_bridge_ip'])
-        processed.append(openvpn_conf['server_bridge_netmask'])
-        processed.append(openvpn_conf['server_bridge_range_begin'])
-        processed.append(openvpn_conf['server_bridge_range_end'])
+            processed.append(openvpn_conf['server_bridge_ip'])
+            processed.append(openvpn_conf['server_bridge_netmask'])
+            processed.append(openvpn_conf['server_bridge_range_begin'])
+            processed.append(openvpn_conf['server_bridge_range_end'])
 
-        openvpn_conf['server_bridge'] = ' '.join(processed)
+            openvpn_conf['server_bridge'] = ' '.join(processed)
 
-    elif openvpn_conf['server_bridge']:
-        openvpn_conf['server_bridge'] = ' '
+        elif openvpn_conf['server_bridge']:
+            openvpn_conf['server_bridge'] = ' '
 
 %>\
-
+% if openvpn_conf['mode'] == 'pki':
 dev ${openvpn_conf['dev']}
 % if openvpn_conf['persist_key']:
 persist-key
@@ -59,4 +60,10 @@ comp-lzo
 verb ${openvpn_conf['verb']}
 % if openvpn_conf['auxiliary']:
 ${openvpn_conf['auxiliary']}
+% endif
+% else:
+secret /usr/local/etc/openvpn/ta.key
+dev ${openvpn_conf['dev']}
+ifconfig ${openvpn_conf['psk_server_ip']} ${openvpn_conf['psk_remote_ip']} 
+port ${openvpn_conf['port']}
 % endif
