@@ -230,7 +230,7 @@ class FreeNASPeerCreateTask(Task):
                         'peer.changed',
                         lambda ar: ar['operation'] == 'create' and remote_host_uuid in ar['ids'],
                         lambda: self.datastore.exists('peers', ('id', '=', remote_host_uuid)),
-                        timeout=300
+                        timeout=30
                     )
 
                     if not self.datastore.exists('peers', ('id', '=', remote_host_uuid)):
