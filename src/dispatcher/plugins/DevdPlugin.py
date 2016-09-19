@@ -30,20 +30,22 @@ import re
 import netif
 import time
 import io
+import errno
 from xml.etree import ElementTree
 from bsd import geom
 from bsd import devinfo
 from event import EventSource
 from task import Provider
 from freenas.dispatcher.rpc import accepts, returns, description
-from freenas.dispatcher.rpc import SchemaHelper as h
+from freenas.dispatcher.rpc import RpcException, SchemaHelper as h
 from gevent import socket
 from lib.freebsd import get_sysctl
+from lib.system import system, SubprocessException
 from freenas.utils import exclude
 
 
 @description("Provides information about devices installed in the system")
-class DeviceInfoPlugin(Provider):
+class DeviceInfoProvider(Provider):
     @description("Returns list of available device classes")
     @returns(h.array(str))
     def get_classes(self):
@@ -137,6 +139,56 @@ class DeviceInfoPlugin(Provider):
         pass
 
 
+class DMIDataProvider(Provider):
+    def __init__(self):
+        try:
+            out, err = system('/usr/local/sbin/dmidecode', '-q')
+        except SubprocessException:
+            self._result = {}
+            return
+
+        result = {}
+        section = None
+        subsection = None
+
+        for line in out.splitlines():
+            level = len(line) - len(line.lstrip('\t'))
+
+            if not line.strip():
+                continue
+
+            if level == 0:
+                subsection = None
+                section = {}
+                result[line.strip()] = section
+                continue
+
+            if level == 1:
+                subsection = None
+                if section is None:
+                    continue
+
+                key, value = line.split(':', maxsplit=1)
+                if value.strip():
+                    section[key.strip()] = value.strip()
+                else:
+                    subsection = []
+                    section[key.strip()] = subsection
+
+                continue
+
+            if level == 2:
+                if subsection is None:
+                    continue
+
+                subsection.append(line.strip())
+
+        self._result = result
+
+    def get(self):
+        return self._result
+
+
 class DevdEventSource(EventSource):
     class DevdEvent(dict):
         def __init__(self, kind):
@@ -168,7 +220,6 @@ class DevdEventSource(EventSource):
         self.register_event_type("fs.zfs.dataset.deleted")
         self.register_event_type("fs.zfs.dataset.renamed")
         self.register_event_type("fs.zfs.snapshot.cloned")
-
 
     def __tokenize(self, buffer):
         try:
@@ -375,4 +426,5 @@ def _init(dispatcher, plugin):
         plugin.register_event_handler(
             'service.started', on_service_started)
 
-    plugin.register_provider('system.device', DeviceInfoPlugin)
+    plugin.register_provider('system.device', DeviceInfoProvider)
+    plugin.register_provider('system.dmi', DMIDataProvider)
