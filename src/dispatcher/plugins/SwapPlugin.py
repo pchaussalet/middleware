@@ -167,7 +167,12 @@ def _depends():
 
 def _init(dispatcher, plugin):
     def volumes_pre_detach(args):
-        disks = dispatcher.call_sync('volume.get_volume_disks', args['name'])
+        try:
+            disks = dispatcher.call_sync('volume.get_volume_disks', args['name'])
+        except RpcException as err:
+            logger.warning('Cannot get disks from volume {0}: {1}'.format(i['id'], str(err)))
+            return True
+
         remove_swap(dispatcher, disks)
         return True
 
