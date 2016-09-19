@@ -548,14 +548,15 @@ class ConfigurationService(RpcService):
     def configure_dns(self):
         self.logger.info('Starting DNS configuration')
         resolv = io.StringIO()
+        search = self.context.configstore.get('network.dns.search')
         proc = subprocess.Popen(
             ['/sbin/resolvconf', '-a', 'lo0'],
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE
         )
 
-        for s in self.context.configstore.get('network.dns.search'):
-            print('search {0}'.format(s), file=resolv)
+        if search:
+            print('search {0}'.format(' '.join(search)), file=resolv)
 
         addrs = self.context.configstore.get('network.dns.addresses')
         for n in addrs:
