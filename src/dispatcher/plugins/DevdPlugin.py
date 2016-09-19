@@ -32,6 +32,7 @@ import time
 import io
 import fnmatch
 import uuid
+import hashlib
 from xml.etree import ElementTree
 from bsd import geom
 from bsd import devinfo
@@ -452,6 +453,9 @@ def _init(dispatcher, plugin):
     dmi = dispatcher.call_sync('system.dmi.get')
     hostuuid = q.get(dmi, 'System Information.UUID')
 
+    if hostuuid:
+        hostuuid = hostuuid.lower()
+
     if not hostuuid or not any(fnmatch.fnmatch(hostuuid, p) for p in HOSTUUID_BLACKLIST):
         # Bad uuid. Check for a saved one
         hostuuid = dispatcher.configstore.get('system.hostuuid')
@@ -460,4 +464,5 @@ def _init(dispatcher, plugin):
             hostuuid = str(uuid.uuid4())
 
     dispatcher.configstore.set('system.hostuuid', hostuuid)
-    sysctl.sysctlbyname('kern.hostuuid', new=hostuuid.lower())
+    sysctl.sysctlbyname('kern.hostuuid', new=hostuuid)
+    sysctl.sysctlbyname('kern.hostid', new=hashlib.md5(hostuuid.encode('ascii')).digest()[:4])
