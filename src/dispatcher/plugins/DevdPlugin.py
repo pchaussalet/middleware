@@ -33,6 +33,7 @@ import io
 import fnmatch
 import uuid
 import hashlib
+import logging
 from xml.etree import ElementTree
 from bsd import geom
 from bsd import devinfo
@@ -62,6 +63,9 @@ HOSTUUID_BLACKLIST = [
     'fefefefe-fefe-fefe-fefe-fefefefefefe',
     '*-ffff-ffff-ffff-ffffffffffff'
 ]
+
+
+logger = logging.getLogger('DevdPlugin')
 
 
 @description("Provides information about devices installed in the system")
@@ -455,14 +459,16 @@ def _init(dispatcher, plugin):
 
     if hostuuid:
         hostuuid = hostuuid.lower()
+        logger.info('Hardware system UUID: {0}'.format(hostuuid))
 
-    if not hostuuid or not any(fnmatch.fnmatch(hostuuid, p) for p in HOSTUUID_BLACKLIST):
+    if not hostuuid or any(fnmatch.fnmatch(hostuuid, p) for p in HOSTUUID_BLACKLIST):
         # Bad uuid. Check for a saved one
         hostuuid = dispatcher.configstore.get('system.hostuuid')
         if not hostuuid:
             # No SMBIOS hostuuid and no saved one
             hostuuid = str(uuid.uuid4())
 
+    hostid = int.from_bytes(hashlib.md5(hostuuid.encode('ascii')).digest()[:4], byteorder='little')
     dispatcher.configstore.set('system.hostuuid', hostuuid)
     sysctl.sysctlbyname('kern.hostuuid', new=hostuuid)
-    sysctl.sysctlbyname('kern.hostid', new=hashlib.md5(hostuuid.encode('ascii')).digest()[:4])
+    sysctl.sysctlbyname('kern.hostid', new=hostid)
