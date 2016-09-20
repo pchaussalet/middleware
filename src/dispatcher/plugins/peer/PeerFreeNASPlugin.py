@@ -209,7 +209,7 @@ class FreeNASPeerCreateTask(Task):
         try:
             if auth_code:
                 try:
-                    remote_client.connect('ws://{0}'.format(socket.gethostbyname(remote)))
+                    remote_client.connect('ws://{0}'.format(remote))
                 except (AuthenticationException, OSError, ConnectionRefusedError):
                     raise TaskException(errno.ECONNABORTED, 'Cannot connect to {0}:{1}'.format(remote, port))
 
