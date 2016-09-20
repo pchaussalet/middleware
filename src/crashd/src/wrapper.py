@@ -70,6 +70,7 @@ def main():
             'application': name,
             'type': 'error',
             'timestamp': str(datetime.datetime.now()),
+            'exit_code': proc.returncode,
             'message': log.read()
         }
 
