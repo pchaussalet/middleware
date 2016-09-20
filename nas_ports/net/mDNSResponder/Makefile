@@ -3,6 +3,7 @@
 
 PORTNAME=	mDNSResponder
 PORTVERSION=	625.41.2
+PORTREVISION=	1
 CATEGORIES=	net dns
 
 MAINTAINER=	dev@ixsystems.com
