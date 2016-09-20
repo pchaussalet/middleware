@@ -1827,11 +1827,12 @@ def _init(dispatcher, plugin):
                 if vol['id'] == pool_to_import.name:
                     opts = {}
                     try:
+                        logger.info('Importing pool {0} <{1}>'.format(vol['id'], vol['guid']))
                         zfs.import_pool(pool_to_import, pool_to_import.name, opts)
                     except libzfs.ZFSException as err:
                         logger.error('Cannot import pool {0} <{1}>: {2}'.format(
                             pool_to_import.name,
-                            vol['id'],
+                            vol['guid'],
                             str(err))
                         )
                 else:
