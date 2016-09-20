@@ -757,40 +757,46 @@ def _init(dispatcher, plugin):
                 'type': 'array',
                 'items': {'$ref': 'network-interface-alias'}
             },
-            'vlan': {
-                'type': 'object',
-                'additionalProperties': False,
-                'properties': {
-                    'parent': {'type': ['string', 'null']},
-                    'tag': {
-                        'type': ['integer', 'null'],
-                        'minimum': 1,
-                        'maximum': 4095
-                    }
-                }
-            },
-            'lagg': {
-                'type': 'object',
-                'additionalProperties': False,
-                'properties': {
-                    'protocol': {'$ref': 'network-aggregation-protocols'},
-                    'ports': {
-                        'type': 'array',
-                        'items': {'type': 'string'}
-                    }
-                }
-            },
-            'bridge': {
-                'type': 'object',
-                'additionalProperties': False,
-                'properties': {
-                    'members': {
-                        'type': 'array',
-                        'items': {'type': 'string'}
-                    }
-                }
-            },
+            'vlan': {'$ref': 'network-interface-vlan-properties'},
+            'lagg': {'$ref': 'network-interface-lagg-properties'},
+            'bridge': {'$ref': 'network-interface-bridge-properties'},
             'status': {'$ref': 'network-interface-status'}
+        }
+    })
+
+    plugin.register_schema_definition('network-interface-vlan-properties', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'parent': {'type': ['string', 'null']},
+            'tag': {
+                'type': ['integer', 'null'],
+                'minimum': 1,
+                'maximum': 4095
+            }
+        }
+    })
+
+    plugin.register_schema_definition('network-interface-lagg-properties', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'protocol': {'$ref': 'network-aggregation-protocols'},
+            'ports': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            }
+        }
+    })
+
+    plugin.register_schema_definition('network-interface-bridge-properties', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'members': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            }
         }
     })
 
