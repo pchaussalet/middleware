@@ -27,9 +27,9 @@
 
 import os
 import errno
-import json
 from datastore import DatastoreException
 from datastore.restore import restore_db, dump_collection
+from freenas.dispatcher.jsonenc import dump, load
 from freenas.dispatcher.fd import FileDescriptor
 from freenas.dispatcher.rpc import description
 from task import Task, ProgressTask, TaskException, TaskDescription
@@ -56,7 +56,7 @@ class DownloadDatabaseTask(Task):
             result.append(dump_collection(self.datastore, i))
 
         with os.fdopen(fd.fd, mode='w') as f:
-            json.dump(result, f)
+            dump(result, f)
 
 
 @description('Uploads database state from file')
@@ -74,7 +74,7 @@ class UploadDatabaseTask(Task):
     def run(self, fd):
         try:
             with os.fdopen(fd.fd, 'r') as f:
-                dump = json.load(f)
+                dump = load(f)
         except IOError as err:
             raise TaskException(errno.ENOENT, "Cannot open input file: {0}".format(str(err)))
         except ValueError as err:
