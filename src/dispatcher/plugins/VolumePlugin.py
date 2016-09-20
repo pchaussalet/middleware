@@ -2042,6 +2042,8 @@ class DatasetCreateTask(Task):
             path = os.path.join(VOLUMES_ROOT, dataset['id'])
             self.join_subtasks(self.run_subtask('file.set_permissions', path, dataset['permissions']))
 
+        return dataset['id']
+
 
 @description("Deletes an existing Dataset from a Volume")
 @accepts(str)
@@ -2279,6 +2281,7 @@ class SnapshotCreateTask(Task):
         else:
             name = snapshot['name']
             dataset = snapshot['dataset']
+            snapshot['id'] = '@'.join([dataset, name])
 
         self.join_subtasks(self.run_subtask(
             'zfs.create_snapshot',
@@ -2292,6 +2295,8 @@ class SnapshotCreateTask(Task):
                 'org.freenas:uuid': {'value': str(uuid.uuid4())}
             }
         ))
+
+        return snapshot['id']
 
 
 @description("Deletes the specified snapshot")
