@@ -1759,11 +1759,14 @@ def _init(dispatcher, plugin):
         if unimported_duplicate_pools:
             logger.warning(
                 'The following pools were unimported because of duplicates' +
-                'being found: ')
+                'being found:'
+            )
+
             for duplicate_pool in unimported_duplicate_pools:
-                logger.warning(
-                    'Unimported pool name: {0}, guid: {1}'.format(
-                        duplicate_pool.name, duplicate_pool.guid))
+                logger.warning('Unimported pool name: {0}, guid: {1}'.format(
+                    duplicate_pool.name,
+                    duplicate_pool.guid
+                ))
 
         # Finally, Importing the unique unimported pools that are present in
         # the database
@@ -1788,7 +1791,8 @@ def _init(dispatcher, plugin):
                         'Cannot Import pool with guid: {0}'.format(vol['guid']) +
                         ' because it is named as: {0} in'.format(vol['id']) +
                         ' the database but the actual system found it named' +
-                        ' as {0}'.format(pool_to_import.name))
+                        ' as {0}'.format(pool_to_import.name)
+                    )
 
             # Try to clear errors if there are any
             try:
