@@ -63,7 +63,7 @@ def main():
     proc = subprocess.Popen(sys.argv[1:], stdin=null, stdout=log, stderr=subprocess.STDOUT, close_fds=True)
     proc.wait()
 
-    if proc.returncode > 0:
+    if proc.returncode > 0 or proc.returncode in (-signal.SIGSEGV, -signal.SIGBUS):
         # Prepare error report
         log.seek(0, io.SEEK_SET)
         report = {
