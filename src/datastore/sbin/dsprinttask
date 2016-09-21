@@ -31,6 +31,7 @@ import argparse
 import json
 import datastore
 from bson import json_util
+from freenas.utils import query as q
 
 
 DEFAULT_CONFIGFILE = '/usr/local/etc/middleware.conf'
@@ -99,7 +100,7 @@ def main():
     init_datastore(args.c)
 
     if args.last:
-        tasks = ds.query('tasks', sort='id', dir='asc')[-args.last:]
+        tasks = q.query(ds.query('tasks', sort='-id', limit=args.last), sort='id')
     else:
         if 'all' in args.tasks:
             tasks = ds.query('tasks')
