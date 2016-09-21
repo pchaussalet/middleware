@@ -1719,11 +1719,12 @@ def _init(dispatcher, plugin):
     logger.info('Importing user volumes')
     try:
         zfs = get_zfs()
+        opts = {'cachefile': USER_CACHE_FILE}
 
         for pool in threadpool.apply(lambda: list(zfs.find_import(cachefile=USER_CACHE_FILE))):
             try:
                 logger.info('Importing pool {0} <{1}>'.format(pool.name, pool.guid))
-                threadpool.apply(zfs.import_pool, args=(pool, pool.name, {}))
+                threadpool.apply(zfs.import_pool, args=(pool, pool.name, opts))
             except libzfs.ZFSException as err:
                 logger.error('Cannot import user pool {0}: {1}'.format(pool.name, str(err)))
                 continue
@@ -1771,7 +1772,6 @@ def _init(dispatcher, plugin):
                 pool_to_import = unimported_unique_pools[int(vol['guid'])]
                 # Check if the volume name is also the same
                 if vol['id'] == pool_to_import.name:
-                    opts = {}
                     try:
                         logger.info('Importing pool {0} <{1}>'.format(vol['id'], vol['guid']))
                         threadpool.apply(zfs.import_pool, args=(pool_to_import, pool_to_import.name, opts))
