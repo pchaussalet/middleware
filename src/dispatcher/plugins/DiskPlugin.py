@@ -1101,6 +1101,10 @@ def attach_to_multipath(dispatcher, disk, ds_disk, path):
                 'path': os.path.join('/dev/multipath', nodename),
             }
 
+    # Force re-taste
+    with open(os.path.join('/dev/multipath', nodename), 'rb+') as f:
+        pass
+
     geom.scan()
     gmultipath = geom.geom_by_name('MULTIPATH', nodename)
     ret['multipath'] = generate_multipath_info(gmultipath)
