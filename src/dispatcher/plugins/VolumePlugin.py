@@ -749,6 +749,7 @@ class VolumeDestroyTask(Task):
                         pass
 
                 self.join_subtasks(self.run_subtask('zfs.pool.destroy', id))
+
             try:
                 if vol.get('mountpoint'):
                     os.rmdir(vol['mountpoint'])
