@@ -488,12 +488,16 @@ class DockerContainerCreateTask(DockerBaseTask):
         )
 
         if not image:
+            image = container['image']
+            if ':' not in image:
+                image += ':latest'
+
             self.join_subtasks(self.run_subtask(
                 'docker.image.pull',
-                container['image'],
+                image,
                 container['host'],
                 progress_callback=lambda p, m, e=None: self.chunk_progress(
-                    30, 90, 'Pulling container {0} image:'.format(container['image']), p, m, e
+                    30, 90, 'Pulling container {0} image:'.format(image), p, m, e
                 )
             ))
 
