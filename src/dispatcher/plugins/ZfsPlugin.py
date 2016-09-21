@@ -49,6 +49,7 @@ from freenas.utils import first_or_default, query as q
 from utils import is_child
 
 
+USER_CACHE_FILE = '/data/zfs/volume.cache'
 VOLATILE_ZFS_PROPERTIES = [
     'used', 'available', 'referenced', 'compressratio', 'usedbysnapshots',
     'usedbydataset', 'usedbychildren', 'usedbyrefreservation', 'refcompressratio',
@@ -415,7 +416,7 @@ class ZpoolCreateTask(Task):
             'feature@filesystem_limits': 'enabled',
             'feature@embedded_data': 'enabled',
             'feature@large_blocks': 'enabled',
-            'cachefile': '/data/zfs/zpool.cache',
+            'cachefile': USER_CACHE_FILE,
             'failmode': 'continue',
             'autoexpand': 'on',
         }
@@ -1388,6 +1389,9 @@ def _init(dispatcher, plugin):
             sync_zpool_cache(dispatcher, args['pool'], args['guid'])
 
     def on_pool_changed(args):
+        if args['pool'] == '$import':
+            return
+
         with dispatcher.get_lock('zfs-cache'):
             sync_zpool_cache(dispatcher, args['pool'], args['guid'])
 
@@ -1666,22 +1670,6 @@ def _init(dispatcher, plugin):
         'enum': ['ONLINE', 'OFFLINE', 'DEGRADED', 'FAULTED', 'REMOVED', 'UNAVAIL']
     })
 
-    plugin.register_event_handler('fs.zfs.pool.created', on_pool_create)
-    plugin.register_event_handler('fs.zfs.pool.imported', on_pool_import)
-    plugin.register_event_handler('fs.zfs.pool.destroyed', on_pool_destroy)
-    plugin.register_event_handler('fs.zfs.pool.setprop', on_pool_changed)
-    plugin.register_event_handler('fs.zfs.pool.reguid', on_pool_reguid)
-    plugin.register_event_handler('fs.zfs.pool.config_sync', on_pool_changed)
-    plugin.register_event_handler('fs.zfs.vdev.state_changed', on_pool_changed)
-    plugin.register_event_handler('fs.zfs.vdev.removed', on_pool_changed)
-    plugin.register_event_handler('fs.zfs.dataset.created', on_dataset_create)
-    plugin.register_event_handler('fs.zfs.dataset.deleted', on_dataset_delete)
-    plugin.register_event_handler('fs.zfs.dataset.renamed', on_dataset_rename)
-    plugin.register_event_handler('fs.zfs.dataset.setprop', on_dataset_setprop)
-    plugin.register_event_handler('system.device.attached', on_device_attached)
-    plugin.register_event_handler('system.fs.mounted', lambda a: on_vfs_mount_or_unmount('mount', a))
-    plugin.register_event_handler('system.fs.unmounted', lambda a: on_vfs_mount_or_unmount('unmount', a))
-
     # Register Providers
     plugin.register_provider('zfs.pool', ZpoolProvider)
     plugin.register_provider('zfs.dataset', ZfsDatasetProvider)
@@ -1727,7 +1715,110 @@ def _init(dispatcher, plugin):
     if not os.path.isdir('/data/zfs'):
         os.mkdir('/data/zfs')
 
-    # Do initial caches sync
+    # Import user volumes, first from the designated cache file and then by looking at on-disk labels
+    logger.info('Importing user volumes')
+    try:
+        zfs = get_zfs()
+
+        for pool in threadpool.apply(lambda: list(zfs.find_import(cachefile=USER_CACHE_FILE))):
+            try:
+                logger.info('Importing pool {0} <{1}>'.format(pool.name, pool.guid))
+                threadpool.apply(zfs.import_pool, args=(pool, pool.name, {}))
+            except libzfs.ZFSException as err:
+                logger.error('Cannot import user pool {0}: {1}'.format(pool.name, str(err)))
+                continue
+
+        # Try to reimport Pools into the system after upgrade, this checks
+        # for any non-imported pools in the system via the python binding
+        # analogous of `zpool import` and then tries to verify its guid with
+        # the pool's in the database. In the event two pools with the same guid
+        # are found (Very rare and only happens in special broken cases) it
+        # logs said guid with pool name and skips that import.
+        unimported_unique_pools = {}
+        unimported_duplicate_pools = []
+
+        for pool in threadpool.apply(lambda: list(zfs.find_import(search_paths=['/dev/gptid']))):
+            if pool.guid in unimported_unique_pools:
+                # This means that the pool is prolly a duplicate
+                # Thus remove it from this dict of pools
+                # and put it in the duplicate dict
+                del unimported_unique_pools[pool.guid]
+                unimported_duplicate_pools.append(pool)
+            else:
+                # Since there can be more than two duplicate copies
+                # of a pool might exist, we still need to check for
+                # it in the unimported pool list
+                duplicate_guids = [x.guid for x in unimported_duplicate_pools]
+                if pool.guid in duplicate_guids:
+                    continue
+                else:
+                    unimported_unique_pools[pool.guid] = pool
+
+        # Logging the duplicate pool names and guids, if any
+        if unimported_duplicate_pools:
+            logger.warning(
+                'The following pools were unimported because of duplicates' +
+                'being found: ')
+            for duplicate_pool in unimported_duplicate_pools:
+                logger.warning(
+                    'Unimported pool name: {0}, guid: {1}'.format(
+                        duplicate_pool.name, duplicate_pool.guid))
+
+        # Finally, Importing the unique unimported pools that are present in
+        # the database
+        for vol in dispatcher.datastore.query('volumes'):
+            if int(vol['guid']) in unimported_unique_pools:
+                pool_to_import = unimported_unique_pools[int(vol['guid'])]
+                # Check if the volume name is also the same
+                if vol['id'] == pool_to_import.name:
+                    opts = {}
+                    try:
+                        logger.info('Importing pool {0} <{1}>'.format(vol['id'], vol['guid']))
+                        threadpool.apply(zfs.import_pool, args=(pool_to_import, pool_to_import.name, opts))
+                    except libzfs.ZFSException as err:
+                        logger.error('Cannot import pool {0} <{1}>: {2}'.format(
+                            pool_to_import.name,
+                            vol['guid'],
+                            str(err))
+                        )
+                else:
+                    # What to do now??
+                    # When in doubt log it!
+                    logger.error(
+                        'Cannot Import pool with guid: {0}'.format(vol['guid']) +
+                        ' because it is named as: {0} in'.format(vol['id']) +
+                        ' the database but the actual system found it named' +
+                        ' as {0}'.format(pool_to_import.name))
+
+            # Try to clear errors if there are any
+            try:
+                z = get_zfs()
+                pool = z.get(vol['id'])
+                pool.clear()
+            except libzfs.ZFSException:
+                pass
+
+    except libzfs.ZFSException as err:
+        logger.error('Error during pool import: {0}'.format(str(err)))
+
+    # Register event handlers
+    plugin.register_event_handler('fs.zfs.pool.created', on_pool_create)
+    plugin.register_event_handler('fs.zfs.pool.imported', on_pool_import)
+    plugin.register_event_handler('fs.zfs.pool.destroyed', on_pool_destroy)
+    plugin.register_event_handler('fs.zfs.pool.setprop', on_pool_changed)
+    plugin.register_event_handler('fs.zfs.pool.reguid', on_pool_reguid)
+    plugin.register_event_handler('fs.zfs.pool.config_sync', on_pool_changed)
+    plugin.register_event_handler('fs.zfs.vdev.state_changed', on_pool_changed)
+    plugin.register_event_handler('fs.zfs.vdev.removed', on_pool_changed)
+    plugin.register_event_handler('fs.zfs.dataset.created', on_dataset_create)
+    plugin.register_event_handler('fs.zfs.dataset.deleted', on_dataset_delete)
+    plugin.register_event_handler('fs.zfs.dataset.renamed', on_dataset_rename)
+    plugin.register_event_handler('fs.zfs.dataset.setprop', on_dataset_setprop)
+    plugin.register_event_handler('system.device.attached', on_device_attached)
+    plugin.register_event_handler('system.fs.mounted', lambda a: on_vfs_mount_or_unmount('mount', a))
+    plugin.register_event_handler('system.fs.unmounted', lambda a: on_vfs_mount_or_unmount('unmount', a))
+
+    # Do initial cache sync
     zfs_cache_start = time.time()
     try:
         global pools
@@ -1779,81 +1870,5 @@ def _init(dispatcher, plugin):
         logger.error("Cannot sync ZFS caches: {0}".format(str(err)))
     finally:
         logger.info("Syncing ZFS cache took {0:.0f} ms".format((time.time() - zfs_cache_start) * 1000))
-
-    try:
-        zfs = get_zfs()
-        # Try to reimport Pools into the system after upgrade, this checks
-        # for any non-imported pools in the system via the python binding
-        # analogous of `zpool import` and then tries to verify its guid with
-        # the pool's in the database. In the event two pools with the same guid
-        # are found (Very rare and only happens in special broken cases) it
-        # logs said guid with pool name and skips that import.
-        unimported_unique_pools = {}
-        unimported_duplicate_pools = []
-
-        for pool in zfs.find_import():
-            if pool.guid in unimported_unique_pools:
-                # This means that the pool is prolly a duplicate
-                # Thus remove it from this dict of pools
-                # and put it in the duplicate dict
-                del unimported_unique_pools[pool.guid]
-                unimported_duplicate_pools.append(pool)
-            else:
-                # Since there can be more than two duplicate copies
-                # of a pool might exist, we still need to check for
-                # it in the unimported pool list
-                duplicate_guids = [x.guid for x in unimported_duplicate_pools]
-                if pool.guid in duplicate_guids:
-                    continue
-                else:
-                    unimported_unique_pools[pool.guid] = pool
-
-        # Logging the duplicate pool names and guids, if any
-        if unimported_duplicate_pools:
-            dispatcher.logger.warning(
-                'The following pools were unimported because of duplicates' +
-                'being found: ')
-            for duplicate_pool in unimported_duplicate_pools:
-                dispatcher.logger.warning(
-                    'Unimported pool name: {0}, guid: {1}'.format(
-                        duplicate_pool.name, duplicate_pool.guid))
-
-        # Finally, Importing the unique unimported pools that are present in
-        # the database
-        for vol in dispatcher.datastore.query('volumes'):
-            if int(vol['guid']) in unimported_unique_pools:
-                pool_to_import = unimported_unique_pools[int(vol['guid'])]
-                # Check if the volume name is also the same
-                if vol['id'] == pool_to_import.name:
-                    opts = {}
-                    try:
-                        logger.info('Importing pool {0} <{1}>'.format(vol['id'], vol['guid']))
-                        zfs.import_pool(pool_to_import, pool_to_import.name, opts)
-                    except libzfs.ZFSException as err:
-                        logger.error('Cannot import pool {0} <{1}>: {2}'.format(
-                            pool_to_import.name,
-                            vol['guid'],
-                            str(err))
-                        )
-                else:
-                    # What to do now??
-                    # When in doubt log it!
-                    dispatcher.logger.error(
-                        'Cannot Import pool with guid: {0}'.format(vol['guid']) +
-                        ' because it is named as: {0} in'.format(vol['id']) +
-                        ' the database but the actual system found it named' +
-                        ' as {0}'.format(pool_to_import.name))
-
-            # Try to clear errors if there are any
-            try:
-                z = get_zfs()
-                pool = z.get(vol['id'])
-                pool.clear()
-            except libzfs.ZFSException:
-                pass
-
-    except libzfs.ZFSException as err:
-        # Log what happened
-        logger.error('ZfsPlugin init error: {0}'.format(str(err)))
 
     gevent.spawn(sync_sizes)
