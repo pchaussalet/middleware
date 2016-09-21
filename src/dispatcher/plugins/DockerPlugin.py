@@ -37,7 +37,7 @@ import logging
 from task import Provider, Task, ProgressTask, TaskDescription, TaskException, query, TaskWarning, VerifyException
 from cache import EventCacheStore
 from datastore.config import ConfigNode
-from freenas.utils import normalize, query as q
+from freenas.utils import normalize, query as q, first_or_default
 from freenas.dispatcher.rpc import generator, accepts, returns, SchemaHelper as h, RpcException, description
 
 
@@ -767,6 +767,13 @@ def _init(dispatcher, plugin):
     def sync_cache(cache, query, ids=None):
         objects = dispatcher.call_sync(query, [('id', 'in', ids)] if ids else [])
         cache.update(**{i['id']: i for i in objects})
+        if not ids:
+            nonexistent_ids = []
+            for k, v in cache.itervalid():
+                if not first_or_default(lambda o: o['id'] == k, objects):
+                    nonexistent_ids.append(k)
+
+            cache.remove_many(nonexistent_ids)
 
     def init_cache():
         logger.trace('Initializing Docker caches')
