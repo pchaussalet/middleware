@@ -45,6 +45,7 @@ def _init(dispatcher, plugin):
             dispatcher.rpc.call_sync('alert.emit', {
                 'class': 'VolumeDegraded',
                 'target': volume['id'],
+                'title': 'Volume {0} is degraded'.format(volume['id']),
                 'description': 'The volume {0} state is {1}'.format(
                     volume['id'],
                     volume['status'],
