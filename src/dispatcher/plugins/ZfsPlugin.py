@@ -1327,7 +1327,7 @@ def zpool_try_clear(name, vdev):
     zfs = get_zfs()
     try:
         pool = zfs.get(name)
-        if pool.clear():
+        if threadpool.apply(pool.clear):
             logger.info('Device {0} reattached successfully to pool {1}'.format(vdev['path'], name))
             return
     except libzfs.ZFSException:
@@ -1798,7 +1798,7 @@ def _init(dispatcher, plugin):
             try:
                 z = get_zfs()
                 pool = z.get(vol['id'])
-                pool.clear()
+                threadpool.apply(pool.clear)
             except libzfs.ZFSException:
                 pass
 
