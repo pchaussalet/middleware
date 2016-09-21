@@ -54,6 +54,7 @@ import ipaddress
 import pf
 import urllib.parse
 import requests
+from docker.errors import NotFound, DockerException
 from datetime import datetime
 from bsd import kld, sysctl
 from threading import Condition
@@ -1096,7 +1097,15 @@ class DockerService(RpcService):
             raise RpcException(errno.EFAULT, str(err))
 
     def delete(self, id):
-        host = self.context.docker_host_by_container_id(id)
+        try:
+            host = self.context.docker_host_by_container_id(id)
+        except RpcException as err:
+            if err.code == errno.ENOENT:
+                self.context.client.emit_event('containerd.docker.container.changed', {
+                    'operation': 'delete',
+                    'ids': id
+                })
+                return
         try:
             host.connection.remove_container(container=id, force=True)
         except BaseException as err:
