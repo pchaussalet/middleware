@@ -844,7 +844,7 @@ class ManagementService(RpcService):
         if not vtx_enabled and not svm_features:
             raise RpcException(
                 errno.ENOTSUP,
-                'Cannot start VM {0} - CPU type does not support virtualization'.format(id)
+                'Cannot start VM {0} - CPU does not support virtualization'.format(vm_name)
             )
 
         container = self.context.datastore.get_by_id('vms', id)
@@ -855,14 +855,14 @@ class ManagementService(RpcService):
             raise RpcException(
                 errno.ENOTSUP,
                 'Cannot start VM {0} - only BHYVELOAD is supported for VT-x without unrestricted guest feature.'.format(
-                    id
+                    vm_name
                 )
             )
 
         if not vtx_enabled and svm_features and container['config']['bootloader'] not in ('GRUB', 'BHYVELOAD'):
             raise RpcException(
                 errno.ENOTSUP,
-                'Cannot start VM {0}. Only GRUB and BHYVELOAD bootloaders are supported for AMD architecture'.format(id)
+                'Cannot start VM {0}. Only GRUB and BHYVELOAD bootloaders are supported for AMD architecture'.format(vm_name)
             )
 
         vm = VirtualMachine(self.context)
@@ -896,7 +896,7 @@ class ManagementService(RpcService):
         if not container:
             raise RpcException(errno.ENOENT, 'VM {0} not found'.format(id))
 
-        self.context.logger.info('Stopping container {0} ({1})'.format(container['name'], id))
+        self.context.logger.info('Stopping VM {0} ({1})'.format(container['name'], id))
 
         vm = self.context.vms.get(id)
         if not vm:
