@@ -205,22 +205,23 @@ class TaskExecutor(object):
 
             with self.cv:
                 self.task.ended.set()
-                self.balancer.task_exited(self.task)
 
                 if self.state == WorkerState.EXECUTING:
                     self.state = WorkerState.IDLE
                     self.cv.notify_all()
 
-                return
+            self.balancer.task_exited(self.task)
+            return
 
         with self.cv:
             self.task.result = self.result.value
             self.task.set_state(TaskState.FINISHED, TaskStatus(100, ''))
             self.task.ended.set()
-            self.balancer.task_exited(self.task)
             if self.state == WorkerState.EXECUTING:
                 self.state = WorkerState.IDLE
                 self.cv.notify_all()
+
+        self.balancer.task_exited(self.task)
 
     def abort(self):
         self.balancer.logger.info("Trying to abort task #{0}".format(self.task.id))
@@ -450,6 +451,7 @@ class Balancer(object):
         self.dispatcher.require_collection('tasks', 'serial', type='log')
         self.create_initial_queues()
         self.start_executors()
+        self.schedule_lock = RLock()
         self.distribution_lock = RLock()
         self.debugger = None
         self.debugged_tasks = None
@@ -631,25 +633,26 @@ class Balancer(object):
         1) any new task is submitted to any of the queues
         2) any task exists
         """
-        started = 0
-        executing_tasks = [t for t in self.task_list if t.state == TaskState.EXECUTING]
-        waiting_tasks = [t for t in self.task_list if t.state == TaskState.WAITING]
+        with self.schedule_lock:
+            started = 0
+            executing_tasks = [t for t in self.task_list if t.state == TaskState.EXECUTING]
+            waiting_tasks = [t for t in self.task_list if t.state == TaskState.WAITING]
 
-        for task in waiting_tasks:
-            if not self.resource_graph.can_acquire(*task.resources):
-                continue
-
-            self.resource_graph.acquire(*task.resources)
-            self.threads.append(task.start())
-            started += 1
-
-        if not started and not executing_tasks and (exit or len(waiting_tasks) == 1):
             for task in waiting_tasks:
-                # Check whether or not task waits on nonexistent resources. If it does,
-                # abort it 'cause there's no chance anymore that missing resources will appear.
-                if any(self.resource_graph.get_resource(res) is None for res in task.resources):
-                    self.logger.warning('Aborting task {0}: deadlock'.format(task.id))
-                    self.abort(task.id, VerifyException(errno.EBUSY, 'Resource deadlock avoided'))
+                if not self.resource_graph.can_acquire(*task.resources):
+                    continue
+
+                self.resource_graph.acquire(*task.resources)
+                self.threads.append(task.start())
+                started += 1
+
+            if not started and not executing_tasks and (exit or len(waiting_tasks) == 1):
+                for task in waiting_tasks:
+                    # Check whether or not task waits on nonexistent resources. If it does,
+                    # abort it 'cause there's no chance anymore that missing resources will appear.
+                    if any(self.resource_graph.get_resource(res) is None for res in task.resources):
+                        self.logger.warning('Aborting task {0}: deadlock'.format(task.id))
+                        self.abort(task.id, VerifyException(errno.EBUSY, 'Resource deadlock avoided'))
 
     def distribution_thread(self):
         while True:
