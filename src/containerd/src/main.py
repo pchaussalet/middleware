@@ -700,6 +700,8 @@ class DockerHost(object):
                             'ids': [image.get('id') or image.get('Id')]
                         })
 
+                self.logger.warning('Disconnected from Docker API endpoint on {0}'.format(self.vm.name))
+
             except BaseException as err:
                 self.logger.info('Docker connection closed: {0}, retrying in 1 second'.format(str(err)))
                 time.sleep(1)
