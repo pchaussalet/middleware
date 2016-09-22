@@ -844,7 +844,7 @@ class ManagementService(RpcService):
         if not vtx_enabled and not svm_features:
             raise RpcException(
                 errno.ENOTSUP,
-                'Cannot start VM {0} - Intel VT-x instruction support not available.'.format(id)
+                'Cannot start VM {0} - CPU type does not support virtualization'.format(id)
             )
 
         container = self.context.datastore.get_by_id('vms', id)
@@ -859,10 +859,10 @@ class ManagementService(RpcService):
                 )
             )
 
-        if not vtx_enabled and svm_features and container['config']['bootloader'] != 'GRUB':
+        if not vtx_enabled and svm_features and container['config']['bootloader'] not in ('GRUB', 'BHYVELOAD'):
             raise RpcException(
                 errno.ENOTSUP,
-                'Cannot start VM {0}. Only GRUB bootloader is supported for AMD architecture'.format(id)
+                'Cannot start VM {0}. Only GRUB and BHYVELOAD bootloaders are supported for AMD architecture'.format(id)
             )
 
         vm = VirtualMachine(self.context)
