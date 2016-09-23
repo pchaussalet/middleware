@@ -39,6 +39,7 @@ from paramiko import AuthenticationException, RSAKey
 from utils import get_freenas_peer_client, call_task_and_check_state
 from freenas.utils import exclude, query as q, first_or_default
 from freenas.utils.decorators import limit
+from freenas.utils.url import wrap_address
 from freenas.dispatcher.rpc import (
     RpcException, SchemaHelper as h, description, accepts, private, generator, unauthenticated
 )
@@ -189,7 +190,7 @@ class FreeNASPeerCreateTask(Task):
         hostname = self.dispatcher.call_sync('system.general.get_config')['hostname']
         remote_peer_name = hostname
         credentials = peer['credentials']
-        remote = credentials.get('address')
+        remote = wrap_address(credentials.get('address'))
         username = credentials.get('username')
         port = credentials.get('port', 22)
         password = credentials.get('password')

@@ -32,6 +32,7 @@ import tempfile
 import socket
 from freenas.dispatcher.jsonenc import dumps, loads
 from freenas.dispatcher.client import Client
+from freenas.utils.url import wrap_address
 from paramiko import RSAKey, AuthenticationException, SSHException
 from task import TaskException
 
@@ -99,7 +100,7 @@ def get_freenas_peer_client(parent, remote):
             host_key_file.write(remote + ' ' + credentials['hostkey'])
             host_key_file.flush()
             client.connect(
-                'ws+ssh://freenas@{0}'.format(remote),
+                'ws+ssh://freenas@{0}'.format(wrap_address(remote)),
                 port=credentials['port'],
                 host_key_file=host_key_file.name,
                 pkey=pkey
