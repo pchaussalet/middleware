@@ -119,9 +119,11 @@ class DirectoryServiceCreateTask(Task):
             'enumerate': True,
             'immutable': False,
             'uid_range': None,
-            'gid_range': None,
-            'parameters': params
+            'gid_range': None
         })
+
+        # Replace passed in params with normalized ones
+        directory['parameters'] = params
 
         if directory['type'] == 'winbind':
             normalize(directory, {
