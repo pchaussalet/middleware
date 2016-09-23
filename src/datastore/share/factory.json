@@ -347,6 +347,7 @@
             "system.periodic.notify_user": 0,
             "system.upload_crash": true,
             "system.home_directory_root": null,
+            "system.graphite_servers": [],
             "mail.from": "",
             "mail.server": "",
             "mail.port": 25,

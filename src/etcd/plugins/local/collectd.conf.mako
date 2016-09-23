@@ -69,6 +69,17 @@ LoadPlugin write_graphite
         StoreRates true
         AlwaysAppendDS true
     </Node>
+    % for i in config.get('system.graphite_servers'):
+        <Node "graphite_${loop.index}">
+            Host "${i}"
+            Port "2003"
+            Protocol "tcp"
+            EscapeCharacter "_"
+            LogSendErrors true
+            StoreRates true
+            AlwaysAppendDS true
+        </Node>
+    % endfor
 </Plugin>
 
 <LoadPlugin python>
