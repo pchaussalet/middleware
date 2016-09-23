@@ -228,7 +228,9 @@ class TokenStore(object):
         return self.tokens.get(token_id)
 
     def lookup_token_id(self, token):
-        return [key for key, value in self.tokens.items() if value == token]
+        for key, value in self.tokens.items():
+            if value == token:
+                return key
 
     def delete_token(self, token_id):
         if isinstance(token_id, Token):
@@ -247,5 +249,4 @@ class TokenStore(object):
             self.tokens.pop(token)
 
     def revoke_token(self, token_id):
-        if token_id in self.tokens:
-            del self.tokens[token_id]
+        self.tokens.pop(token_id)
