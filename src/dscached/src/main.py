@@ -537,6 +537,7 @@ class AccountService(RpcService):
             raise RpcException(errno.EPERM, 'Permission denied')
 
         item.directory.instance.change_password(user_name, password)
+        self.context.users_cache.flush(item.uuid)
 
 
 class GroupService(RpcService):
