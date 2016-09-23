@@ -185,6 +185,7 @@ class SystemAdvancedProvider(Provider):
             'motd': cs.get('system.motd'),
             'boot_scrub_internal': cs.get('system.boot_scrub_internal'),
             'periodic_notify_user': cs.get('system.periodic.notify_user'),
+            'graphite_servers': cs.get('system.graphite_servers')
         }
 
 
@@ -391,10 +392,17 @@ class SystemAdvancedConfigureTask(Task):
                 cs.set('system.periodic.notify_user', props['periodic_notify_user'])
                 self.dispatcher.call_sync('etcd.generation.generate_group', 'periodic')
 
+            if 'graphite_servers' in props:
+                cs.set('system.graphite_servers', props['graphite_servers'])
+                self.dispatcher.call_sync('etcd.generation.generate_group', 'collectd')
+                self.dispatcher.call_sync('service.restart', 'collectd')
+
             if console:
                 self.dispatcher.call_sync('etcd.generation.generate_group', 'console')
+
             if loader:
                 self.dispatcher.call_sync('etcd.generation.generate_group', 'loader')
+
             if rc:
                 self.dispatcher.call_sync('etcd.generation.generate_group', 'services')
         except DatastoreException as e:
@@ -637,6 +645,10 @@ def _init(dispatcher, plugin):
             'motd': {'type': 'string'},
             'boot_scrub_internal': {'type': 'integer'},
             'periodic_notify_user': {'type': 'integer'},
+            'graphite_servers': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            }
         },
         'additionalProperties': False,
     })
