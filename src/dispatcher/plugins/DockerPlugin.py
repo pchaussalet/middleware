@@ -112,12 +112,11 @@ class DockerImagesProvider(Provider):
     @accepts(str)
     @returns(h.array(h.ref('docker-hub-image')))
     @generator
-    def search(self, term, user=None):
+    def search(self, term):
         parser = dockerfile_parse.DockerfileParser()
         hub = dockerhub.DockerHub()
-        results = hub.get_repositories(user) if user else hub.search(term)
 
-        for i in results:
+        for i in hub.search(term):
             presets = None
             icon = None
 
@@ -140,9 +139,32 @@ class DockerImagesProvider(Provider):
 
     @description('Returns a list of official FreeNAS docker images')
     @returns(h.array(h.ref('docker-hub-image')))
+    @accepts(str)
     @generator
-    def get_freenas_images(self):
-        return self.search('', 'freenas')
+    def get_collection_images(self, collection='freenas'):
+        parser = dockerfile_parse.DockerfileParser()
+        hub = dockerhub.DockerHub()
+
+        for i in hub.get_repositories(collection):
+            presets = None
+            icon = None
+
+            if i['is_automated']:
+                # Fetch dockerfile
+                try:
+                    parser.content = hub.get_dockerfile(i['repo_name'])
+                    presets = self.labels_to_template(parser.labels)
+                except:
+                    pass
+
+            yield {
+                'name': '{0}/{1}'.format(i['user'], i['name']),
+                'description': i['description'],
+                'star_count': i['star_count'],
+                'pull_count': i['pull_count'],
+                'icon': icon,
+                'presets': presets
+            }
 
     @description('Returns a full description of specified Docker container image')
     @accepts(str)
