@@ -112,11 +112,12 @@ class DockerImagesProvider(Provider):
     @accepts(str)
     @returns(h.array(h.ref('docker-hub-image')))
     @generator
-    def search(self, term):
+    def search(self, term, user=None):
         parser = dockerfile_parse.DockerfileParser()
         hub = dockerhub.DockerHub()
+        results = hub.get_repositories(user) if user else hub.search(term)
 
-        for i in hub.search(term):
+        for i in results:
             presets = None
             icon = None
 
@@ -136,6 +137,12 @@ class DockerImagesProvider(Provider):
                 'icon': icon,
                 'presets': presets
             }
+
+    @description('Returns a list of official FreeNAS docker images')
+    @returns(h.array(h.ref('docker-hub-image')))
+    @generator
+    def get_freenas_images(self):
+        return self.search('', 'freenas')
 
     @description('Returns a full description of specified Docker container image')
     @accepts(str)
