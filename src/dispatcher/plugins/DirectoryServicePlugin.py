@@ -187,7 +187,7 @@ class DirectoryServiceDeleteTask(Task):
     def early_describe(cls):
         return "Deleting a directory"
 
-    def describe(self, id, updated_params):
+    def describe(self, id):
         directory = self.datastore.get_by_id('directories', id)
         return TaskDescription("Deleting directory {name}", name=directory.get('name', id) if directory else id)
 
