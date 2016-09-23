@@ -51,6 +51,8 @@ http {
 
         location / {
             root /usr/local/www/gui;
+            add_header Cache-Control "must-revalidate";
+            add_header Etag "${dispatcher.call_sync("system.info.version")}";
         }
 
         location /cli {
