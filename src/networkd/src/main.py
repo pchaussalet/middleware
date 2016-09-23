@@ -866,7 +866,7 @@ class Main(object):
                 'operation': 'update'
             })
 
-        client = dhcp.client.Client(interface, lambda: socket.gethostname())
+        client = dhcp.client.Client(interface, lambda: socket.gethostname().split('.')[0])
         client.on_bind = bind
         client.on_unbind = unbind
         client.on_state_change = state_change
