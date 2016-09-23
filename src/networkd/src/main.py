@@ -874,7 +874,12 @@ class Main(object):
         self.dhcp_clients[interface] = client
 
         if block:
-            return client.wait_for_bind(timeout) is not None
+            ret = client.wait_for_bind(timeout)
+            if ret is None:
+                client.stop()
+                del self.dhcp_clients[interface]
+
+            return ret is not None
 
     def deconfigure_dhcp(self, interface):
         client = self.dhcp_clients[interface]
