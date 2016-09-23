@@ -258,6 +258,9 @@ class VolumeProvider(Provider):
         if not volume:
             raise RpcException(errno.ENOENT, 'Volume {0} not found'.format(volname))
 
+        if not volume['mountpoint']:
+            raise RpcException(errno.EINVAL, 'Volume {0} not mounted'.format(volname))
+
         return os.path.join(volume['mountpoint'], path)
 
     @accepts(str)

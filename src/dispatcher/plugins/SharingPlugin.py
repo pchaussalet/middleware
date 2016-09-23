@@ -648,7 +648,11 @@ def _init(dispatcher, plugin):
     })
 
     def volume_pre_destroy(args):
-        path = dispatcher.call_sync('volume.resolve_path', args['name'], '')
+        try:
+            path = dispatcher.call_sync('volume.resolve_path', args['name'], '')
+        except RpcException:
+            return True
+
         dispatcher.call_task_sync('share.delete_dependent', path)
         dispatcher.call_task_sync('share.delete_dependent', os.path.join('/dev/zvol', args['name']))
         return True
