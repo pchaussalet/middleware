@@ -687,7 +687,10 @@ class ConfigurationService(RpcService):
                 iface.nd6_flags = iface.nd6_flags | {netif.NeighborDiscoveryFlags.AUTO_LINKLOCAL}
 
             if entity.get('mtu'):
-                iface.mtu = entity['mtu']
+                try:
+                    iface.mtu = entity['mtu']
+                except OSError as err:
+                    self.logger.warning('Cannot set MTU of {0}: {1}'.format(name, str(err)))
 
             if entity.get('media'):
                 iface.media_subtype = entity['media']
