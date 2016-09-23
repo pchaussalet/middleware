@@ -748,7 +748,8 @@ class VolumeDestroyTask(Task):
                     else:
                         pass
 
-                self.join_subtasks(self.run_subtask('zfs.pool.destroy', id))
+                action = 'export' if vol['status'] == 'UNAVAIL' else 'destroy'
+                self.join_subtasks(self.run_subtask('zfs.pool.{0}'.format(action), id))
 
             try:
                 if vol.get('mountpoint'):
