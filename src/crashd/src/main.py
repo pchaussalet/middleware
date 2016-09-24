@@ -70,6 +70,7 @@ class Main(object):
 
     def send_report(self, path):
         name, ext = os.path.splitext(os.path.basename(path))
+        body = None
 
         try:
             with open(path) as f:
@@ -99,18 +100,28 @@ class Main(object):
 
         jdata['uuid'] = self.hostuuid
         jdata['format'] = 'json'
-        jdata['body'] = jdata['message']
 
         logger.info('Sending report {0}...'.format(path))
         logger.debug('jdata: {0}'.format(json.dumps(jdata)))
 
+        if jdata['type'] == ReportType.EXCEPTION.name:
+            body = {'trace': jdata['exception']}
+
+        if jdata['type'] == ReportType.ERROR.name:
+            body = {
+                'message': {
+                    'body': jdata['message'],
+                    'exit_code': jdata['exit_code'],
+                    'application': jdata['application']
+                }
+            }
+
         report = {
             'access_token': ACCESS_TOKEN,
+            'level': 'error',
             'data': {
                 'environment': 'production',
-                'body': {
-                    'message': jdata
-                }
+                'body': body
             }
         }
 

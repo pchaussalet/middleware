@@ -76,7 +76,7 @@ from services import (
 from schemas import register_general_purpose_schemas
 from balancer import Balancer
 from auth import PasswordAuthenticator, TokenStore, Token, TokenException, User, Service
-from freenas.utils import FaultTolerantLogHandler, load_module_from_file, xrecvmsg, xsendmsg
+from freenas.utils import FaultTolerantLogHandler, load_module_from_file, xrecvmsg, xsendmsg, serialize_exception
 from freenas.utils.trace_logger import TraceLogger, TRACE
 
 DEFAULT_CONFIGFILE = '/usr/local/etc/middleware.conf'
@@ -759,8 +759,7 @@ class Dispatcher(object):
             'type': 'exception',
             'application': 'dispatcher',
             'message': message,
-            'exception': str(exception),
-            'traceback': '\n'.join(traceback.format_tb(exception.__traceback__))
+            'exception': serialize_exception(exception, exception.__traceback__)
         }
 
         try:
