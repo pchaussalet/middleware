@@ -705,6 +705,18 @@ def _init(dispatcher, plugin):
     containers = EventCacheStore(dispatcher, 'docker.container')
     images = EventCacheStore(dispatcher, 'docker.image')
 
+    def docker_resource_create_update(name, parents):
+        if first_or_default(lambda o: o['name'] == name, dispatcher.call_sync('task.list_resources')):
+            dispatcher.update_resource(
+                Resource(name),
+                new_parents=parents
+            )
+        else:
+            dispatcher.register_resource(
+                Resource(name),
+                parents=parents
+            )
+
     def on_host_event(args):
         if images.ready and containers.ready:
             if args['operation'] == 'create':
@@ -765,10 +777,7 @@ def _init(dispatcher, plugin):
                     parents = ['docker', 'zpool:{0}'.format(host['target'])]
 
                     logger.debug('Docker host {0} created'.format(host['name']))
-                    dispatcher.register_resource(
-                        Resource('docker:{0}'.format(host['name'])),
-                        parents=parents
-                    )
+                    docker_resource_create_update('docker:{0}'.format(host['name']), parents)
 
                     default_host = dispatcher.call_sync('docker.config.get_config').get('default_host')
                     if not default_host:
@@ -825,6 +834,9 @@ def _init(dispatcher, plugin):
                     single=True,
                 )
                 parents = ['docker', 'zpool:{0}'.format(host['target'])]
+
+                docker_resource_create_update('docker:{0}'.format(host['name']), parents)
+
                 if host:
                     if id == default_host:
                         parents.append('docker:{0}'.format(host['name']))
@@ -832,11 +844,6 @@ def _init(dispatcher, plugin):
                             'docker:default',
                             new_parents=parents
                         )
-
-                    dispatcher.update_resource(
-                        'docker:{0}'.format(host['name']),
-                        new_parents=parents
-                    )
 
     def on_image_event(args):
         logger.trace('Received Docker image event: {0}'.format(args))
