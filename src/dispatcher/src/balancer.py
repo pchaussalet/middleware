@@ -58,6 +58,24 @@ import collections
 
 
 TASKWORKER_PATH = '/usr/local/libexec/taskworker'
+ERROR_TYPES = {
+    'TaskException': TaskException,
+    'TaskAbortException': TaskAbortException,
+    'ValidationException': ValidationException
+}
+
+
+class OtherException(TaskException):
+    def __init__(self, code, message, type, stacktrace, extra):
+        super(OtherException, self).__init__(code, message, stacktrace=stacktrace, extra=extra)
+        self.type = type
+
+    def __str__(self):
+        return '{0}: {1} (original exception type: {2})'.format(
+            errno.errorcode.get(self.code, '<unknown errno {0}>'.format(self.code)),
+            self.message,
+            self.type
+        )
 
 
 class WorkerState(object):
@@ -112,20 +130,25 @@ class TaskExecutor(object):
 
             if status['status'] == 'FAILED':
                 error = status['error']
-                cls = TaskException
 
-                if error['type'] == 'TaskAbortException':
-                    cls = TaskAbortException
+                if error['type'] in ERROR_TYPES:
+                    cls = ERROR_TYPES[error['type']]
+                    exc = cls(
+                        code=error['code'],
+                        message=error['message'],
+                        stacktrace=error['stacktrace'],
+                        extra=error.get('extra')
+                    )
+                else:
+                    exc = OtherException(
+                        code=error['code'],
+                        message=error['message'],
+                        stacktrace=error['stacktrace'],
+                        type=error['type'],
+                        extra=error.get('extra'),
+                    )
 
-                if error['type'] == 'ValidationException':
-                    cls = ValidationException
-
-                self.result.set_exception(cls(
-                    code=error['code'],
-                    message=error['message'],
-                    stacktrace=error['stacktrace'],
-                    extra=error.get('extra')
-                ))
+                self.result.set_exception(exc)
 
     def put_warning(self, warning):
         self.task.add_warning(warning)
@@ -189,9 +212,9 @@ class TaskExecutor(object):
         try:
             self.result.get()
         except BaseException as e:
-            if not isinstance(e, TaskException):
+            if isinstance(e, OtherException):
                 self.balancer.dispatcher.report_error(
-                    'Task {0} raised exception other than TaskException'.format(self.task.name),
+                    'Task {0} raised invalid exception'.format(self.task.name),
                     e
                 )
 

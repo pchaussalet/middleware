@@ -38,14 +38,14 @@ from threading import Event
 from freenas.dispatcher.client import Client
 from freenas.dispatcher.fd import FileDescriptor
 from freenas.dispatcher.rpc import RpcService, RpcException, RpcWarning
-from freenas.utils import load_module_from_file, configure_logging
+from freenas.utils import load_module_from_file, configure_logging, serialize_traceback
 from datastore import get_datastore
 from datastore.config import ConfigStore
 
 
 def serialize_error(err):
-    etype, _, _ = sys.exc_info()
-    stacktrace = traceback.format_exc() if etype else ''.join(traceback.format_stack())
+    etype, evalue, tb = sys.exc_info()
+    stacktrace = serialize_traceback(tb or traceback.extract_stack())
 
     ret = {
         'type': type(err).__name__,

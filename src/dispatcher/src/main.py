@@ -759,7 +759,7 @@ class Dispatcher(object):
             'type': 'exception',
             'application': 'dispatcher',
             'message': message,
-            'exception': serialize_exception(exception, exception.__traceback__)
+            'exception': serialize_exception(exception, getattr(exception, 'stacktrace', None))
         }
 
         try:
