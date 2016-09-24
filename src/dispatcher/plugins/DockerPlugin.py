@@ -34,6 +34,7 @@ import gevent
 import dockerfile_parse
 import dockerhub
 import logging
+from resources import Resource
 from task import Provider, Task, ProgressTask, TaskDescription, TaskException, query, TaskWarning, VerifyException
 from cache import EventCacheStore
 from datastore.config import ConfigNode
@@ -447,7 +448,7 @@ class DockerUpdateTask(Task):
         return TaskDescription('Updating Docker global configuration')
 
     def verify(self, updated_params):
-        return ['system']
+        return ['docker']
 
     def run(self, updated_params):
         node = ConfigNode('container.docker', self.configstore)
@@ -485,7 +486,10 @@ class DockerContainerCreateTask(DockerBaseTask):
         if not container.get('image'):
             raise VerifyException(errno.EINVAL, 'Image name must be specified')
 
-        return []
+        host = self.datastore.get_by_id('vms', container.get('host')) or {}
+        hostname = host.get('name', 'default')
+
+        return ['docker:{0}'.format(hostname)]
 
     def run(self, container):
         self.set_progress(0, 'Checking Docker host state')
@@ -575,7 +579,12 @@ class DockerContainerDeleteTask(ProgressTask):
         return TaskDescription('Deleting Docker container {name}'.format(name=name or id))
 
     def verify(self, id):
-        return []
+        try:
+            hostname = self.dispatcher.call_sync('containerd.docker.host_name_by_container_id', id)
+        except RpcException:
+            hostname = 'default'
+
+        return ['docker:{0}'.format(hostname)]
 
     def run(self, id):
         self.dispatcher.call_sync('containerd.docker.delete', id)
@@ -595,7 +604,12 @@ class DockerContainerStartTask(Task):
         return TaskDescription('Starting container {name}'.format(name=name or id))
 
     def verify(self, id):
-        return []
+        try:
+            hostname = self.dispatcher.call_sync('containerd.docker.host_name_by_container_id', id)
+        except RpcException:
+            hostname = 'default'
+
+        return ['docker:{0}'.format(hostname)]
 
     def run(self, id):
         self.dispatcher.call_sync('containerd.docker.start', id)
@@ -615,7 +629,12 @@ class DockerContainerStopTask(Task):
         return TaskDescription('Stopping container {name}'.format(name=name or id))
 
     def verify(self, id):
-        return []
+        try:
+            hostname = self.dispatcher.call_sync('containerd.docker.host_name_by_container_id', id)
+        except RpcException:
+            hostname = 'default'
+
+        return ['docker:{0}'.format(hostname)]
 
     def run(self, id):
         self.dispatcher.call_sync('containerd.docker.stop', id)
@@ -632,7 +651,10 @@ class DockerImagePullTask(DockerBaseTask):
         return TaskDescription('Pulling docker image {name}'.format(name=name))
 
     def verify(self, name, hostid):
-        return []
+        host = self.datastore.get_by_id('vms', hostid) or {}
+        hostname = host.get('name', 'default')
+
+        return ['docker:{0}'.format(hostname)]
 
     def run(self, name, hostid):
         if not hostid:
@@ -659,7 +681,10 @@ class DockerImageDeleteTask(DockerBaseTask):
         return TaskDescription('Deleting docker image {name}'.format(name=name))
 
     def verify(self, name, hostid):
-        return []
+        host = self.datastore.get_by_id('vms', hostid) or {}
+        hostname = host.get('name', 'default')
+
+        return ['docker:{0}'.format(hostname)]
 
     def run(self, name, hostid):
         self.check_host_state(hostid)
@@ -721,6 +746,7 @@ def _init(dispatcher, plugin):
         )
         if host:
             logger.debug('Docker host {0} deleted'.format(host['name']))
+            dispatcher.unregister_resource('docker:{0}'.format(host['name']))
             dispatcher.dispatch_event('docker.host.changed', {
                 'operation': 'delete',
                 'ids': [args['name']]
@@ -736,11 +762,24 @@ def _init(dispatcher, plugin):
                     single=True
                 )
                 if host:
+                    parents = ['docker', 'zpool:{0}'.format(host['target'])]
+
                     logger.debug('Docker host {0} created'.format(host['name']))
+                    dispatcher.register_resource(
+                        Resource('docker:{0}'.format(host['name'])),
+                        parents=parents
+                    )
+
                     default_host = dispatcher.call_sync('docker.config.get_config').get('default_host')
                     if not default_host:
                         dispatcher.call_task_sync('docker.config.update', {'default_host': host['id']})
+                        parents.append('docker:{0}'.format(host['name']))
+                        dispatcher.update_resource(
+                            'docker:default',
+                            new_parents=parents
+                        )
                         logger.info('Docker host {0} set automatically as default Docker host'.format(host['name']))
+
                     dispatcher.dispatch_event('docker.host.changed', {
                         'operation': 'create',
                         'ids': [id]
@@ -753,6 +792,7 @@ def _init(dispatcher, plugin):
                     ('config.docker_host', '=', True),
                     single=True,
                 )
+                parents = ['docker']
 
                 if host:
                     logger.info(
@@ -761,13 +801,42 @@ def _init(dispatcher, plugin):
                         )
                     )
                     host_id = host['id']
+                    parents.append('zpool:{0}'.format(host['target']))
+                    parents.append('docker:{0}'.format(host['name']))
                 else:
                     logger.info(
                         'Old default host deleted. There are no Docker hosts left to take the role of default host.'
                     )
                     host_id = None
 
+                dispatcher.update_resource(
+                    'docker:default',
+                    new_parents=parents
+                )
+
                 dispatcher.call_task_sync('docker.config.update', {'default_host': host_id})
+
+        elif args['operation'] == 'update':
+            default_host = dispatcher.call_sync('docker.config.get_config').get('default_host')
+            for id in args['ids']:
+                host = dispatcher.datastore.query(
+                    'vms',
+                    ('config.docker_host', '=', True),
+                    single=True,
+                )
+                parents = ['docker', 'zpool:{0}'.format(host['target'])]
+                if host:
+                    if id == default_host:
+                        parents.append('docker:{0}'.format(host['name']))
+                        dispatcher.update_resource(
+                            'docker:default',
+                            new_parents=parents
+                        )
+
+                    dispatcher.update_resource(
+                        'docker:{0}'.format(host['name']),
+                        new_parents=parents
+                    )
 
     def on_image_event(args):
         logger.trace('Received Docker image event: {0}'.format(args))
@@ -842,6 +911,12 @@ def _init(dispatcher, plugin):
                                   lambda a: init_cache() if a['service-name'] == 'containerd.docker' else None)
 
     plugin.attach_hook('vm.pre_destroy', vm_pre_destroy)
+
+    dispatcher.register_resource(Resource('docker'))
+    dispatcher.register_resource(
+        Resource('docker:default'),
+        parents=['docker']
+    )
 
     plugin.register_schema_definition('docker-config', {
         'type': 'object',

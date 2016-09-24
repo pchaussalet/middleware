@@ -975,6 +975,10 @@ class DockerService(RpcService):
         except:
             raise RpcException(errno.ENXIO, 'Cannot connect to host {0}'.format(id))
 
+    def host_name_by_container_id(self, id):
+        host = self.context.docker_host_by_container_id(id)
+        return host.vm.name
+
     @generator
     def query_containers(self, filter=None, params=None):
         result = []
