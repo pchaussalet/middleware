@@ -695,7 +695,8 @@ class ConfigurationService(RpcService):
             if entity.get('media'):
                 iface.media_subtype = entity['media']
 
-            if entity.get('capabilities'):
+            # vlan interfaces don't support capabilities
+            if entity.get('capabilities') and not isinstance(iface, netif.VlanInterface):
                 caps = iface.capabilities
                 for c in entity['capabilities'].get('add'):
                     caps.add(getattr(netif.InterfaceCapability, c))
