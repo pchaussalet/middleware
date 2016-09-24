@@ -34,10 +34,12 @@ from freenas.dispatcher.client import Client, ClientError
 from freenas.dispatcher.rpc import RpcService, RpcException, generator
 from freenas.utils import configure_logging, load_module_from_file
 from freenas.utils.debug import DebugService
+from freenas.cli.repl import Context, MainLoop
 from freenas.cli.parser import parse, dump_ast, read_ast
 
 
 DEFAULT_CONFIGFILE = '/usr/local/etc/middleware.conf'
+PLUGIN_DIRS = ['/usr/local/lib/python3.4/site-packages/freenas/cli/plugins']
 
 
 class ManagementService(RpcService):
@@ -54,11 +56,12 @@ class EvalService(RpcService):
 
     @generator
     def eval_ast(self, ast, user):
-        pass
+        self.context.ml.eval(ast)
 
     @generator
     def eval_code(self, code, user):
-        pass
+        ast = parse(code, '<remote eval>')
+        return self.context.ml.eval(ast)
 
     def parse(self, code):
         return dump_ast(parse(code, '<remote eval>'))
@@ -74,7 +77,8 @@ class Main(object):
         self.config = None
         self.logger = logging.getLogger()
         self.plugin_dirs = []
-        self.plugins = {}
+        self.ml = None
+        self.context = None
 
     def init_dispatcher(self):
         def on_error(reason, **kwargs):
@@ -86,12 +90,24 @@ class Main(object):
         self.client.on_error(on_error)
         self.connect()
 
+    def init_cli(self):
+        self.logger.info('Initializing CLI instance')
+        self.context = Context()
+        self.context.connection = self.client
+        self.context.plugin_dirs = PLUGIN_DIRS
+        self.context.discover_plugins()
+        self.context.start_entity_subscribers()
+        self.context.login_plugins()
+        self.ml = MainLoop(self.context)
+        self.logger.info('CLI instance ready')
+
     def connect(self):
         while True:
             try:
                 self.client.connect('unix:')
                 self.client.login_service('clid')
                 self.client.enable_server()
+                self.client.call_sync('management.enable_features', ['streaming_responses'])
                 self.client.register_service('clid.management', ManagementService(self))
                 self.client.register_service('clid.eval', EvalService(self))
                 self.client.register_service('clid.debug', DebugService())
@@ -112,6 +128,7 @@ class Main(object):
 
         setproctitle.setproctitle('clid')
         self.init_dispatcher()
+        self.init_cli()
         self.client.wait_forever()
 
 
