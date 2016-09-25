@@ -758,7 +758,7 @@ class Dispatcher(object):
             'timestamp': str(datetime.datetime.utcnow()),
             'type': 'exception',
             'application': 'dispatcher',
-            'message': message,
+            'title': message,
             'exception': serialize_exception(exception, getattr(exception, 'stacktrace', None))
         }
 

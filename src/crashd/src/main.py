@@ -122,6 +122,7 @@ class Main(object):
             'request': {
                 'user_ip': '$remote_ip'
             },
+            'title': jdata.get('title'),
             'data': {
                 'environment': 'production',
                 'body': body
