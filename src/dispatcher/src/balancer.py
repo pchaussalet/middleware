@@ -59,6 +59,7 @@ import collections
 
 TASKWORKER_PATH = '/usr/local/libexec/taskworker'
 ERROR_TYPES = {
+    'RpcException': RpcException,
     'TaskException': TaskException,
     'TaskAbortException': TaskAbortException,
     'ValidationException': ValidationException
