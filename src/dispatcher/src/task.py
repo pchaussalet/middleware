@@ -162,7 +162,11 @@ class TaskWarning(RpcWarning):
     pass
 
 
-class ValidationException(TaskException):
+class VerifyException(TaskException):
+    pass
+
+
+class ValidationException(VerifyException):
     def __init__(self, errors=None, extra=None, **kwargs):
         super(ValidationException, self).__init__(errno.EBADMSG, 'Validation failed', extra=[])
 
@@ -200,10 +204,6 @@ class ValidationException(TaskException):
 
     def __bool__(self):
         return bool(self.extra)
-
-
-class VerifyException(TaskException):
-    pass
 
 
 class TaskStatus(object):
