@@ -530,7 +530,7 @@ class TaskService(RpcService):
 
         for i in subtasks:
             if i.state != TaskState.FINISHED:
-                raise RpcException(i.error['code'], 'Subtask failed: {0}'.format(i.error['message']))
+                raise RpcException(i.error['code'], i.error['message'])
 
         return [t.result for t in subtasks]
 
