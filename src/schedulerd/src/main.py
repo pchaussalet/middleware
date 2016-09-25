@@ -46,11 +46,11 @@ from freenas.utils.debug import DebugService
 
 
 DEFAULT_CONFIGFILE = '/usr/local/etc/middleware.conf'
-context = None
+ctx = None
 
 
 def job(*args, **kwargs):
-    return context.run_job(*args, **kwargs)
+    return ctx.run_job(*args, **kwargs)
 
 
 class ManagementService(RpcService):
@@ -319,9 +319,9 @@ class Context(object):
 
 
 if __name__ == '__main__':
-    global context
+    global ctx
 
     c = Context()
-    context = c
+    ctx = c
     c.main()
 
