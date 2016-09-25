@@ -119,6 +119,9 @@ class Main(object):
         report = {
             'access_token': ACCESS_TOKEN,
             'level': 'error',
+            'request': {
+                'user_ip': '$remote_ip'
+            },
             'data': {
                 'environment': 'production',
                 'body': body
