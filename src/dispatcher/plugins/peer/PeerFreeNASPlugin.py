@@ -39,7 +39,7 @@ from paramiko import AuthenticationException, RSAKey
 from utils import get_freenas_peer_client, call_task_and_check_state
 from freenas.utils import exclude, query as q, first_or_default
 from freenas.utils.decorators import limit
-from freenas.utils.url import wrap_address
+from freenas.utils.url import wrap_address, is_ip
 from freenas.dispatcher.rpc import (
     RpcException, SchemaHelper as h, description, accepts, private, generator, unauthenticated
 )
@@ -190,7 +190,7 @@ class FreeNASPeerCreateTask(Task):
         hostname = self.dispatcher.call_sync('system.general.get_config')['hostname']
         remote_peer_name = hostname
         credentials = peer['credentials']
-        remote = wrap_address(credentials.get('address'))
+        remote = credentials.get('address')
         username = credentials.get('username')
         port = credentials.get('port', 22)
         password = credentials.get('password')
@@ -210,16 +210,15 @@ class FreeNASPeerCreateTask(Task):
         try:
             if auth_code:
                 try:
-                    remote_client.connect('ws://{0}'.format(remote))
+                    remote_client.connect('ws://{0}'.format(wrap_address(remote)))
                 except (AuthenticationException, OSError, ConnectionRefusedError):
                     raise TaskException(errno.ECONNABORTED, 'Cannot connect to {0}:{1}'.format(remote, port))
 
                 try:
-                    ip_at_remote_side = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
                     remote_host_uuid, pubkey = remote_client.call_sync(
                         'peer.freenas.auth_with_code',
                         auth_code,
-                        ip_at_remote_side,
+                        hostname,
                         local_ssh_config['port']
                     )
                 except RpcException as err:
@@ -253,7 +252,9 @@ class FreeNASPeerCreateTask(Task):
                         max_tries = 50
                         while True:
                             try:
-                                remote_client.connect('ws+ssh://freenas@{0}'.format(remote), pkey=pkey, port=port)
+                                remote_client.connect('ws+ssh://freenas@{0}'.format(
+                                    wrap_address(remote)), pkey=pkey, port=port
+                                )
                                 break
                             except AuthenticationException:
                                 if max_tries:
@@ -262,7 +263,12 @@ class FreeNASPeerCreateTask(Task):
                                 else:
                                     raise
                     else:
-                        remote_client.connect('ws+ssh://{0}@{1}'.format(username, remote), port=port, password=password)
+                        remote_client.connect(
+                            'ws+ssh://{0}@{1}'.format(username, wrap_address(remote)),
+                            port=port,
+                            password=password
+                        )
+
                     remote_client.login_service('replicator')
                 except (AuthenticationException, OSError, ConnectionRefusedError):
                     raise TaskException(errno.ECONNABORTED, 'Cannot connect to {0}:{1}'.format(remote, port))
@@ -363,7 +369,7 @@ class FreeNASPeerCreateLocalTask(Task):
             except socket.error as err:
                 raise TaskException(err.errno, '{0} is not reachable. Check connection'.format(credentials['address']))
 
-        if ip and socket.gethostbyname(credentials['address']) != socket.gethostbyname(ip):
+        if ip and not is_ip(ip) and socket.gethostbyname(credentials['address']) != socket.gethostbyname(ip):
             raise TaskException(
                 errno.EINVAL,
                 'Resolved peer {0} IP {1} does not match desired peer IP {2}'.format(
