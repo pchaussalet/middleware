@@ -1011,7 +1011,11 @@ class VMStartTask(Task):
         if not vm['enabled']:
             raise TaskException(errno.EACCES, "Cannot start disabled VM {0}".format(id))
 
-        self.dispatcher.call_sync('containerd.management.start_vm', id)
+        try:
+            self.dispatcher.call_sync('containerd.management.start_vm', id)
+        except RpcException as err:
+            raise TaskException(err.code, err.message)
+
         self.dispatcher.dispatch_event('vm.changed', {
             'operation': 'update',
             'ids': [id]
@@ -1033,7 +1037,11 @@ class VMStopTask(Task):
         return ['system']
 
     def run(self, id, force=False):
-        self.dispatcher.call_sync('containerd.management.stop_vm', id, force, timeout=120)
+        try:
+            self.dispatcher.call_sync('containerd.management.stop_vm', id, force, timeout=120)
+        except RpcException as err:
+            raise TaskException(err.code, err.message)
+
         self.dispatcher.dispatch_event('vm.changed', {
             'operation': 'update',
             'ids': [id]
@@ -1055,8 +1063,11 @@ class VMRebootTask(Task):
         return ['system']
 
     def run(self, id, force=False):
-        self.join_subtasks(self.run_subtask('vm.stop', id, force))
-        self.join_subtasks(self.run_subtask('vm.start', id))
+        try:
+            self.join_subtasks(self.run_subtask('vm.stop', id, force))
+            self.join_subtasks(self.run_subtask('vm.start', id))
+        except RpcException as err:
+            raise TaskException(err.code, err.message)
 
 
 @accepts(str)
