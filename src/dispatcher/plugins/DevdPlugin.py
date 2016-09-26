@@ -192,12 +192,15 @@ class DMIDataProvider(Provider):
                 if section is None:
                     continue
 
-                key, value = line.split(':', maxsplit=1)
-                if value.strip():
-                    section[key.strip()] = value.strip()
-                else:
-                    subsection = []
-                    section[key.strip()] = subsection
+                try:
+                    key, value = line.split(':', maxsplit=1)
+                    if value.strip():
+                        section[key.strip()] = value.strip()
+                    else:
+                        subsection = []
+                        section[key.strip()] = subsection
+                except ValueError:
+                    logger.warning('Cannot parse line from DMI data at level 1: {0}'.format(line))
 
                 continue
 
