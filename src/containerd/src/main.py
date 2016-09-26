@@ -992,7 +992,11 @@ class DockerService(RpcService):
 
         for host in self.context.iterate_docker_hosts():
             for container in host.connection.containers(all=True):
-                details = host.connection.inspect_container(container['Id'])
+                try:
+                    details = host.connection.inspect_container(container['Id'])
+                except NotFound:
+                    continue
+
                 result.append({
                     'id': container['Id'],
                     'image': container['Image'],
