@@ -73,6 +73,8 @@ class MongodbDatastore(object):
             '!=': '$ne',
             'in': '$in',
             'nin': '$nin',
+            'contains': '$in',
+            'ncontains': '$nin',
             '~': '$regex',
         }
 
@@ -119,6 +121,9 @@ class MongodbDatastore(object):
                     return {name: {self.operators_table[op]: value}}
                 else:
                     return {name: {self.operators_table[op]: [value]}}
+
+            if op in ('contains', 'ncontains'):
+                return {name: {self.operators_table[op]: [value]}}
 
             return {name: {self.operators_table[op]: value}}
 
