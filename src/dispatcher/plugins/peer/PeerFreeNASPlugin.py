@@ -358,6 +358,9 @@ class FreeNASPeerCreateLocalTask(Task):
         if self.datastore.exists('peers', ('id', '=', peer['id'])):
             raise TaskException(errno.EEXIST, 'FreeNAS peer entry {0} already exists'.format(peer['name']))
 
+        if self.datastore.exists('peers', ('name', '=', peer['name'])):
+            raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
+
         credentials = peer['credentials']
 
         try:

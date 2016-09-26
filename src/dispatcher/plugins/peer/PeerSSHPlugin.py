@@ -69,7 +69,7 @@ class SSHPeerCreateTask(Task):
         if 'name' not in peer:
             raise TaskException(errno.EINVAL, 'Name has to be specified')
 
-        if self.datastore.exists('peers', ('name', '=', peer['name']), ('type', '=', peer['type'])):
+        if self.datastore.exists('peers', ('name', '=', peer['name'])):
             raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
 
         if peer['type'] != peer['credentials']['type']:
@@ -109,6 +109,9 @@ class SSHPeerUpdateTask(Task):
             raise TaskException(errno.EINVAL, 'Peer type cannot be updated')
 
         peer.update(updated_fields)
+        if self.datastore.exists('peers', ('name', '=', peer['name'])):
+            raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
+
         self.datastore.update('peers', id, peer)
         self.dispatcher.dispatch_event('peer.changed', {
             'operation': 'update',
