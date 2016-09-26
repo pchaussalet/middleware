@@ -1004,6 +1004,7 @@ class DockerService(RpcService):
                     'ports': list(get_docker_ports(details)),
                     'volumes': list(get_docker_volumes(details)),
                     'interactive': get_interactive(details),
+                    'labels': details['Config']['Labels'],
                     'expose_ports': 'org.freenas.expose_ports_at_host' in details['Config']['Labels'],
                     'autostart': 'org.freenas.autostart' in details['Config']['Labels'],
                     'environment': details['Config']['Env'],
@@ -1021,6 +1022,7 @@ class DockerService(RpcService):
                     'id': image['Id'],
                     'names': image['RepoTags'],
                     'size': image['VirtualSize'],
+                    'labels': image['Labels'],
                     'host': host.vm.id,
                     'created_at': datetime.utcfromtimestamp(int(image['Created']))
                 })
