@@ -107,7 +107,11 @@ class DockerImagesProvider(Provider):
     @query('docker-image')
     @generator
     def query(self, filter=None, params=None):
-        return images.query(*(filter or []), stream=True, **(params or {}))
+        def extend(obj):
+            obj['presets'] = self.labels_to_presets(obj['labels'])
+            return obj
+
+        return images.query(*(filter or []), stream=True, callback=extend, **(params or {}))
 
     @description('Returns a result of searching Docker Hub for a specified term - part of image name')
     @accepts(str)
@@ -125,7 +129,7 @@ class DockerImagesProvider(Provider):
                 # Fetch dockerfile
                 try:
                     parser.content = hub.get_dockerfile(i['repo_name'])
-                    presets = self.labels_to_template(parser.labels)
+                    presets = self.labels_to_presets(parser.labels)
                 except:
                     pass
 
@@ -154,7 +158,7 @@ class DockerImagesProvider(Provider):
                 # Fetch dockerfile
                 try:
                     parser.content = hub.get_dockerfile(i['repo_name'])
-                    presets = self.labels_to_template(parser.labels)
+                    presets = self.labels_to_presets(parser.labels)
                 except:
                     pass
 
@@ -177,7 +181,10 @@ class DockerImagesProvider(Provider):
         except ValueError:
             return None
 
-    def labels_to_template(self, labels):
+    def labels_to_presets(self, labels):
+        if not labels:
+            return None
+
         result = {
             'interactive': labels.get('org.freenas.interactive', 'false') == 'true',
             'upgradeable': labels.get('org.freenas.upgradeable', 'false') == 'true',
