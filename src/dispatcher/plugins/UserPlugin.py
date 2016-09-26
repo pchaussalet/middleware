@@ -256,18 +256,21 @@ class UserCreateTask(Task):
 
         if user['home'] != '/nonexistent':
             user['home'] = os.path.normpath(user['home'])
-            zfs_pool_mountpoints = list(self.dispatcher.call_sync('volume.query', [], {'select': 'mountpoint'}))
-            homedir_occurrence = self.dispatcher.call_sync('user.query', [('home', '=', user['home'])], {'single': True})
+            zfs_dataset_mountpoints = list(self.dispatcher.call_sync('volume.dataset.query',
+                                                                     [], {'select': 'mountpoint'}))
+            homedir_occurrence = self.dispatcher.call_sync('user.query',
+                                                           [('home', '=', user['home'])], {'single': True})
+            homedir_mount_path = os.path.join('/', *(user['home'].split(os.path.sep)[:-1]))
 
-            if not any(os.path.join('/', *(user['home'].split(os.path.sep)[:3])) == pool_mountpoint
-                       and os.path.ismount(pool_mountpoint) for pool_mountpoint in zfs_pool_mountpoints):
+            if not any(homedir_mount_path == dataset_mountpoint
+                       and os.path.ismount(dataset_mountpoint) for dataset_mountpoint in zfs_dataset_mountpoints):
                 raise TaskException(
                     errno.ENXIO,
                     'Home directory has to reside in zfs pool or dataset.' +
                     ' Provide a path which starts with valid, mounted zfs pool or dataset location.'
                 )
 
-            if user['home'] in zfs_pool_mountpoints:
+            if user['home'] in zfs_dataset_mountpoints:
                 raise TaskException(
                     errno.ENXIO,
                     'Volume mountpoint cannot be set as the home directory.'
@@ -319,28 +322,36 @@ class UserCreateTask(Task):
 
         if user['home'] != '/nonexistent':
             group = self.dispatcher.call_sync('group.query', [('id', '=', user['group'])], {'single': True})
+
             if not group:
                 raise TaskException(errno.ENOENT, 'Group {0} not found'.format(user['group']))
             user_gid = group['gid']
-            try:
-                os.makedirs(user['home'], mode=0o755)
-            except OSError:
+
+            if not os.path.exists(user['home']):
+                parent_dataset = self.dispatcher.call_sync('volume.dataset.query',
+                                                           [('mountpoint', '=', homedir_mount_path)], {'single': True})
+                homedir_dataset_id = parent_dataset['id'] + '/'+ user['home'].split(os.path.sep)[-1]
+                self.dispatcher.call_task_sync('volume.dataset.create',
+                                               {'id': homedir_dataset_id, 'type': 'FILESYSTEM', 'volume': parent_dataset['volume']})
                 os.chmod(user['home'], 0o755)
-            finally:
-                for file in os.listdir(SKEL_PATH):
-                    if file.startswith('dot'):
-                        dest_file = os.path.join(user['home'], file[3:])
-                        if not os.path.exists(dest_file):
-                            shutil.copyfile(os.path.join(SKEL_PATH, file), dest_file)
-                            os.chown(dest_file, uid, user_gid)
 
-                    else:
-                        dest_file = os.path.join(user['home'], file)
-                        if not os.path.exists(dest_file):
-                            shutil.copyfile(os.path.join(SKEL_PATH, file), dest_file)
-                            os.chown(dest_file, uid, user_gid)
+            else:
+                os.chmod(user['home'], 0o755)
 
-                os.chown(user['home'], uid, user_gid)
+            for file in os.listdir(SKEL_PATH):
+                if file.startswith('dot'):
+                    dest_file = os.path.join(user['home'], file[3:])
+                    if not os.path.exists(dest_file):
+                        shutil.copyfile(os.path.join(SKEL_PATH, file), dest_file)
+                        os.chown(dest_file, uid, user_gid)
+
+                else:
+                    dest_file = os.path.join(user['home'], file)
+                    if not os.path.exists(dest_file):
+                        shutil.copyfile(os.path.join(SKEL_PATH, file), dest_file)
+                        os.chown(dest_file, uid, user_gid)
+
+            os.chown(user['home'], uid, user_gid)
 
         self.dispatcher.dispatch_event('user.changed', {
             'operation': 'create',
@@ -501,21 +512,22 @@ class UserUpdateTask(Task):
 
         if 'home' in updated_fields and updated_fields['home'] != '/nonexistent':
             updated_fields['home'] = os.path.normpath(updated_fields['home'])
-            zfs_pool_mountpoints = list(self.dispatcher.call_sync('volume.query', [], {'select': 'mountpoint'}))
+            zfs_dataset_mountpoints = list(self.dispatcher.call_sync('volume.dataset.query', [], {'select': 'mountpoint'}))
             homedir_occurrence = self.dispatcher.call_sync('user.query', [('home', '=', updated_fields['home'])], {})
+            homedir_mount_path = os.path.join('/', *(updated_fields['home'].split(os.path.sep)[:-1]))
             user_gid = self.datastore.get_by_id('groups', user['group'])['gid']
 
             if user['home'] != updated_fields['home']:
 
-                if not any(os.path.join('/', *(updated_fields['home'].split(os.path.sep)[:3])) == pool_mountpoint
-                           and os.path.ismount(pool_mountpoint) for pool_mountpoint in zfs_pool_mountpoints):
+                if not any(homedir_mount_path == dataset_mountpoint
+                           and os.path.ismount(dataset_mountpoint) for dataset_mountpoint in zfs_dataset_mountpoints):
                     raise TaskException(
                         errno.ENXIO,
                         'Home directory has to reside in zfs pool or dataset.' +
                         ' Provide a path which starts with valid, mounted zfs pool or dataset location.'
                     )
 
-                if updated_fields['home'] in zfs_pool_mountpoints:
+                if updated_fields['home'] in zfs_dataset_mountpoints:
                     raise TaskException(
                         errno.ENXIO,
                         'Volume mountpoint cannot be set as the home directory.'
@@ -528,25 +540,31 @@ class UserUpdateTask(Task):
                         ' Multiple users cannot share the same home directory.'
                     )
 
-                try:
-                    os.makedirs(updated_fields['home'], mode=0o755)
-                except OSError:
+                if not os.path.exists(updated_fields['home']):
+                    parent_dataset = self.dispatcher.call_sync('volume.dataset.query',
+                                                               [('mountpoint', '=', homedir_mount_path)], {'single': True})
+                    homedir_dataset_id = parent_dataset['id'] + '/'+ updated_fields['home'].split(os.path.sep)[-1]
+                    self.dispatcher.call_task_sync('volume.dataset.create',
+                                                   {'id': homedir_dataset_id, 'type': 'FILESYSTEM', 'volume': parent_dataset['volume']})
                     os.chmod(updated_fields['home'], 0o755)
-                finally:
-                    for file in os.listdir(SKEL_PATH):
 
-                        if file.startswith('dot'):
-                            dest_file = os.path.join(updated_fields['home'], file[3:])
-                            if not os.path.exists(dest_file):
-                                shutil.copyfile(os.path.join(SKEL_PATH, file), dest_file)
-                                os.chown(dest_file, user['uid'], user_gid)
-                        else:
-                            dest_file = os.path.join(updated_fields['home'], file)
-                            if not os.path.exists(dest_file):
-                                shutil.copyfile(os.path.join(SKEL_PATH, file), dest_file)
-                                os.chown(dest_file, user['uid'], user_gid)
+                else:
+                    os.chmod(updated_fields['home'], 0o755)
 
-                    os.chown(updated_fields['home'], user['uid'], user_gid)
+                for file in os.listdir(SKEL_PATH):
+                    if file.startswith('dot'):
+                        dest_file = os.path.join(updated_fields['home'], file[3:])
+                        if not os.path.exists(dest_file):
+                            shutil.copyfile(os.path.join(SKEL_PATH, file), dest_file)
+                            os.chown(dest_file, user['uid'], user_gid)
+
+                    else:
+                        dest_file = os.path.join(updated_fields['home'], file)
+                        if not os.path.exists(dest_file):
+                            shutil.copyfile(os.path.join(SKEL_PATH, file), dest_file)
+                            os.chown(dest_file, user['uid'], user_gid)
+
+                os.chown(updated_fields['home'], user['uid'], user_gid)
 
         user.update(updated_fields)
 
