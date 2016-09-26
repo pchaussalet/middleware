@@ -526,7 +526,7 @@ class DockerContainerCreateTask(DockerBaseTask):
 
         image = self.dispatcher.call_sync(
             'docker.image.query',
-            [('host', '=', container['host']), ('image', '=', container['image'])],
+            [('host', '=', container['host']), ('names', 'contains', container['image'])],
             {'single': True}
         )
 
