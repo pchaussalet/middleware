@@ -56,7 +56,8 @@ class EvalService(RpcService):
 
     @generator
     def eval_ast(self, ast, user):
-        self.context.ml.eval(ast)
+        ast = read_ast(ast)
+        return self.context.ml.eval(ast)
 
     @generator
     def eval_code(self, code, user):

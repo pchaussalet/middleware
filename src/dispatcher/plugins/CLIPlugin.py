@@ -42,7 +42,7 @@ class EvalCodeTask(Task):
         return []
 
     def run(self, code):
-        return self.dispatcher.call_sync('clid.eval.eval_code', code)
+        return list(self.dispatcher.call_sync('clid.eval.eval_code', code, self.user))
 
 
 @description("Evaluates given AST using background CLI instance")
@@ -51,14 +51,14 @@ class EvalASTTask(Task):
     def early_describe(cls):
         return "Evaluating AST"
 
-    def describe(self, code):
+    def describe(self, ast):
         return TaskDescription("Evaluating AST")
 
     def verify(self, ast):
         return []
 
     def run(self, ast):
-        return self.dispatcher.call_sync('clid.eval.eval_ast', ast)
+        return list(self.dispatcher.call_sync('clid.eval.eval_ast', ast, self.user))
 
 
 def _init(dispatcher, plugin):
