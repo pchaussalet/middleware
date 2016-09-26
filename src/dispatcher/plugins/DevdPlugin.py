@@ -40,6 +40,7 @@ from bsd import devinfo
 from bsd import sysctl
 from event import EventSource
 from task import Provider
+from debug import AttachCommandOutput
 from freenas.dispatcher.rpc import accepts, returns, description
 from freenas.dispatcher.rpc import RpcException, SchemaHelper as h
 from gevent import socket
@@ -396,6 +397,13 @@ class DevdEventSource(EventSource):
                 time.sleep(1)
 
             self.socket.close()
+
+
+def collect_debug(dispatcher):
+    yield AttachCommandOutput('dmidecode', ['/usr/local/sbin/dmidecode'])
+    yield AttachCommandOutput('pciconf', ['/usr/sbin/pciconf', '-lv'])
+    yield AttachCommandOutput('devinfo', ['/usr/sbin/devinfo', '-rv'])
+
 
 
 def _depends():
