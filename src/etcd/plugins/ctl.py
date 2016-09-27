@@ -92,6 +92,9 @@ def generate_luns(context):
         if props.get('size'):
             extent['size'] = props['size']
 
+        if props.get('ctl_lun'):
+            extent['ctl-lun'] = props['ctl_lun']
+
         if props.get('tpc'):
             extent['options']['insescure_tpc'] = 'on'
 
