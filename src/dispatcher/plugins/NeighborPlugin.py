@@ -27,6 +27,7 @@
 
 from task import Provider, query
 from freenas.dispatcher.rpc import generator
+from freenas.utils import query as q
 
 
 KNOWN_SERVICES = ['freenas', 'ssh']
@@ -35,9 +36,14 @@ KNOWN_SERVICES = ['freenas', 'ssh']
 class NeighborProvider(Provider):
     @query('neighbor')
     @generator
-    def query(self):
-        for regtype in KNOWN_SERVICES:
-            yield from self.dispatcher.call_sync('neighbord.discovery.find', regtype)
+    def query(self, filter=None, params=None):
+        def collect():
+            for regtype in KNOWN_SERVICES:
+                for svc in self.dispatcher.call_sync('neighbord.discovery.find', regtype):
+                    svc['service'] = regtype
+                    yield svc
+
+        return q.query(collect(), *(filter or []), **(params or {}))
 
 
 def _init(dispatcher, plugin):
