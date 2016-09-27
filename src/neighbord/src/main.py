@@ -131,7 +131,7 @@ class Main(object):
         self.logger.info('Registered plugin {0} (class {1})'.format(name, cls))
 
     def register_service(self, name, regtype, port, properties=None):
-        for name, plugin in self.plugins.items():
+        for plugin in self.plugins.values():
             plugin.register(regtype, name, port, properties)
 
     def register(self):
