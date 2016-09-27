@@ -572,7 +572,7 @@ class VMBaseTask(ProgressTask):
 
 @accepts(h.all_of(
     h.ref('vm'),
-    h.required('target')
+    h.required('name', 'target')
 ))
 @description('Creates a VM')
 class VMCreateTask(VMBaseTask):
