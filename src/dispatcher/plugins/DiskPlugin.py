@@ -1351,6 +1351,7 @@ def persist_disk(dispatcher, disk):
         'lunid': disk['lunid'],
         'path': disk['path'],
         'name': os.path.basename(disk['path']),
+        'description': disk['description'],
         'mediasize': disk['mediasize'],
         'serial': disk['serial'],
         'is_multipath': disk['is_multipath'],
