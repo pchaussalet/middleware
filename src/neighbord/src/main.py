@@ -131,7 +131,8 @@ class Main(object):
         self.logger.info('Registered plugin {0} (class {1})'.format(name, cls))
 
     def register_service(self, name, regtype, port, properties=None):
-        pass
+        for name, plugin in self.plugins.items():
+            plugin.register(regtype, name, port, properties)
 
     def register(self):
         hostname = socket.gethostname()
@@ -139,10 +140,10 @@ class Main(object):
             'version': self.client.call_sync('system.info.version')
         }
 
-        self.register_service(hostname, '_freenas._tcp.', 80, properties)
-        self.register_service(hostname, '_http._tcp.', 80)
-        self.register_service(hostname, '_ssh._tcp.', 22)
-        self.register_service(hostname, '_sftp-ssh._tcp.', 22)
+        self.register_service(hostname, 'freenas', 80, properties)
+        self.register_service(hostname, 'http', 80)
+        self.register_service(hostname, 'ssh', 22)
+        self.register_service(hostname, 'sftp-ssh', 22)
 
     def connect(self):
         while True:

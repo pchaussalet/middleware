@@ -86,7 +86,7 @@ class MDNSDiscoveryPlugin(NeighborDiscoveryPlugin):
                 txt = pybonjour.TXTRecord.parse(txt_record)
                 services.append({
                     'fullname': fullname,
-                    'hosttarget': hosttarget,
+                    'hostname': hosttarget,
                     'port': port,
                     'properties': {n: txt[n] for n in txt}
                 })
