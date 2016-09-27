@@ -153,7 +153,7 @@ class DockerImagesProvider(Provider):
         for i in hub.get_repositories(collection):
             presets = None
             icon = None
-            repo_name = '{0}/{1}'.format(i['user'], i['name']),
+            repo_name = '{0}/{1}'.format(i['user'], i['name'])
 
             if i['is_automated']:
                 # Fetch dockerfile
