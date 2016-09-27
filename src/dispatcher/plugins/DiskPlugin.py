@@ -1452,7 +1452,6 @@ def _init(dispatcher, plugin):
             'name': {'type': 'string'},
             'rname': {'type': 'string'},
             'path': {'type': 'string'},
-            'description': {'type': 'string'},
             'serial': {'type': ['string', 'null']},
             'mediasize': {'type': 'integer'},
             'smart': {'type': 'boolean'},
