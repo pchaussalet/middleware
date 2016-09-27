@@ -29,7 +29,8 @@ from plugin import NeighborDiscoveryPlugin
 
 
 class ConsulDiscoveryPlugin(NeighborDiscoveryPlugin):
-    pass
+    def find(self, type):
+        return []
 
 
 def _init(context):

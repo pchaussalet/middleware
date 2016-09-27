@@ -32,6 +32,9 @@ import pybonjour
 from plugin import NeighborDiscoveryPlugin
 
 
+TIMEOUT = 5
+
+
 class EventLoop(object):
     def __init__(self):
         self.kq = select.kqueue()
@@ -114,7 +117,7 @@ class MDNSDiscoveryPlugin(NeighborDiscoveryPlugin):
         sdref = pybonjour.DNSServiceBrowse(regtype=regtype, callBack=browse_callback)
         self.event_loop.register(sdref)
         with cv:
-            cv.wait_for(lambda: done and found == len(services))
+            cv.wait_for(lambda: done and found == len(services), TIMEOUT)
             return services
 
     def register(self, type, name, port, properties=None):
