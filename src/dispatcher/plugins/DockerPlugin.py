@@ -153,17 +153,18 @@ class DockerImagesProvider(Provider):
         for i in hub.get_repositories(collection):
             presets = None
             icon = None
+            repo_name = '{0}/{1}'.format(i['user'], i['name']),
 
             if i['is_automated']:
                 # Fetch dockerfile
                 try:
-                    parser.content = hub.get_dockerfile(i['repo_name'])
+                    parser.content = hub.get_dockerfile(repo_name)
                     presets = self.labels_to_presets(parser.labels)
                 except:
                     pass
 
             yield {
-                'name': '{0}/{1}'.format(i['user'], i['name']),
+                'name': repo_name,
                 'description': i['description'],
                 'star_count': i['star_count'],
                 'pull_count': i['pull_count'],
