@@ -136,8 +136,11 @@ class Main(object):
 
     def register(self):
         hostname = socket.gethostname()
+        general = self.client.call_sync('system.general.get_config')
         properties = {
-            'version': self.client.call_sync('system.info.version')
+            'version': self.client.call_sync('system.info.version'),
+            'description': general['description'],
+            'tags': ','.join(general['tags'])
         }
 
         self.register_service(hostname, 'freenas', 80, properties)
