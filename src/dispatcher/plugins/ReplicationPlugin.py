@@ -43,7 +43,7 @@ from task import Provider, Task, ProgressTask, VerifyException, TaskException, T
 from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, returns, private, generator
 from freenas.dispatcher.fd import FileDescriptor
 from utils import get_freenas_peer_client, call_task_and_check_state
-from freenas.utils import first_or_default, query as q
+from freenas.utils import first_or_default, query as q, normalize
 
 logger = logging.getLogger(__name__)
 
@@ -357,8 +357,7 @@ class ReplicationBaseTask(Task):
 @accepts(h.all_of(
         h.ref('replication'),
         h.required(
-            'name', 'slave', 'master', 'datasets', 'replicate_services', 'bidirectional',
-            'auto_recover', 'recursive', 'transport_options', 'snapshot_lifetime', 'followdelete'
+            'name', 'slave', 'master', 'datasets'
         )
     )
 )
@@ -374,13 +373,13 @@ class ReplicationCreateTask(ReplicationBaseTask):
         if not len(link['datasets']):
             raise VerifyException(errno.ENOENT, 'At least one dataset have to be specified')
 
-        if not link['bidirectional']:
-            if link['replicate_services']:
+        if not link.get('bidirectional'):
+            if link.get('replicate_services'):
                 raise VerifyException(
                     errno.EINVAL,
                     'Replication of services is available only when bi-directional replication is selected'
                 )
-            if link['auto_recover']:
+            if link.get('auto_recover'):
                 raise VerifyException(
                     errno.EINVAL,
                     'Automatic recovery to master is available only when bi-directional replication is selected'
@@ -395,6 +394,19 @@ class ReplicationCreateTask(ReplicationBaseTask):
         for dataset in link['datasets']:
             if not self.dispatcher.call_sync('zfs.dataset.query', [('name', '=', dataset)], {'single': True}):
                 raise TaskException(errno.ENOENT, 'Dataset {0} does not exist'.format(dataset))
+
+        normalize(
+            link,
+            {
+                'replicate_services': False,
+                'bidirectional': False,
+                'auto_recover': False,
+                'recursive': False,
+                'transport_options': [],
+                'snapshot_lifetime': 365 * 24 * 60 * 60,
+                'followdelete': False
+            }
+        )
 
         if 'update_date' not in link:
             link['update_date'] = str(datetime.utcnow())
