@@ -396,7 +396,6 @@ class ReplicationCreateTask(ReplicationBaseTask):
             if not self.dispatcher.call_sync('zfs.dataset.query', [('name', '=', dataset)], {'single': True}):
                 raise TaskException(errno.ENOENT, 'Dataset {0} does not exist'.format(dataset))
 
-        link['id'] = link['name']
         if 'update_date' not in link:
             link['update_date'] = str(datetime.utcnow())
 

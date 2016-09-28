@@ -1130,7 +1130,7 @@
         "metadata": {
             "name": "replication.links",
             "migration": "keep",
-            "pkey-type": "native",
+            "pkey-type": "uuid",
             "attributes": {
                 "type": "config"
             }
