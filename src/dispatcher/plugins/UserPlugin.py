@@ -1,4 +1,4 @@
-#+
+# +
 # Copyright 2014 iXsystems, Inc.
 # All rights reserved
 #
@@ -31,13 +31,13 @@ import os
 import re
 import shutil
 from datetime import datetime
-from task import Provider, Task, TaskException, TaskDescription, TaskWarning, ValidationException, VerifyException, query
+from task import Provider, Task, TaskException, TaskDescription, TaskWarning, ValidationException, VerifyException, \
+    query
 from debug import AttachFile
 from freenas.dispatcher.rpc import RpcException, description, accepts, returns, SchemaHelper as h, generator
 from datastore import DuplicateKeyException, DatastoreException
 from lib.system import SubprocessException, system
 from freenas.utils import normalize, crypted_password, nt_password, query as q
-
 
 EMAIL_REGEX = re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,4}\b")
 SKEL_PATH = '/usr/share/skel/'
@@ -215,11 +215,11 @@ class UserCreateTask(Task):
             user['home'] = os.path.normpath(user['home'])
 
             if not user['home'].startswith(volumes_root) or user['home'] == volumes_root:
-                    errors.add(
-                         (0, 'home directory'),
-                         "Invalid mountpoint specified for home directory: {0}.\n".format(user['home']) +
-                         "Provide a path within zfs pool or dataset mounted under {0}".format(volumes_root)
-                     )
+                errors.add(
+                    (0, 'home directory'),
+                    "Invalid mountpoint specified for home directory: {0}.\n".format(user['home']) +
+                    "Provide a path within zfs pool or dataset mounted under {0}".format(volumes_root)
+                )
 
         if errors:
             raise errors
@@ -256,10 +256,13 @@ class UserCreateTask(Task):
 
         if user['home'] != '/nonexistent':
             user['home'] = os.path.normpath(user['home'])
-            zfs_dataset_mountpoints = list(self.dispatcher.call_sync('volume.dataset.query',
-                                                                     [], {'select': 'mountpoint'}))
-            homedir_occurrence = self.dispatcher.call_sync('user.query',
-                                                           [('home', '=', user['home'])], {'single': True})
+            zfs_dataset_mountpoints = q.query(self.dispatcher.call_sync('volume.dataset.query'), select='mountpoint')
+            homedir_occurrence = self.dispatcher.call_sync(
+                'user.query',
+                [('home', '=', user['home'])],
+                {'single': True}
+            )
+
             homedir_mount_path = os.path.join('/', *(user['home'].split(os.path.sep)[:-1]))
 
             if not any(homedir_mount_path == dataset_mountpoint
@@ -328,11 +331,17 @@ class UserCreateTask(Task):
             user_gid = group['gid']
 
             if not os.path.exists(user['home']):
-                parent_dataset = self.dispatcher.call_sync('volume.dataset.query',
-                                                           [('mountpoint', '=', homedir_mount_path)], {'single': True})
-                homedir_dataset_id = parent_dataset['id'] + '/'+ user['home'].split(os.path.sep)[-1]
-                self.dispatcher.call_task_sync('volume.dataset.create',
-                                               {'id': homedir_dataset_id, 'type': 'FILESYSTEM', 'volume': parent_dataset['volume']})
+                parent_dataset = self.dispatcher.call_sync(
+                    'volume.dataset.query',
+                    [('mountpoint', '=', homedir_mount_path)],
+                    {'single': True}
+                )
+
+                homedir_dataset_id = os.path.join(parent_dataset['id'], user['home'].split(os.path.sep)[-1])
+                self.join_subtasks(self.run_subtask(
+                    'volume.dataset.create',
+                    {'id': homedir_dataset_id, 'type': 'FILESYSTEM', 'volume': parent_dataset['volume']}
+                ))
                 os.chmod(user['home'], 0o755)
 
             else:
@@ -463,11 +472,11 @@ class UserUpdateTask(Task):
             volumes_root = self.dispatcher.call_sync('volume.get_volumes_root')
             updated_fields['home'] = os.path.normpath(updated_fields['home'])
             if not updated_fields['home'].startswith(volumes_root) or updated_fields['home'] == volumes_root:
-                    errors.add(
-                         (1, 'home directory'),
-                         "Invalid mountpoint specified for home directory: {0}.\n".format(updated_fields['home']) +
-                         "Provide a path within zfs pool or dataset mounted under {0}".format(volumes_root)
-                     )
+                errors.add(
+                    (1, 'home directory'),
+                    "Invalid mountpoint specified for home directory: {0}.\n".format(updated_fields['home']) +
+                    "Provide a path within zfs pool or dataset mounted under {0}".format(volumes_root)
+                )
 
         if errors:
             raise errors
@@ -512,8 +521,12 @@ class UserUpdateTask(Task):
 
         if 'home' in updated_fields and updated_fields['home'] != '/nonexistent':
             updated_fields['home'] = os.path.normpath(updated_fields['home'])
-            zfs_dataset_mountpoints = list(self.dispatcher.call_sync('volume.dataset.query', [], {'select': 'mountpoint'}))
-            homedir_occurrence = self.dispatcher.call_sync('user.query', [('home', '=', updated_fields['home'])], {})
+            zfs_dataset_mountpoints = q.query(self.dispatcher.call_sync('volume.dataset.query'), select='mountpoint')
+            homedir_occurrence = self.dispatcher.call_sync(
+                'user.query',
+                [('home', '=', user['home'])],
+                {'single': True}
+            )
             homedir_mount_path = os.path.join('/', *(updated_fields['home'].split(os.path.sep)[:-1]))
             user_gid = self.datastore.get_by_id('groups', user['group'])['gid']
 
@@ -533,7 +546,7 @@ class UserUpdateTask(Task):
                         'Volume mountpoint cannot be set as the home directory.'
                     )
 
-                if any(homedir_occurrence):
+                if homedir_occurrence:
                     raise TaskException(
                         errno.ENXIO,
                         '{} is already assigned to another user.'.format(updated_fields['home']) +
@@ -541,11 +554,21 @@ class UserUpdateTask(Task):
                     )
 
                 if not os.path.exists(updated_fields['home']):
-                    parent_dataset = self.dispatcher.call_sync('volume.dataset.query',
-                                                               [('mountpoint', '=', homedir_mount_path)], {'single': True})
-                    homedir_dataset_id = parent_dataset['id'] + '/'+ updated_fields['home'].split(os.path.sep)[-1]
-                    self.dispatcher.call_task_sync('volume.dataset.create',
-                                                   {'id': homedir_dataset_id, 'type': 'FILESYSTEM', 'volume': parent_dataset['volume']})
+                    parent_dataset = self.dispatcher.call_sync(
+                        'volume.dataset.query',
+                        [('mountpoint', '=', homedir_mount_path)],
+                        {'single': True}
+                    )
+
+                    homedir_dataset_id = os.path.join(
+                        parent_dataset['id'],
+                        updated_fields['home'].split(os.path.sep)[-1]
+                    )
+
+                    self.join_subtasks(self.run_subtask(
+                        'volume.dataset.create',
+                        {'id': homedir_dataset_id, 'type': 'FILESYSTEM', 'volume': parent_dataset['volume']}
+                    ))
                     os.chmod(updated_fields['home'], 0o755)
 
                 else:
@@ -863,3 +886,4 @@ def _init(dispatcher, plugin):
 
     # Register debug hook
     plugin.register_debug_hook(collect_debug)
+
