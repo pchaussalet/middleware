@@ -578,6 +578,16 @@ class Dispatcher(object):
     def call_sync(self, name, *args, **kwargs):
         return self.rpc.call_sync(name, *args)
 
+    def call_async(self, name, callback, *args, **kwargs):
+        def call(n, c, *a):
+            try:
+                c(self.rpc.call_sync(n, *a))
+            except RpcException as err:
+                c(err)
+
+        if callable(callback):
+            gevent.spawn(call, name, callback, *args)
+
     def call_task_sync(self, name, *args):
         t = self.balancer.run_subtask(None, name, args)
         self.balancer.join_subtasks(t)
