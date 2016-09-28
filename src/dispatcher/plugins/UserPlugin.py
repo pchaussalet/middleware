@@ -1,4 +1,4 @@
-# +
+#+
 # Copyright 2014 iXsystems, Inc.
 # All rights reserved
 #
@@ -31,8 +31,7 @@ import os
 import re
 import shutil
 from datetime import datetime
-from task import Provider, Task, TaskException, TaskDescription, TaskWarning, ValidationException, VerifyException, \
-    query
+from task import Provider, Task, TaskException, TaskDescription, TaskWarning, ValidationException, VerifyException, query
 from debug import AttachFile
 from freenas.dispatcher.rpc import RpcException, description, accepts, returns, SchemaHelper as h, generator
 from datastore import DuplicateKeyException, DatastoreException
@@ -256,7 +255,7 @@ class UserCreateTask(Task):
 
         if user['home'] != '/nonexistent':
             user['home'] = os.path.normpath(user['home'])
-            zfs_dataset_mountpoints = q.query(self.dispatcher.call_sync('volume.dataset.query'), select='mountpoint')
+            zfs_dataset_mountpoints = list(self.dispatcher.call_sync('volume.dataset.query', [], {'select': 'mountpoint'}))
             homedir_occurrence = self.dispatcher.call_sync(
                 'user.query',
                 [('home', '=', user['home'])],
@@ -521,7 +520,7 @@ class UserUpdateTask(Task):
 
         if 'home' in updated_fields and updated_fields['home'] != '/nonexistent':
             updated_fields['home'] = os.path.normpath(updated_fields['home'])
-            zfs_dataset_mountpoints = q.query(self.dispatcher.call_sync('volume.dataset.query'), select='mountpoint')
+            zfs_dataset_mountpoints = list(self.dispatcher.call_sync('volume.dataset.query', [], {'select': 'mountpoint'}))
             homedir_occurrence = self.dispatcher.call_sync(
                 'user.query',
                 [('home', '=', user['home'])],
