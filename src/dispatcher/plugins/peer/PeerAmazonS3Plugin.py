@@ -27,7 +27,7 @@
 
 import errno
 import logging
-from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, private, generator
+from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, private, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
 from freenas.utils import query as q
 
@@ -40,9 +40,22 @@ class PeerAmazonS3Provider(Provider):
     @query('peer')
     @generator
     def query(self, filter=None, params=None):
-        peers = self.datastore.query_stream('peers', ('type', '=', 'amazon-s3'))
+        return q.query(
+            self.dispatcher.call_sync('peer.query', [('type', '=', 'amazon-s3')]),
+            *(filter or []),
+            stream=True,
+            **(params or {})
+        )
 
-        return q.query(peers, *(filter or []), stream=True, **(params or {}))
+    @private
+    @accepts(str)
+    @returns(h.tuple(str, bool))
+    def is_online(self, id):
+        peer = self.dispatcher.call_sync('peer.query', [('id', '=', id), ('type', '=', 'amazon-s3')], {'single': True})
+        if not peer:
+            return id, False
+        else:
+            return id, True
 
 
 @private
@@ -76,7 +89,7 @@ class AmazonS3PeerCreateTask(Task):
             raise TaskException(errno.EINVAL, 'Peer type and credentials type must match')
 
         id = self.datastore.insert('peers', peer)
-        self.dispatcher.dispatch_event('peer.changed', {
+        self.dispatcher.dispatch_event('peer.entity.changed', {
             'operation': 'create',
             'ids': [id]
         })
@@ -113,7 +126,7 @@ class AmazonS3PeerUpdateTask(Task):
             raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
 
         self.datastore.update('peers', id, peer)
-        self.dispatcher.dispatch_event('peer.changed', {
+        self.dispatcher.dispatch_event('peer.entity.changed', {
             'operation': 'update',
             'ids': [id]
         })
@@ -139,7 +152,7 @@ class AmazonS3PeerDeleteTask(Task):
             raise TaskException(errno.EINVAL, 'Peer entry {0} does not exist'.format(id))
 
         self.datastore.delete('peers', id)
-        self.dispatcher.dispatch_event('peer.changed', {
+        self.dispatcher.dispatch_event('peer.entity.changed', {
             'operation': 'delete',
             'ids': [id]
         })

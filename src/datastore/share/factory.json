@@ -365,6 +365,7 @@
             "network.dhcp.assign_dns": true,
             "network.netwait.enabled": false,
             "network.netwait.addresses": [],
+            "peer.ping_interval": 60,
             "peer.freenas.token_lifetime": 300,
             "peer.freenas.key.public": null,
             "peer.freenas.key.private": null,

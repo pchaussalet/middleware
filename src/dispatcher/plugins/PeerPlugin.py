@@ -26,7 +26,10 @@
 #####################################################################
 
 import errno
+import gevent
 import logging
+from cache import EventCacheStore
+from freenas.utils import extend
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, private, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
 
@@ -34,12 +37,15 @@ from task import Task, Provider, TaskException, VerifyException, query, TaskDesc
 logger = logging.getLogger(__name__)
 
 
+peers = None
+
+
 @description('Provides information about known peers')
 class PeerProvider(Provider):
     @query('peer')
     @generator
     def query(self, filter=None, params=None):
-        return self.datastore.query_stream('peers', *(filter or []), **(params or {}))
+        return peers.query(*(filter or []), stream=True, **(params or {}))
 
     @private
     def peer_types(self):
@@ -123,6 +129,9 @@ class PeerDeleteTask(Task):
 
 
 def _init(dispatcher, plugin):
+    global peers
+    peers = EventCacheStore(dispatcher, 'peer')
+
     # Register schemas
     plugin.register_schema_definition('peer', {
         'type': 'object',
@@ -130,13 +139,42 @@ def _init(dispatcher, plugin):
             'name': {'type': 'string'},
             'id': {'type': 'string'},
             'type': {'type': 'string'},
+            'online': {'type': 'boolean', 'readOnly': True},
             'credentials': {'$ref': 'peer-credentials'}
         },
         'additionalProperties': False
     })
 
-    # Register providers
-    plugin.register_provider('peer', PeerProvider)
+    def on_peer_change(args):
+        if args['operation'] in ('create', 'update'):
+            items = list(dispatcher.datastore.query('peers', ('id', 'in', args['ids'])))
+
+            if args['operation'] == 'create':
+                for i in items:
+                    i['online'] = False
+
+            peers.update(**{i['id']: i for i in items})
+
+            for i in items:
+                update_peer_health(i)
+
+        elif args['operation'] == 'delete':
+            peers.remove_many(args['ids'])
+
+    def update_peer_health(peer):
+        dispatcher.call_async(
+            'peer.{0}.is_online'.format(peer['type']),
+            lambda r: peers.update_one(r[0], online=r[1]),
+            peer['id']
+        )
+
+    def health_worker():
+        interval = dispatcher.configstore.get('peer.ping_interval')
+        while True:
+            gevent.sleep(interval)
+            for t in dispatcher.call_sync('peer.peer_types'):
+                for p in peers.query(('type', '=', t)):
+                    update_peer_health(p)
 
     # Register credentials schema
     def update_peer_credentials_schema():
@@ -146,6 +184,10 @@ def _init(dispatcher, plugin):
                 {'$ref': '{0}-credentials'.format(name)} for name in dispatcher.call_sync('peer.peer_types')
             ]
         })
+
+    # Register providers
+    plugin.register_provider('peer', PeerProvider)
+    plugin.register_event_handler('peer.entity.changed', on_peer_change)
 
     # Register event handlers
     dispatcher.register_event_handler('server.plugin.loaded', update_peer_credentials_schema)
@@ -157,6 +199,15 @@ def _init(dispatcher, plugin):
 
     # Register event types
     plugin.register_event_type('peer.changed')
+    plugin.register_event_type('peer.entity.changed')
 
     # Init peer credentials schema
     update_peer_credentials_schema()
+
+    peers.update(**{i['id']: i for i in map(
+        lambda o: extend(o, {'online': False}),
+        dispatcher.datastore.query('peers')
+    )})
+    peers.ready = True
+
+    gevent.spawn(health_worker)
