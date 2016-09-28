@@ -28,6 +28,7 @@
 import errno
 import socket
 import logging
+from datetime import datetime
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, private, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
 from freenas.utils import query as q
@@ -50,20 +51,22 @@ class PeerSSHProvider(Provider):
 
     @private
     @accepts(str)
-    @returns(h.tuple(str, bool))
-    def is_online(self, id):
+    @returns(h.tuple(str, h.ref('peer-status')))
+    def get_status(self, id):
         peer = self.dispatcher.call_sync('peer.query', [('id', '=', id), ('type', '=', 'ssh')], {'single': True})
         if not peer:
-            return id, False
+            return id, {'state': 'UNKNOWN', 'rtt': None}
 
         credentials = peer['credentials']
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            start_time = datetime.now()
             s.connect((credentials['address'], credentials['port']))
-            return id, True
+            delta = datetime.now() - start_time
+            return id, {'state': 'ONLINE', 'rtt': delta.seconds + delta.microseconds / 1E6}
         except socket.error:
-            return id, False
+            return id, {'state': 'OFFLINE', 'rtt': None}
         finally:
             s.close()
 
@@ -98,11 +101,7 @@ class SSHPeerCreateTask(Task):
         if peer['type'] != peer['credentials']['type']:
             raise TaskException(errno.EINVAL, 'Peer type and credentials type must match')
 
-        id = self.datastore.insert('peers', peer)
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'create',
-            'ids': [id]
-        })
+        return self.datastore.insert('peers', peer)
 
 
 @private
@@ -136,10 +135,6 @@ class SSHPeerUpdateTask(Task):
             raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
 
         self.datastore.update('peers', id, peer)
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'update',
-            'ids': [id]
-        })
 
 
 @private
@@ -162,10 +157,6 @@ class SSHPeerDeleteTask(Task):
             raise TaskException(errno.EINVAL, 'Peer entry {0} does not exist'.format(id))
 
         self.datastore.delete('peers', id)
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'delete',
-            'ids': [id]
-        })
 
 
 def _depends():

@@ -71,20 +71,22 @@ class PeerFreeNASProvider(Provider):
 
     @private
     @accepts(str)
-    @returns(h.tuple(str, bool))
-    def is_online(self, id):
+    @returns(h.tuple(str, h.ref('peer-status')))
+    def get_status(self, id):
         peer = self.dispatcher.call_sync('peer.query', [('id', '=', id), ('type', '=', 'freenas')], {'single': True})
         if not peer:
-            return id, False
+            return id, {'state': 'UNKNOWN', 'rtt': None}
 
         credentials = peer['credentials']
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            start_time = datetime.now()
             s.connect((credentials['address'], credentials['port']))
-            return id, True
+            delta = datetime.now() - start_time
+            return id, {'state': 'ONLINE', 'rtt': delta.seconds + delta.microseconds / 1E6}
         except socket.error:
-            return id, False
+            return id, {'state': 'OFFLINE', 'rtt': None}
         finally:
             s.close()
 
@@ -250,7 +252,7 @@ class FreeNASPeerCreateTask(Task):
                 try:
                     self.dispatcher.call_sync('peer.freenas.put_temp_pubkey', pubkey)
                     self.dispatcher.test_or_wait_for_event(
-                        'peer.entity.changed',
+                        'peer.changed',
                         lambda ar: ar['operation'] == 'create' and remote_host_uuid in ar['ids'],
                         lambda: self.datastore.exists('peers', ('id', '=', remote_host_uuid)),
                         timeout=30
@@ -321,10 +323,11 @@ class FreeNASPeerCreateTask(Task):
                 peer['name'] = remote_hostname
                 ip = socket.gethostbyname(remote)
 
-                self.join_subtasks(self.run_subtask(
+                created_ids = self.join_subtasks(self.run_subtask(
                     'peer.freenas.create_local',
                     peer,
-                    ip
+                    ip,
+                    True
                 ))
 
                 peer['id'] = hostid
@@ -347,30 +350,32 @@ class FreeNASPeerCreateTask(Task):
                     )
                 except TaskException:
                     self.datastore.delete('peers', local_id)
-                    self.dispatcher.dispatch_event('peer.entity.changed', {
+                    self.dispatcher.dispatch_event('peer.changed', {
                         'operation': 'delete',
                         'ids': [local_id]
                     })
                     raise
+
+                return created_ids[0]
         finally:
             remote_client.disconnect()
 
 
 @private
 @description('Creates FreeNAS peer entry in database')
-@accepts(h.ref('peer'), str)
+@accepts(h.ref('peer'), str, bool)
 class FreeNASPeerCreateLocalTask(Task):
     @classmethod
     def early_describe(cls):
         return 'Creating FreeNAS peer entry'
 
-    def describe(self, peer, ip):
+    def describe(self, peer, ip, local=False):
         return TaskDescription('Creating FreeNAS peer entry {name}', name=peer['name'])
 
-    def verify(self, peer, ip):
+    def verify(self, peer, ip, local=False):
         return []
 
-    def run(self, peer, ip):
+    def run(self, peer, ip, local=False):
         def ping(address, port):
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
@@ -406,11 +411,13 @@ class FreeNASPeerCreateLocalTask(Task):
             )
 
         id = self.datastore.insert('peers', peer)
+        if not local:
+            self.dispatcher.dispatch_event('peer.changed', {
+                'operation': 'create',
+                'ids': [id]
+            })
 
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'create',
-            'ids': [id]
-        })
+        return id
 
 
 @description('Removes FreeNAS peer entry')
@@ -486,11 +493,6 @@ class FreeNASPeerDeleteLocalTask(Task):
             raise TaskException(errno.ENOENT, 'FreeNAS peer entry {0} does not exist'.format(peer['name']))
         self.datastore.delete('peers', id)
 
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'delete',
-            'ids': [id]
-        })
-
 
 @private
 @description('Updates FreeNAS peer entry in database')
@@ -524,10 +526,6 @@ class FreeNASPeerUpdateTask(Task):
         peer.update(updated_fields)
 
         self.datastore.update('peers', id, peer)
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'update',
-            'ids': [id]
-        })
 
 
 @private

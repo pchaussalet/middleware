@@ -49,13 +49,9 @@ class PeerAmazonS3Provider(Provider):
 
     @private
     @accepts(str)
-    @returns(h.tuple(str, bool))
-    def is_online(self, id):
-        peer = self.dispatcher.call_sync('peer.query', [('id', '=', id), ('type', '=', 'amazon-s3')], {'single': True})
-        if not peer:
-            return id, False
-        else:
-            return id, True
+    @returns(h.tuple(str, h.ref('peer-status')))
+    def get_status(self, id):
+        return id, {'state': 'NOT_SUPPORTED', 'rtt': None}
 
 
 @private
@@ -88,11 +84,7 @@ class AmazonS3PeerCreateTask(Task):
         if peer['type'] != peer['credentials']['type']:
             raise TaskException(errno.EINVAL, 'Peer type and credentials type must match')
 
-        id = self.datastore.insert('peers', peer)
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'create',
-            'ids': [id]
-        })
+        return self.datastore.insert('peers', peer)
 
 
 @private
@@ -126,10 +118,6 @@ class AmazonS3PeerUpdateTask(Task):
             raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
 
         self.datastore.update('peers', id, peer)
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'update',
-            'ids': [id]
-        })
 
 
 @private
@@ -152,10 +140,6 @@ class AmazonS3PeerDeleteTask(Task):
             raise TaskException(errno.EINVAL, 'Peer entry {0} does not exist'.format(id))
 
         self.datastore.delete('peers', id)
-        self.dispatcher.dispatch_event('peer.entity.changed', {
-            'operation': 'delete',
-            'ids': [id]
-        })
 
 
 def _depends():

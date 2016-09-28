@@ -28,8 +28,8 @@
 import errno
 import gevent
 import logging
-from cache import EventCacheStore
-from freenas.utils import extend
+from cache import CacheStore
+from freenas.utils import query as q
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, private, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
 
@@ -37,7 +37,7 @@ from task import Task, Provider, TaskException, VerifyException, query, TaskDesc
 logger = logging.getLogger(__name__)
 
 
-peers = None
+peers_status = None
 
 
 @description('Provides information about known peers')
@@ -45,7 +45,16 @@ class PeerProvider(Provider):
     @query('peer')
     @generator
     def query(self, filter=None, params=None):
-        return peers.query(*(filter or []), stream=True, **(params or {}))
+        def extend(peer):
+            peer['status'] = peers_status.get(peer['id'], {'state': 'UNKNOWN', 'rtt': None})
+            return peer
+
+        return q.query(
+            self.datastore.query_stream('peers', callback=extend),
+            *(filter or []),
+            stream=True,
+            **(params or {})
+        )
 
     @private
     def peer_types(self):
@@ -77,7 +86,11 @@ class PeerCreateTask(Task):
         return ['system']
 
     def run(self, peer):
-        self.join_subtasks(self.run_subtask('peer.{0}.create'.format(peer.get('type')), peer))
+        ids = self.join_subtasks(self.run_subtask('peer.{0}.create'.format(peer.get('type')), peer))
+        self.dispatcher.dispatch_event('peer.changed', {
+            'operation': 'create',
+            'ids': [ids[0]]
+        })
 
 
 @description('Updates peer entry')
@@ -103,6 +116,10 @@ class PeerUpdateTask(Task):
             raise TaskException(errno.EINVAL, 'Peer type cannot be updated')
 
         self.join_subtasks(self.run_subtask('peer.{0}.update'.format(peer.get('type')), id, updated_fields))
+        self.dispatcher.dispatch_event('peer.changed', {
+            'operation': 'update',
+            'ids': [id]
+        })
 
 
 @description('Deletes peer entry')
@@ -126,11 +143,15 @@ class PeerDeleteTask(Task):
         peer = self.datastore.get_by_id('peers', id)
 
         self.join_subtasks(self.run_subtask('peer.{0}.delete'.format(peer.get('type')), id))
+        self.dispatcher.dispatch_event('peer.changed', {
+            'operation': 'delete',
+            'ids': [id]
+        })
 
 
 def _init(dispatcher, plugin):
-    global peers
-    peers = EventCacheStore(dispatcher, 'peer')
+    global peers_status
+    peers_status = CacheStore()
 
     # Register schemas
     plugin.register_schema_definition('peer', {
@@ -139,32 +160,51 @@ def _init(dispatcher, plugin):
             'name': {'type': 'string'},
             'id': {'type': 'string'},
             'type': {'type': 'string'},
-            'online': {'type': 'boolean', 'readOnly': True},
+            'status': {'$ref': 'peer-status'},
             'credentials': {'$ref': 'peer-credentials'}
         },
         'additionalProperties': False
     })
 
+    plugin.register_schema_definition('peer-status', {
+        'type': 'object',
+        'properties': {
+            'state': {
+                'type': 'string',
+                'enum': ['ONLINE', 'OFFLINE', 'UNKNOWN', 'NOT_SUPPORTED'],
+                'readOnly': True
+            },
+            'rtt': {'type': ['number', 'null'], 'readOnly': True}
+        },
+        'additionalProperties': False
+    })
+
     def on_peer_change(args):
-        if args['operation'] in ('create', 'update'):
+        if args['operation'] == 'create':
             items = list(dispatcher.datastore.query('peers', ('id', 'in', args['ids'])))
 
-            if args['operation'] == 'create':
-                for i in items:
-                    i['online'] = False
-
-            peers.update(**{i['id']: i for i in items})
+            peers_status.update(**{i['id']: {'state': 'UNKNOWN', 'rtt': None} for i in items})
 
             for i in items:
                 update_peer_health(i)
 
         elif args['operation'] == 'delete':
-            peers.remove_many(args['ids'])
+            peers_status.remove_many(args['ids'])
 
     def update_peer_health(peer):
+        def update_one(result):
+            old_state = peers_status.get(result[0])
+            new_state = result[1]
+            if old_state != new_state:
+                peers_status.update_one(result[0], state=new_state['state'], rtt=new_state['rtt'])
+                dispatcher.dispatch_event('peer.changed', {
+                    'operation': 'update',
+                    'ids': [result[0]]
+                })
+
         dispatcher.call_async(
-            'peer.{0}.is_online'.format(peer['type']),
-            lambda r: peers.update_one(r[0], online=r[1]),
+            'peer.{0}.get_status'.format(peer['type']),
+            update_one,
             peer['id']
         )
 
@@ -173,7 +213,7 @@ def _init(dispatcher, plugin):
         while True:
             gevent.sleep(interval)
             for t in dispatcher.call_sync('peer.peer_types'):
-                for p in peers.query(('type', '=', t)):
+                for p in dispatcher.call_sync('peer.query', [('type', '=', t)]):
                     update_peer_health(p)
 
     # Register credentials schema
@@ -187,7 +227,7 @@ def _init(dispatcher, plugin):
 
     # Register providers
     plugin.register_provider('peer', PeerProvider)
-    plugin.register_event_handler('peer.entity.changed', on_peer_change)
+    plugin.register_event_handler('peer.changed', on_peer_change)
 
     # Register event handlers
     dispatcher.register_event_handler('server.plugin.loaded', update_peer_credentials_schema)
@@ -199,15 +239,10 @@ def _init(dispatcher, plugin):
 
     # Register event types
     plugin.register_event_type('peer.changed')
-    plugin.register_event_type('peer.entity.changed')
 
     # Init peer credentials schema
     update_peer_credentials_schema()
 
-    peers.update(**{i['id']: i for i in map(
-        lambda o: extend(o, {'online': False}),
-        dispatcher.datastore.query('peers')
-    )})
-    peers.ready = True
+    peers_status.update(**{i['id']: {'state': 'UNKNOWN', 'rtt': None} for i in dispatcher.datastore.query('peers')})
 
     gevent.spawn(health_worker)
