@@ -121,7 +121,7 @@ class CertificateProvider(Provider):
             return certificate
 
         return q.query(
-            self.datastore.query('crypto.certificates', callback=extend),
+            self.datastore.query_stream('crypto.certificates', callback=extend),
             *(filter or []),
             stream=True,
             **(params or {})
