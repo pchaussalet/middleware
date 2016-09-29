@@ -129,7 +129,7 @@ class ReplicationLinkProvider(Provider):
             if not address:
                 raise RpcException(errno.ENOENT, 'FreeNAS peer {0} entry have not been found'.format(link[partner]))
 
-            return partner
+            return address
 
         hostid = self.dispatcher.call_sync('system.info.host_uuid')
         if link['master'] == hostid:
