@@ -42,7 +42,7 @@ from gevent.lock import RLock
 from resources import Resource
 from datetime import datetime, timedelta
 from freenas.utils import first_or_default, query as q
-from cam import CamDevice, CamEnclosure
+from cam import CamDevice, CamEnclosure, EnclosureStatus, ElementStatus
 from cache import CacheStore
 from lib.geom import confxml
 from lib.system import system, SubprocessException
@@ -182,6 +182,7 @@ class EnclosureProvider(Provider):
                     'status': [i.name for i in dev.status],
                     'devices': [
                         {
+                            'status': i.status.name,
                             'name': i.description,
                             'disk_name': i.devnames[0]
                         }
@@ -1610,7 +1611,12 @@ def _init(dispatcher, plugin):
 
     plugin.register_schema_definition('enclosure-status', {
         'type': 'string',
-        'enum': ['OK', 'INFO', 'NONCRITICAL', 'CRITICAL', 'UNRECOV']
+        'enum': list(EnclosureStatus.__members__.keys())
+    })
+
+    plugin.register_schema_definition('enclosure-element-status', {
+        'type': 'string',
+        'enum': list(ElementStatus.__members__.keys())
     })
 
     plugin.register_schema_definition('enclosure', {
@@ -1630,6 +1636,7 @@ def _init(dispatcher, plugin):
                     'type': 'object',
                     'additionalProperties': False,
                     'properties': {
+                        'status': {'$ref': 'enclosure-element-status'},
                         'name': {'type': 'string'},
                         'disk_name': {'type': 'string'}
                     }
