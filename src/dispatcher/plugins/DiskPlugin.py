@@ -182,6 +182,7 @@ class EnclosureProvider(Provider):
                     'status': [i.name for i in dev.status],
                     'devices': [
                         {
+                            'index': i.index,
                             'status': i.status.name,
                             'name': i.description,
                             'disk_name': i.devnames[0]
@@ -1636,6 +1637,7 @@ def _init(dispatcher, plugin):
                     'type': 'object',
                     'additionalProperties': False,
                     'properties': {
+                        'index': {'type': 'integer'},
                         'status': {'$ref': 'enclosure-element-status'},
                         'name': {'type': 'string'},
                         'disk_name': {'type': 'string'}
