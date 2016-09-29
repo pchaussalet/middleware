@@ -412,7 +412,7 @@ def _init(dispatcher, plugin):
         while pending_alerts:
             id = pending_alerts[-1]
             try:
-                dispatcher.call_sync('alertd.alert.emit', )
+                dispatcher.call_sync('alertd.alert.emit', id)
             except RpcException:
                 logger.warning('Failed to emit alert {0}'.format(id))
             else:
