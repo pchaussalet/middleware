@@ -30,6 +30,7 @@ import re
 import enum
 import errno
 import json
+import glob
 import logging
 import tempfile
 import base64
@@ -41,7 +42,7 @@ from gevent.lock import RLock
 from resources import Resource
 from datetime import datetime, timedelta
 from freenas.utils import first_or_default, query as q
-from cam import CamDevice
+from cam import CamDevice, CamEnclosure
 from cache import CacheStore
 from lib.geom import confxml
 from lib.system import system, SubprocessException
@@ -165,6 +166,29 @@ class DiskProvider(Provider):
             {'single': True}
         )
         return disk_info['id'] if disk_info else None
+
+
+class EnclosureProvider(Provider):
+    @query('enclosure')
+    @generator
+    def query(self, filter=None, params=None):
+        def collect():
+            for sesdev in glob.glob('/dev/ses[0-9]*'):
+                dev = CamEnclosure(sesdev)
+                yield {
+                    'id': dev.id,
+                    'name': dev.name,
+                    'status': dev.status,
+                    'devices': [
+                        {
+                            'name': i.description,
+                            'disk_name': i.devnames[0]
+                        }
+                        for i in dev.devices if i.devnames
+                    ]
+                }
+
+        return q.query(collect(), *(filter or []), **(params or {}))
 
 
 @description(
@@ -1557,7 +1581,29 @@ def _init(dispatcher, plugin):
         }
     })
 
+    plugin.register_schema_definition('enclosure', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'id': {'type': 'string'},
+            'name': {'type': 'string'},
+            'status': {'type': 'string'},
+            'devices': {
+                'type': 'array',
+                'items': {
+                    'type': 'object',
+                    'additionalProperties': False,
+                    'properties': {
+                        'name': {'type': 'string'},
+                        'disk_name': {'type': 'string'}
+                    }
+                }
+            }
+        }
+    })
+
     plugin.register_provider('disk', DiskProvider)
+    plugin.register_provider('disk.enclosure', EnclosureProvider)
     plugin.register_event_handler('system.device.attached', on_device_attached)
     plugin.register_event_handler('system.device.detached', on_device_detached)
     plugin.register_event_handler('system.device.mediachange', on_device_mediachange)
