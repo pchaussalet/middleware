@@ -408,6 +408,7 @@ class ReplicationCreateTask(ReplicationBaseTask):
             }
         )
 
+        link['id'] = str(uuid.uuid4())
         if 'update_date' not in link:
             link['update_date'] = str(datetime.utcnow())
 
