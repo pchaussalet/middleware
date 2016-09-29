@@ -1236,6 +1236,13 @@ def update_disk_cache(dispatcher, path):
     swap_part = first_or_default(lambda x: x['type'] == 'freebsd-swap', partitions)
     swap_uuid = swap_part["uuid"] if swap_part else None
 
+    # Get enclosure information
+    enclosure = None
+    enclosures = dispatcher.call_sync('disk.enclosure.query')
+    for i in enclosures:
+        if list(filter(lambda d: d['disk_name'] == os.path.basename(path), i['devices'])):
+            enclosure = i['id']
+
     disk.update({
         'mediasize': provider.mediasize,
         'sectorsize': provider.sectorsize,
@@ -1253,6 +1260,7 @@ def update_disk_cache(dispatcher, path):
         'swap_partition_path': os.path.join("/dev/gptid", swap_uuid) if swap_uuid else None,
         'encrypted': encrypted,
         'gdisk_name': gdisk.name,
+        'enclosure': enclosure
     })
 
     if gmultipath:
@@ -1529,6 +1537,7 @@ def _init(dispatcher, plugin):
             'swap_partition_path': {'type': 'string'},
             'encrypted': {'type': 'boolean'},
             'gdisk_name': {'type': 'string'},
+            'enclosure': {'type': ['string', 'null']}
         }
     })
 
