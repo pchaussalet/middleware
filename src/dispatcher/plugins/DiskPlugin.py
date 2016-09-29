@@ -172,6 +172,12 @@ class EnclosureProvider(Provider):
     @query('enclosure')
     @generator
     def query(self, filter=None, params=None):
+        def get_devname(devnames):
+            if not devnames:
+                return None
+
+            return devnames[0]
+
         def collect():
             for sesdev in glob.glob('/dev/ses[0-9]*'):
                 dev = CamEnclosure(sesdev)
@@ -185,9 +191,9 @@ class EnclosureProvider(Provider):
                             'index': i.index,
                             'status': i.status.name,
                             'name': i.description,
-                            'disk_name': i.devnames[0]
+                            'disk_name': get_devname(i.devnames)
                         }
-                        for i in dev.devices if i.devnames
+                        for i in dev.devices
                     ]
                 }
 
