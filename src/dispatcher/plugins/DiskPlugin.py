@@ -1277,6 +1277,12 @@ def update_disk_cache(dispatcher, path):
             'ids': [old_id]
         })
 
+        if disk['enclosure']:
+            dispatcher.dispatch_event('disk.enclosure.changed', {
+                'operation': 'update',
+                'ids': disk['enclosure']
+            })
+
     persist_disk(dispatcher, disk)
 
 
@@ -1368,6 +1374,12 @@ def purge_disk_cache(dispatcher, path):
         'ids': [disk['id']]
     })
 
+    if disk['enclosure']:
+        dispatcher.dispatch_event('disk.enclosure.changed', {
+            'operation': 'update',
+            'ids': disk['enclosure']
+        })
+
 
 def persist_disk(dispatcher, disk):
     ds_disk = dispatcher.datastore.get_by_id('disks', disk['id'])
@@ -1404,6 +1416,12 @@ def persist_disk(dispatcher, disk):
         'operation': 'create' if new else 'update',
         'ids': [disk['id']]
     })
+
+    if disk['enclosure']:
+        dispatcher.dispatch_event('disk.enclosure.changed', {
+            'operation': 'update',
+            'ids': disk['enclosure']
+        })
 
 
 def configure_disk(datastore, id):
@@ -1644,6 +1662,7 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('disk.parallel_test', DiskParallelTestTask)
 
     plugin.register_event_type('disk.changed')
+    plugin.register_event_type('disk.enclosure.changed')
 
     plugin.register_debug_hook(collect_debug)
 
