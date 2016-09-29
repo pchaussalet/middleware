@@ -1224,14 +1224,13 @@ def update_disk_cache(dispatcher, path):
     identifier = device_to_identifier(gdisk.name, serial)
     data_part = first_or_default(lambda x: x['type'] == 'freebsd-zfs', partitions)
     data_uuid = data_part["uuid"] if data_part else None
+    data_path = data_uuid
 
     encrypted = False
     if data_part:
         if data_part["encrypted"]:
             data_path = data_uuid + '.eli'
             encrypted = True
-        else:
-            data_path = data_uuid
 
     swap_part = first_or_default(lambda x: x['type'] == 'freebsd-swap', partitions)
     swap_uuid = swap_part["uuid"] if swap_part else None
