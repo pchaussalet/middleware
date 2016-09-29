@@ -177,7 +177,8 @@ class EnclosureProvider(Provider):
                 dev = CamEnclosure(sesdev)
                 yield {
                     'id': dev.id,
-                    'name': dev.name,
+                    'name': os.path.basename(sesdev),
+                    'description': dev.name,
                     'status': dev.status,
                     'devices': [
                         {
@@ -1587,6 +1588,7 @@ def _init(dispatcher, plugin):
         'properties': {
             'id': {'type': 'string'},
             'name': {'type': 'string'},
+            'description': {'type': 'string'},
             'status': {'type': 'string'},
             'devices': {
                 'type': 'array',
