@@ -111,10 +111,7 @@ class ReplicationLinkProvider(Provider):
 
     @private
     def get_one_local(self, name):
-        if self.datastore.exists('replication.links', ('name', '=', name)):
-            return self.datastore.get_one('replication.links', ('name', '=', name))
-        else:
-            return None
+        return self.datastore.get_one('replication.links', ('name', '=', name))
 
     @private
     @accepts(h.ref('replication'))
