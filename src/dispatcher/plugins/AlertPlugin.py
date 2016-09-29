@@ -27,6 +27,7 @@
 
 import errno
 import logging
+from collections import deque
 from datetime import datetime
 
 from datastore import DatastoreException
@@ -42,8 +43,10 @@ from freenas.dispatcher.rpc import (
 from task import Provider, Task, TaskException, TaskDescription, VerifyException, query
 from freenas.utils import normalize
 
+
 logger = logging.getLogger('AlertPlugin')
 registered_alerts = {}
+pending_alerts = deque()
 
 
 @description('Provides access to the alert system')
@@ -118,7 +121,15 @@ class AlertsProvider(Provider):
             'ids': [id]
         })
 
-        self.dispatcher.call_sync('alertd.alert.emit', id)
+        try:
+            self.dispatcher.call_sync('alertd.alert.emit', id)
+        except RpcException as err:
+            if err.code == errno.ENOENT:
+                # Alertd didn't start yet. Add alert to the pending queue
+                pending_alerts.append(id)
+            else:
+                raise
+
         return id
 
     @private
@@ -393,6 +404,21 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('alert.filter.create', AlertFilterCreateTask)
     plugin.register_task_handler('alert.filter.delete', AlertFilterDeleteTask)
     plugin.register_task_handler('alert.filter.update', AlertFilterUpdateTask)
+
+    def on_alertd_started(args):
+        if args['service-name'] != 'alertd.alert':
+            return
+
+        while pending_alerts:
+            id = pending_alerts[-1]
+            try:
+                dispatcher.call_sync('alertd.alert.emit', )
+            except RpcException:
+                logger.warning('Failed to emit alert {0}'.format(id))
+            else:
+                pending_alerts.pop()
+
+    plugin.register_event_handler('plugin.service_registered', on_alertd_started)
 
     # Register event types
     plugin.register_event_type(
