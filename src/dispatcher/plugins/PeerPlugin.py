@@ -30,7 +30,7 @@ import gevent
 import logging
 from cache import CacheStore
 from freenas.utils import query as q
-from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, private, generator
+from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
 
 
@@ -56,7 +56,7 @@ class PeerProvider(Provider):
             **(params or {})
         )
 
-    @private
+    @returns(h.array(str))
     def peer_types(self):
         result = []
         for p in list(self.dispatcher.plugins.values()):
