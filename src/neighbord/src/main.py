@@ -135,18 +135,21 @@ class Main(object):
             plugin.register(regtype, name, port, properties)
 
     def register(self):
-        hostname = socket.gethostname()
-        general = self.client.call_sync('system.general.get_config')
-        properties = {
-            'version': self.client.call_sync('system.info.version'),
-            'description': general['description'],
-            'tags': ','.join(general['tags'])
-        }
+        try:
+            hostname = socket.gethostname()
+            general = self.client.call_sync('system.general.get_config')
+            properties = {
+                'version': self.client.call_sync('system.info.version'),
+                'description': general['description'],
+                'tags': ','.join(general['tags'])
+            }
 
-        self.register_service(hostname, 'freenas', 80, properties)
-        self.register_service(hostname, 'http', 80)
-        self.register_service(hostname, 'ssh', 22)
-        self.register_service(hostname, 'sftp-ssh', 22)
+            self.register_service(hostname, 'freenas', 80, properties)
+            self.register_service(hostname, 'http', 80)
+            self.register_service(hostname, 'ssh', 22)
+            self.register_service(hostname, 'sftp-ssh', 22)
+        except BaseException as err:
+            self.logger.error('Failed to register services: {0}'.format(str(err)))
 
     def connect(self):
         while True:
