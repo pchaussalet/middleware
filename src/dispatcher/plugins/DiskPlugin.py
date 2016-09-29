@@ -179,7 +179,7 @@ class EnclosureProvider(Provider):
                     'id': dev.id,
                     'name': os.path.basename(sesdev),
                     'description': dev.name,
-                    'status': dev.status,
+                    'status': [i.name for i in dev.status],
                     'devices': [
                         {
                             'name': i.description,
@@ -1591,6 +1591,11 @@ def _init(dispatcher, plugin):
         }
     })
 
+    plugin.register_schema_definition('enclosure-status', {
+        'type': 'string',
+        'enum': ['OK', 'INFO', 'NONCRITICAL', 'CRITICAL', 'UNRECOV']
+    })
+
     plugin.register_schema_definition('enclosure', {
         'type': 'object',
         'additionalProperties': False,
@@ -1598,7 +1603,10 @@ def _init(dispatcher, plugin):
             'id': {'type': 'string'},
             'name': {'type': 'string'},
             'description': {'type': 'string'},
-            'status': {'type': 'string'},
+            'status': {
+                'type': 'array',
+                'items': {'$ref': 'enclosure-status'},
+            },
             'devices': {
                 'type': 'array',
                 'items': {
