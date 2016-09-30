@@ -28,12 +28,14 @@
 import ssl
 from pyVim import connect
 from pyVmomi import vim
-from freenas.dispatcher.rpc import generator, accepts, returns, description
+from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
 from task import Provider, ProgressTask, query
 
 
 class VMwareProvider(Provider):
     @generator
+    @accepts(str, str, str)
+    @returns(h.ref('vmware-datastore'))
     def get_datastores(self, address, username, password):
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         ssl_context.verify_mode = ssl.CERT_NONE
@@ -113,13 +115,23 @@ def _init(dispatcher, plugin):
         }
     })
 
+    plugin.register_schema_definition('vmware-dataset-filter-op', {
+        'type': 'string',
+        'enum': ['NONE', 'INCLUDE', 'EXCLUDE']
+    })
+
     plugin.register_schema_definition('vmware-dataset', {
         'type': 'object',
         'additionalProperties': False,
         'properties': {
             'id': {'type': 'string'},
             'dataset': {'type': 'string'},
-            'datastore': {'type': 'string'}
+            'datastore': {'type': 'string'},
+            'vm_filter_op': {'$ref': 'vmware-dataset-filter-op'},
+            'vm_filter': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            }
         }
     })
 
