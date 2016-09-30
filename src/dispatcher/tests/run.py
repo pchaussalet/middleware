@@ -25,8 +25,7 @@
 #
 ######################################################################
 
-import sys
-import argparse
+import os
 import nose2
 import nose2.events
 from paramiko import AutoAddPolicy
@@ -53,15 +52,13 @@ class ContextInjector(object):
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-a', metavar='HOST')
-    parser.add_argument('-u', metavar='USER', default='root')
-    parser.add_argument('-p', metavar='PASSWORD')
-    parser.add_argument('-x', action='store_true')
-    args, rest = parser.parse_known_args()
+    address = os.getenv('TEST_HOST')
+    user = os.getenv('TEST_USERNAME')
+    password = os.getenv('TEST_PASSWORD')
+    xml = os.getenv('TEST_XML')
 
-    ctx = Context(args.a, args.u, args.p, args.x)
-    nose2.discover(argv=sys.argv[:1], extraHooks=[('startTest', ContextInjector(ctx))])
+    ctx = Context(address, user, password, xml.lower() == 'yes')
+    nose2.discover(extraHooks=[('startTest', ContextInjector(ctx))])
 
 
 if __name__ == '__main__':
