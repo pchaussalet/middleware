@@ -147,25 +147,31 @@ class SharesProvider(Provider):
 
 
 @description("Creates new share")
-@accepts(h.all_of(
-    h.ref('share'),
-    h.required('name', 'type', 'target_type', 'target_path', 'properties')
-))
+@accepts(
+    h.all_of(
+        h.ref('share'),
+        h.required('name', 'type', 'target_type', 'target_path', 'properties')
+    ),
+    h.one_of(
+        h.ref('volume-dataset-properties'),
+        None
+    )
+)
 class CreateShareTask(Task):
     @classmethod
     def early_describe(cls):
         return "Creating share"
 
-    def describe(self, share):
+    def describe(self, share, dataset_properties=None):
         return TaskDescription("Creating share {name}", name=share.get('name') if share else '')
 
-    def verify(self, share):
+    def verify(self, share, dataset_properties=None):
         if not self.dispatcher.call_sync('share.supported_types').get(share['type']):
             raise VerifyException(errno.ENXIO, 'Unknown sharing type {0}'.format(share['type']))
 
         return ['system']
 
-    def run(self, share):
+    def run(self, share, dataset_properties=None):
         if share['target_type'] == 'ZVOL':
             parent_ds = '/'.join(share['target_path'].split('/')[:-1])
             shareable = bool(self.dispatcher.call_sync('volume.dataset.query', [('name', '=', parent_ds)]))
@@ -213,6 +219,7 @@ class CreateShareTask(Task):
                         'volume': pool,
                         'id': dataset,
                         'permissions_type': share_type['perm_type'],
+                        'properties': dataset_properties or {}
                     }))
 
                 if share_type['subtype'] == 'BLOCK':
@@ -221,6 +228,7 @@ class CreateShareTask(Task):
                         'id': dataset,
                         'type': 'VOLUME',
                         'volsize': share['properties']['size'],
+                        'properties': dataset_properties or {}
                     }))
             else:
                 if share_type['subtype'] == 'FILE':

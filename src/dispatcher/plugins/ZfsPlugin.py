@@ -399,10 +399,19 @@ class ZpoolCreateTask(Task):
             raise TaskException(errno.EEXIST, 'Pool with same name already exists')
 
         mountpoint = params.get('mountpoint')
-        fsopts = params.get('fsopts', {})
+        fsopts = {}
 
         if not mountpoint:
             raise TaskException(errno.EINVAL, 'Please supply valid "mountpoint" parameter')
+
+        for k, v in params.get('fsopts', {}).items():
+            if v.get('value'):
+                fsopts[k] = v['value']
+                continue
+
+            if v.get('parsed'):
+                fsopts[k] = libzfs.serialize_zfs_prop(k, v['parsed'])
+                continue
 
         opts = {
             'feature@async_destroy': 'enabled',

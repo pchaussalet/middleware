@@ -467,6 +467,7 @@ class SnapshotProvider(Provider):
         h.ref('volume'),
         h.required('id', 'topology')
     ),
+    h.one_of(h.ref('volume-dataset-properties'), None),
     h.one_of(str, None)
 )
 class VolumeCreateTask(ProgressTask):
@@ -474,27 +475,28 @@ class VolumeCreateTask(ProgressTask):
     def early_describe(cls):
         return "Creating a volume"
 
-    def describe(self, volume, password=None):
+    def describe(self, volume, dataset_properties=None, password=None):
         return TaskDescription("Creating volume {name}", name=volume['id'])
 
-    def verify(self, volume, password=None):
+    def verify(self, volume, dataset_properties=None, password=None):
         return ['disk:{0}'.format(disk_spec_to_path(self.dispatcher, i)) for i, _ in get_disks(volume['topology'])]
 
-    def run(self, volume, password=None):
+    def run(self, volume, dataset_properties=None, password=None):
         if self.datastore.exists('volumes', ('id', '=', volume['id'])):
             raise TaskException(errno.EEXIST, 'Volume with same name already exists')
 
+        fsopts = dataset_properties or {}
         name = volume['id']
         type = volume.get('type', 'zfs')
         params = volume.get('params') or {}
         mount = params.get('mount', True)
+        key_encryption = volume.pop('key_encrypted', False)
+        password_encryption = volume.pop('password_encrypted', False)
+        auto_unlock = volume.pop('auto_unlock', None)
         mountpoint = params.pop(
             'mountpoint',
             os.path.join(VOLUMES_ROOT, volume['id'])
         )
-        key_encryption = volume.pop('key_encrypted', False)
-        password_encryption = volume.pop('password_encrypted', False)
-        auto_unlock = volume.pop('auto_unlock', None)
 
         if auto_unlock and (not key_encryption or password_encryption):
             raise TaskException(
@@ -565,7 +567,10 @@ class VolumeCreateTask(ProgressTask):
                     self.dispatcher,
                     volume['topology']
                 ),
-                {'mountpoint': mountpoint}
+                {
+                    'mountpoint': mountpoint,
+                    'fsopts': fsopts
+                }
             ))
 
             self.join_subtasks(self.run_subtask(
