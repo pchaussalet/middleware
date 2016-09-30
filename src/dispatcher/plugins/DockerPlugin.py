@@ -104,6 +104,7 @@ class DockerContainerProvider(Provider):
         def extend(obj):
             presets = self.dispatcher.call_sync('docker.image.labels_to_presets', obj['labels'])
             settings = obj.setdefault('settings', [])
+            obj['web_ui_url'] = None
 
             for i in presets.get('settings', []):
                 settings.append({
