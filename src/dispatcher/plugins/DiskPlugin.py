@@ -176,7 +176,11 @@ class EnclosureProvider(Provider):
             if not devnames:
                 return None
 
-            return devnames[0]
+            disk = get_disk_by_path(os.path.join('/dev', devnames[0]))
+            if not disk:
+                return None
+
+            return disk['path']
 
         seen_ids = set()
 
@@ -199,7 +203,7 @@ class EnclosureProvider(Provider):
                             'name': i.description,
                             'disk_name': get_devname(i.devnames)
                         }
-                        for i in dev.devices
+                        for i in dev.devices if i.status != ElementStatus.UNSUPPORTED
                     ]
                 }
 
@@ -1249,6 +1253,13 @@ def update_disk_cache(dispatcher, path):
     swap_part = first_or_default(lambda x: x['type'] == 'freebsd-swap', partitions)
     swap_uuid = swap_part["uuid"] if swap_part else None
 
+    # Get enclosure information
+    enclosure = None
+    enclosures = dispatcher.call_sync('disk.enclosure.query')
+    for i in enclosures:
+        if list(filter(lambda d: d['disk_name'] == path, i['devices'])):
+            enclosure = i['id']
+
     disk.update({
         'mediasize': provider.mediasize,
         'sectorsize': provider.sectorsize,
@@ -1266,19 +1277,11 @@ def update_disk_cache(dispatcher, path):
         'swap_partition_path': os.path.join("/dev/gptid", swap_uuid) if swap_uuid else None,
         'encrypted': encrypted,
         'gdisk_name': gdisk.name,
-        'enclosure': None
+        'enclosure': enclosure
     })
 
     if gmultipath:
         disk['multipath'] = generate_multipath_info(gmultipath)
-
-    # Get enclosure information
-    enclosures = dispatcher.call_sync('disk.enclosure.query')
-    paths = list(q.get(disk, 'multipath.members')) if gmultipath else [path]
-    names = [os.path.basename(i) for i in paths]
-    for i in enclosures:
-        if list(filter(lambda d: d['disk_name'] in names, i['devices'])):
-            disk['enclosure'] = i['id']
 
     # Purge old cache entry if identifier has changed
     if old_id != identifier:
