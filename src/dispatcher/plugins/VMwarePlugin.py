@@ -25,28 +25,42 @@
 #
 #####################################################################
 
+import ssl
 from pyVim import connect
 from pyVmomi import vim
 from freenas.dispatcher.rpc import generator, accepts, returns, description
-from task import Provider, query
+from task import Provider, ProgressTask, query
 
 
 class VMwareProvider(Provider):
     @generator
     def get_datastores(self, address, username, password):
-        si = connect.SmartConnect(host=address, user=username, pwd=password)
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        ssl_context.verify_mode = ssl.CERT_NONE
+        si = connect.SmartConnect(host=address, user=username, pwd=password, sslContext=ssl_context)
         content = si.RetrieveContent()
+        vm_view = content.viewManager.CreateContainerView(content.rootFolder, vim.VirtualMachine, True)
 
         try:
-            for datastore in content.viewManager.CreateContainerView(content.rootFolder, vim.Datastore, True):
+            for datastore in content.viewManager.CreateContainerView(content.rootFolder, vim.Datastore, True).view:
+                vms = []
+                for vm in vm_view.view:
+                    if datastore not in vm.datastore:
+                        continue
+
+                    vms.append({
+                        'name': vm.summary.config.name,
+                        'on': vm.summary.runtime.powerState == 'poweredOn',
+                    })
+
                 yield {
-                    'id': datastore.url,
-                    'name': datastore.name,
-                    'free_space': datastore.freeSpace,
-                    'virtual_machines': []
+                    'id': datastore.info.url,
+                    'name': datastore.info.name,
+                    'free_space': datastore.info.freeSpace,
+                    'virtual_machines': vms
                 }
         finally:
-            si.Disconnect()
+            connect.Disconnect(si)
 
 
 class VMwareDatasetsProvider(Provider):
