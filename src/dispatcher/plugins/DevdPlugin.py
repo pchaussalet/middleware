@@ -89,7 +89,8 @@ class DeviceInfoProvider(Provider):
         h.ref('disk-device'),
         h.ref('network-device'),
         h.ref('cpu-device'),
-        h.ref('serial-port-device')
+        h.ref('serial-port-device'),
+        h.ref('usb-device')
     ))
     def get_devices(self, dev_class):
         method = "_get_class_{0}".format(dev_class)
@@ -167,7 +168,7 @@ class DeviceInfoProvider(Provider):
 
     def _get_class_usb(self):
         result = []
-        context = usb1.UsbContext()
+        context = usb1.USBContext()
 
         for device in context.getDeviceList():
             result.append({
@@ -175,6 +176,8 @@ class DeviceInfoProvider(Provider):
                 'address': device.getDeviceAddress(),
                 'manufacturer': device.getManufacturer(),
                 'product': device.getProduct(),
+                'vid': device.getVendorID(),
+                'pid': device.getProductID(),
                 'class': device.getDeviceClass()
             })
 
@@ -470,6 +473,19 @@ def _init(dispatcher, plugin):
             'location': {'type': 'string'},
             'start': {'type': 'string'},
             'size': {'type': 'string'},
+        }
+    })
+
+    plugin.register_schema_definition('usb-device', {
+        'type': 'object',
+        'properties': {
+            'bus': {'type': 'integer'},
+            'address': {'type': 'integer'},
+            'manufacturer': {'type': 'string'},
+            'product': {'type': 'string'},
+            'class': {'type': 'integer'},
+            'vid': {'type': 'integer'},
+            'pid': {'type': 'integer'}
         }
     })
 
