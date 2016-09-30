@@ -467,21 +467,21 @@ class SnapshotProvider(Provider):
         h.ref('volume'),
         h.required('id', 'topology')
     ),
+    h.one_of(str, None),
     h.one_of(h.ref('volume-dataset-properties'), None),
-    h.one_of(str, None)
 )
 class VolumeCreateTask(ProgressTask):
     @classmethod
     def early_describe(cls):
         return "Creating a volume"
 
-    def describe(self, volume, dataset_properties=None, password=None):
+    def describe(self, volume, password=None, dataset_properties=None):
         return TaskDescription("Creating volume {name}", name=volume['id'])
 
-    def verify(self, volume, dataset_properties=None, password=None):
+    def verify(self, volume, password=None, dataset_properties=None):
         return ['disk:{0}'.format(disk_spec_to_path(self.dispatcher, i)) for i, _ in get_disks(volume['topology'])]
 
-    def run(self, volume, dataset_properties=None, password=None):
+    def run(self, volume, password=None, dataset_properties=None):
         if self.datastore.exists('volumes', ('id', '=', volume['id'])):
             raise TaskException(errno.EEXIST, 'Volume with same name already exists')
 
