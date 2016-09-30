@@ -33,6 +33,7 @@ import errno
 import gevent
 import dockerfile_parse
 import dockerhub
+import socket
 import logging
 from resources import Resource
 from task import Provider, Task, ProgressTask, TaskDescription, TaskException, query, TaskWarning, VerifyException
@@ -101,17 +102,22 @@ class DockerContainerProvider(Provider):
             return None
 
         def extend(obj):
-            image = images.query(('names', 'contains', obj['image']), single=True)
-            if image:
-                presets = image.get('presets')
-                settings = obj.setdefault('settings', [])
+            presets = self.dispatcher.call_sync('docker.image.labels_to_presets', obj['labels'])
+            settings = obj.setdefault('settings', [])
 
-                if presets:
-                    for i in presets.get('settings', []):
-                        settings.append({
-                            'id': i['id'],
-                            'value': find_env(obj['environment'], i['id'])
-                        })
+            for i in presets.get('settings', []):
+                settings.append({
+                    'id': i['id'],
+                    'value': find_env(obj['environment'], i['id'])
+                })
+
+            if presets.get('web_ui_protocol'):
+                obj['web_ui_url'] = '{0}://{1}:{2}/{3}'.format(
+                    presets['web_ui_protocol'],
+                    socket.gethostname(),
+                    presets['web_ui_port'],
+                    presets['web_ui_path'][1:]
+                )
 
             return obj
 
@@ -213,6 +219,9 @@ class DockerImagesProvider(Provider):
             'interactive': labels.get('org.freenas.interactive', 'false') == 'true',
             'upgradeable': labels.get('org.freenas.upgradeable', 'false') == 'true',
             'expose_ports': labels.get('org.freenas.expose-ports-at-host', 'false') == 'true',
+            'web_ui_protocol': labels.get('org.freenas.web-ui-protocol'),
+            'web_ui_port': labels.get('org.freenas.web-ui-port'),
+            'web_ui_path': labels.get('org.freenas.web-ui-path'),
             'ports': [],
             'volumes': [],
             'settings': []
