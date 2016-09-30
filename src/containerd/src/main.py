@@ -340,6 +340,9 @@ class VirtualMachine(object):
                     else:
                         bridges = list(b for b in netif.list_interfaces().keys())
                         for b in bridges:
+                            if not b.startswith(('brg', 'bridge')):
+                                continue
+
                             bridge = netif.get_interface(b, bridge=True)
                             if bridge_if in bridge.members:
                                 bridge.add_member(iface.name)
