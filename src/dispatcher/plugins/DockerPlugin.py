@@ -104,21 +104,25 @@ class DockerContainerProvider(Provider):
         def extend(obj):
             presets = self.dispatcher.call_sync('docker.image.labels_to_presets', obj['labels'])
             settings = obj.setdefault('settings', [])
-            obj['web_ui_url'] = None
+            obj.update({
+                'web_ui_url': None,
+                'settings': []
+            })
 
-            for i in presets.get('settings', []):
-                settings.append({
-                    'id': i['id'],
-                    'value': find_env(obj['environment'], i['id'])
-                })
+            if presets:
+                for i in presets.get('settings', []):
+                    settings.append({
+                        'id': i['id'],
+                        'value': find_env(obj['environment'], i['id'])
+                    })
 
-            if presets.get('web_ui_protocol'):
-                obj['web_ui_url'] = '{0}://{1}:{2}/{3}'.format(
-                    presets['web_ui_protocol'],
-                    socket.gethostname(),
-                    presets['web_ui_port'],
-                    presets['web_ui_path'][1:]
-                )
+                if presets.get('web_ui_protocol'):
+                    obj['web_ui_url'] = '{0}://{1}:{2}/{3}'.format(
+                        presets['web_ui_protocol'],
+                        socket.gethostname(),
+                        presets['web_ui_port'],
+                        presets['web_ui_path'][1:]
+                    )
 
             return obj
 
