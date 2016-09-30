@@ -399,6 +399,7 @@ class ZpoolCreateTask(Task):
             raise TaskException(errno.EEXIST, 'Pool with same name already exists')
 
         mountpoint = params.get('mountpoint')
+        fsopts = params.get('fsopts', {})
 
         if not mountpoint:
             raise TaskException(errno.EINVAL, 'Please supply valid "mountpoint" parameter')
@@ -421,12 +422,12 @@ class ZpoolCreateTask(Task):
             'autoexpand': 'on',
         }
 
-        fsopts = {
+        fsopts.update({
             'compression': 'lz4',
             'aclmode': 'passthrough',
             'aclinherit': 'passthrough',
             'mountpoint': mountpoint
-        }
+        })
 
         nvroot = convert_topology(zfs, topology)
 
