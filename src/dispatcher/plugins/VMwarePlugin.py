@@ -37,18 +37,21 @@ class VMwareProvider(Provider):
         si = connect.SmartConnect(host=address, user=username, pwd=password)
         content = si.RetrieveContent()
 
-        for datastore in content.viewManager.CreateContainerView(content.rootFolder, vim.Datastore, True):
-            yield {
-                'id': datastore.url,
-                'name': datastore.name,
-                'free_space': datastore.freeSpace,
-                'virtual_machines': []
-            }
+        try:
+            for datastore in content.viewManager.CreateContainerView(content.rootFolder, vim.Datastore, True):
+                yield {
+                    'id': datastore.url,
+                    'name': datastore.name,
+                    'free_space': datastore.freeSpace,
+                    'virtual_machines': []
+                }
+        finally:
+            si.Disconnect()
 
 
-class VMwareSnapshotMappingProvider(Provider):
+class VMwareDatasetsProvider(Provider):
     @generator
-    @query('vmware-dataset-mapping')
+    @query('vmware-dataset')
     def query(self, filter=None, params=None):
         pass
 
@@ -84,3 +87,6 @@ def _init(dispatcher, plugin):
             'datastore': {'type': 'string'}
         }
     })
+
+    plugin.register_provider('vmware', VMwareProvider)
+    plugin.register_provider('vmware.datasets', VMwareDatasetsProvider)
