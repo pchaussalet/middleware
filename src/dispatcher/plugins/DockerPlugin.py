@@ -92,7 +92,30 @@ class DockerContainerProvider(Provider):
     @query('docker-container')
     @generator
     def query(self, filter=None, params=None):
-        return containers.query(*(filter or []), stream=True, **(params or {}))
+        def find_env(env, name):
+            for i in env:
+                n, v = i.split('=', maxsplit=1)
+                if n == name:
+                    return v
+
+            return None
+
+        def extend(obj):
+            image = images.query(('names', 'contains', obj['image']), single=True)
+            if image:
+                presets = image.get('presets')
+                settings = obj.setdefault('settings', [])
+
+                if presets:
+                    for i in presets.get('settings', []):
+                        settings.append({
+                            'id': i['id'],
+                            'value': find_env(obj['environment'], i['id'])
+                        })
+
+            return obj
+
+        return containers.query(*(filter or []), stream=True, callback=extend, **(params or {}))
 
     @description('Requests authorization token for a container console')
     @accepts(str)
@@ -990,6 +1013,7 @@ def _init(dispatcher, plugin):
             'autostart': {'type': 'boolean'},
             'running': {'type': 'boolean'},
             'interactive': {'type': 'boolean'},
+            'web_ui_url': {'type': 'string'},
             'environment': {
                 'type': 'array',
                 'items': {'type': 'string'}
