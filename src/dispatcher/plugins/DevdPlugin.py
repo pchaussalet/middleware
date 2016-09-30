@@ -34,6 +34,7 @@ import fnmatch
 import uuid
 import hashlib
 import logging
+import usb1
 from xml.etree import ElementTree
 from bsd import geom
 from bsd import devinfo
@@ -78,6 +79,7 @@ class DeviceInfoProvider(Provider):
             "disk",
             "network",
             "cpu",
+            "usb",
             "serial_port"
         ]
 
@@ -162,6 +164,22 @@ class DeviceInfoProvider(Provider):
 
     def _get_class_cpu(self):
         pass
+
+    def _get_class_usb(self):
+        result = []
+        context = usb1.UsbContext()
+
+        for device in context.getDeviceList():
+            result.append({
+                'bus': device.getBusNumber(),
+                'address': device.getDeviceAddress(),
+                'manufacturer': device.getManufacturer(),
+                'product': device.getProduct(),
+                'class': device.getDeviceClass()
+            })
+
+        context.exit()
+        return result
 
 
 class DMIDataProvider(Provider):
