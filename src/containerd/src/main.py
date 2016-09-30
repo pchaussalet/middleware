@@ -338,7 +338,7 @@ class VirtualMachine(object):
                     if isinstance(target_if, netif.BridgeInterface):
                         target_if.add_member(iface.name)
                     else:
-                        bridges = list(b for b in netif.list_interfaces().keys() if 'brg' in b)
+                        bridges = list(b for b in netif.list_interfaces().keys())
                         for b in bridges:
                             bridge = netif.get_interface(b, bridge=True)
                             if bridge_if in bridge.members:
@@ -346,11 +346,11 @@ class VirtualMachine(object):
                                 break
                         else:
                             new_bridge = netif.get_interface(netif.create_interface('bridge'))
-                            new_bridge.rename('brg{0}'.format(len(bridges)))
                             new_bridge.description = 'vm bridge to {0}'.format(bridge_if)
                             new_bridge.up()
                             new_bridge.add_member(bridge_if)
                             new_bridge.add_member(iface.name)
+                            new_bridge.rename('brg{0}'.format(len(bridges)))
 
             if nic['mode'] == 'MANAGEMENT':
                 mgmt = netif.get_interface('mgmt0', bridge=True)
