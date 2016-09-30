@@ -182,8 +182,8 @@ class EnclosureProvider(Provider):
             for sesdev in glob.glob('/dev/ses[0-9]*'):
                 dev = CamEnclosure(sesdev)
                 yield {
-                    'id': dev.id,
-                    'name': os.path.basename(sesdev),
+                    'id': os.path.basename(sesdev),
+                    'serial': dev.id,
                     'description': dev.name,
                     'status': [i.name for i in dev.status],
                     'devices': [
@@ -193,7 +193,7 @@ class EnclosureProvider(Provider):
                             'name': i.description,
                             'disk_name': get_devname(i.devnames)
                         }
-                        for i in dev.devices
+                        for i in dev.devices if i.status != ElementStatus.UNSUPPORTED
                     ]
                 }
 
@@ -1631,7 +1631,7 @@ def _init(dispatcher, plugin):
         'additionalProperties': False,
         'properties': {
             'id': {'type': 'string'},
-            'name': {'type': 'string'},
+            'serial': {'type': 'string'},
             'description': {'type': 'string'},
             'status': {
                 'type': 'array',
