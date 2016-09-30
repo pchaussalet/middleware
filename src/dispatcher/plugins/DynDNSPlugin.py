@@ -105,7 +105,6 @@ def _depends():
 
 
 def _init(dispatcher, plugin):
-
     # Register schemas
     plugin.register_schema_definition('service-dyndns', {
         'type': 'object',
