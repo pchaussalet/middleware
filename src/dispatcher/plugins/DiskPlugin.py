@@ -178,9 +178,15 @@ class EnclosureProvider(Provider):
 
             return devnames[0]
 
+        seen_ids = set()
+
         def collect():
             for sesdev in glob.glob('/dev/ses[0-9]*'):
                 dev = CamEnclosure(sesdev)
+                if dev.id in seen_ids:
+                    continue
+
+                seen_ids.add(dev.id)
                 yield {
                     'id': dev.id,
                     'name': os.path.basename(sesdev),
