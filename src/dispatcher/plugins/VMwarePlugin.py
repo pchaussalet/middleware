@@ -51,6 +51,7 @@ class VMwareProvider(Provider):
                     vms.append({
                         'name': vm.summary.config.name,
                         'on': vm.summary.runtime.powerState == 'poweredOn',
+                        'snapshottable': can_be_snapshotted(vm)
                     })
 
                 yield {
@@ -68,6 +69,26 @@ class VMwareDatasetsProvider(Provider):
     @query('vmware-dataset')
     def query(self, filter=None, params=None):
         pass
+
+
+class CreateVMSnapshotTask(ProgressTask):
+    @classmethod
+    def early_describe(cls):
+        pass
+
+    def verify(self):
+        pass
+
+
+def can_be_snapshotted(vm):
+    for device in vm.config.hardware.device:
+        if isinstance(device, vim.VirtualPCIPassthrough):
+            return False
+
+        # consider supporting more cases of VMs that can't be snapshoted
+        # https://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1006392
+
+    return True
 
 
 def _init(dispatcher, plugin):
