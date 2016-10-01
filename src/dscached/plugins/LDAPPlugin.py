@@ -112,7 +112,7 @@ class LDAPPlugin(DirectoryServicePlugin):
             'id': self.get_id(entry),
             'gid': int(get(entry, 'gidNumber.0')),
             'sid': get(entry, 'sambaSID.0'),
-            'name': get(entry, 'uid.0'),
+            'name': get(entry, 'cn.0'),
             'builtin': False,
             'sudo': False
         }
@@ -124,28 +124,28 @@ class LDAPPlugin(DirectoryServicePlugin):
 
     def getpwnam(self, name):
         logger.debug('getpwnam(name={0})'.format(name))
-        result = self.search_one(
-            join_dn(
-                'uid={0}'.format(name),
-                self.user_dn
-            ),
-            '(objectclass=posixAccount)'
-        )
-
+        result = self.search_one(join_dn('uid={0}'.format(name), self.user_dn), '(objectclass=posixAccount)')
         return self.convert_user(result)
 
     def getpwuid(self, uid):
         logger.debug('getpwuid(uid={0})'.format(uid))
+        result = self.search_one(join_dn('uidNumber={0}'.format(uid), self.user_dn), '(objectclass=posixAccount)')
+        return self.convert_user(result)
 
     def getgrent(self, filter=None, params=None):
         logger.debug('getgrent(filter={0}, params={0})'.format(filter, params))
-        return []
+        result = self.search(self.group_dn, '(objectclass=posixGroup)')
+        return (self.convert_group(i) for i in result)
 
     def getgrnam(self, name):
         logger.debug('getgrnam(name={0})'.format(name))
+        result = self.search_one(join_dn('cn={0}'.format(name), self.group_dn), '(objectclass=posixGroup)')
+        return self.convert_group(result)
 
     def getgrgid(self, gid):
         logger.debug('getgrgid(gid={0})'.format(gid))
+        result = self.search_one(join_dn('gidNumber={0}'.format(gid), self.group_dn), '(objectclass=posixGroup)')
+        return self.convert_user(result)
 
     def authenticate(self, user_name, password):
         with self.bind_lock:
