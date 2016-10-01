@@ -25,14 +25,15 @@
 #
 #####################################################################
 
+import errno
 import uuid
 import ldap3
 import ldap3.utils.dn
 import logging
 import threading
-from plugin import DirectoryServicePlugin
-from utils import obtain_or_renew_ticket, join_dn, dn_to_domain, domain_to_dn
-from freenas.utils import first_or_default
+from plugin import DirectoryServicePlugin, DirectoryState
+from utils import obtain_or_renew_ticket, join_dn, dn_to_domain, domain_to_dn, LdapQueryBuilder
+from freenas.utils import first_or_default, normalize
 from freenas.utils.query import get
 
 
@@ -44,6 +45,8 @@ logger = logging.getLogger(__name__)
 class LDAPPlugin(DirectoryServicePlugin):
     def __init__(self, context):
         self.context = context
+        self.directory = None
+        self.enabled = False
         self.server = None
         self.conn = None
         self.parameters = None
@@ -51,6 +54,16 @@ class LDAPPlugin(DirectoryServicePlugin):
         self.user_dn = None
         self.group_dn = None
         self.bind_lock = threading.RLock()
+        self.bind_thread = threading.Thread(target=self.bind, daemon=True)
+        self.cv = threading.Condition()
+        self.bind_thread.start()
+
+    @classmethod
+    def normalize_parameters(cls, parameters):
+        return normalize(parameters, {
+            'user_suffix': 'OU=users',
+            'group_suffix': 'OU=groups'
+        })
 
     def search(self, search_base, search_filter, attributes=None):
         if self.conn.closed:
@@ -69,14 +82,15 @@ class LDAPPlugin(DirectoryServicePlugin):
             return get(entry, 'entryUUID.0')
 
         if 'uidNumber' in entry:
-            return uuid.uuid5(LDAP_USER_UUID, get(entry, 'uidNumber.0'))
+            return str(uuid.uuid5(LDAP_USER_UUID, get(entry, 'uidNumber.0')))
 
         if 'gidNumber' in entry:
-            return uuid.uuid5(LDAP_GROUP_UUID, get(entry, 'gidNumber.0'))
+            return str(uuid.uuid5(LDAP_GROUP_UUID, get(entry, 'gidNumber.0')))
 
-        return uuid.uuid4()
+        return str(uuid.uuid4())
 
     def convert_user(self, entry):
+        entry = dict(entry['attributes'])
         return {
             'id': self.get_id(entry),
             'sid': get(entry, 'sambaSID.0'),
@@ -93,6 +107,7 @@ class LDAPPlugin(DirectoryServicePlugin):
         }
 
     def convert_group(self, entry):
+        entry = dict(entry['attributes'])
         return {
             'id': self.get_id(entry),
             'gid': int(get(entry, 'gidNumber.0')),
@@ -109,11 +124,15 @@ class LDAPPlugin(DirectoryServicePlugin):
 
     def getpwnam(self, name):
         logger.debug('getpwnam(name={0})'.format(name))
-        self.connection.search(','.join([
-            'uid={0}'.format(name),
-            self.parameters['user_suffix'],
-            self.parameters['base_dn']
-        ]), '(objectclass=posixAccount)', attributes=ldap3.ALL_ATTRIBUTES)
+        result = self.search_one(
+            join_dn(
+                'uid={0}'.format(name),
+                self.user_dn
+            ),
+            '(objectclass=posixAccount)'
+        )
+
+        return self.convert_user(result)
 
     def getpwuid(self, uid):
         logger.debug('getpwuid(uid={0})'.format(uid))
@@ -128,22 +147,6 @@ class LDAPPlugin(DirectoryServicePlugin):
     def getgrgid(self, gid):
         logger.debug('getgrgid(gid={0})'.format(gid))
 
-    def configure(self, enable, directory):
-        self.parameters = directory.parameters
-        self.server = ldap3.Server(self.parameters['server'])
-        self.base_dn = self.parameters['base_dn']
-        self.user_dn = join_dn(self.parameters['user_suffix'], self.base_dn)
-        self.group_dn = join_dn(self.parameters['group_suffix'], self.base_dn)
-        self.conn = ldap3.Connection(
-            self.server,
-            client_strategy='ASYNC',
-            user=self.parameters['bind_dn'],
-            password=self.parameters['password']
-        )
-
-        self.conn.bind()
-        return dn_to_domain(directory.parameters['base_dn'])
-
     def authenticate(self, user_name, password):
         with self.bind_lock:
             try:
@@ -157,6 +160,57 @@ class LDAPPlugin(DirectoryServicePlugin):
 
             self.conn.bind()
             return True
+
+    def configure(self, enable, directory):
+        with self.cv:
+            self.directory = directory
+            self.parameters = directory.parameters
+            self.enabled = enable
+            self.server = ldap3.Server(self.parameters['server'])
+            self.base_dn = self.parameters['base_dn']
+            self.user_dn = join_dn(self.parameters['user_suffix'], self.base_dn)
+            self.group_dn = join_dn(self.parameters['group_suffix'], self.base_dn)
+            self.conn = ldap3.Connection(
+                self.server,
+                client_strategy='ASYNC',
+                user=self.parameters['bind_dn'],
+                password=self.parameters['password']
+            )
+
+            self.cv.notify_all()
+
+        return dn_to_domain(directory.parameters['base_dn'])
+
+    def bind(self):
+        while True:
+            with self.cv:
+                notify = self.cv.wait(60)
+
+                if self.enabled:
+                    if self.directory.state == DirectoryState.BOUND and not notify:
+                        continue
+
+                    try:
+                        self.directory.put_state(DirectoryState.JOINING)
+                        self.conn = ldap3.Connection(
+                            self.server,
+                            client_strategy='ASYNC',
+                            user=self.parameters['bind_dn'],
+                            password=self.parameters['password']
+                        )
+
+                        self.conn.bind()
+                        self.directory.put_state(DirectoryState.BOUND)
+                        continue
+                    except BaseException as err:
+                        self.directory.put_status(errno.ENXIO, '{0} <{1}>'.format(str(err), type(err).__name__))
+                        self.directory.put_state(DirectoryState.FAILURE)
+                        continue
+                else:
+                    if self.directory.state != DirectoryState.DISABLED:
+                        self.conn.unbind()
+                        self.directory.put_state(DirectoryState.DISABLED)
+                        continue
 
 
 def _init(context):

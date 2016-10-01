@@ -236,7 +236,7 @@ def _init(dispatcher, plugin):
             'name': {'type': 'string'},
             'type': {
                 'type': 'string',
-                'enum': ['file', 'local', 'winbind', 'freeipa']
+                'enum': ['file', 'local', 'winbind', 'freeipa', 'ldap']
             },
             'enabled': {'type': 'boolean'},
             'enumerate': {'type': 'boolean'},
