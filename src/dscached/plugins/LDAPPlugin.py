@@ -31,6 +31,7 @@ import ldap3
 import ldap3.utils.dn
 import logging
 import threading
+from datetime import datetime
 from plugin import DirectoryServicePlugin, DirectoryState
 from utils import obtain_or_renew_ticket, join_dn, dn_to_domain, domain_to_dn, LdapQueryBuilder
 from freenas.utils import first_or_default, normalize
@@ -91,6 +92,8 @@ class LDAPPlugin(DirectoryServicePlugin):
 
     def convert_user(self, entry):
         entry = dict(entry['attributes'])
+        pwd_change_time = get(entry, 'sambaPwdLastSet.0')
+
         return {
             'id': self.get_id(entry),
             'sid': get(entry, 'sambaSID.0'),
@@ -102,6 +105,7 @@ class LDAPPlugin(DirectoryServicePlugin):
             'home': get(entry, 'homeDirectory.0', '/nonexistent'),
             'nthash': get(entry, 'sambaNTPassword.0'),
             'lmhash': get(entry, 'sambaLMPassword.0'),
+            'password_changed_at': datetime.utcfromtimestamp(int(pwd_change_time)) if pwd_change_time else None,
             'groups': [],
             'sudo': False
         }
