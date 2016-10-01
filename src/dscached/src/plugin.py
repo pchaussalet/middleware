@@ -54,6 +54,10 @@ class DirectoryState(enum.Enum):
 
 
 class DirectoryServicePlugin(object):
+    @classmethod
+    def normalize_parameters(cls, parameters):
+        return parameters
+
     def getpwent(self, filter=None, params=None):
         raise NotImplementedError()
 
