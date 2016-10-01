@@ -51,6 +51,7 @@ class VMwareProvider(Provider):
                         continue
 
                     vms.append({
+                        'id': vm.config.uuid,
                         'name': vm.summary.config.name,
                         'on': vm.summary.runtime.powerState == 'poweredOn',
                         'snapshottable': can_be_snapshotted(vm)
