@@ -1298,6 +1298,78 @@ class VolumeUpgradeTask(Task):
         })
 
 
+@description('Replaces a disk in active volume')
+@accepts(str, str, str, h.one_of(str, None))
+class VolumeReplaceTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return "Replacing a disk in a volume"
+
+    def describe(self, id, vdev, disk, password=None):
+        return TaskDescription("Replacing disk a in volume {name}", name=id)
+
+    def verify(self, id, vdev, disk, password=None):
+        return ['zpool:{0}'.format(id)]
+
+    def run(self, id, vdev, disk, password=None):
+        vol = self.dispatcher.call_sync('volume.query', [('id', '=', id)], {'single': True})
+        if not vol:
+            raise TaskException(errno.ENOENT, 'Volume {0} not found'.format(id))
+
+        disk = self.dispatcher.call_sync('disk.query', [('path', '=', disk)], {'single': True})
+        spares = vol['topology'].get('spare', [])
+
+        if first_or_default(lambda v: v['path'] == os.path.join('/dev', disk['path']), spares):
+            # New disk is a spare. No need to format it, but we need to remove it from the spares
+            # list when resilver finishes
+            spare = True
+        else:
+            spare = False
+            self.join_subtasks(self.run_subtask('disk.format.gpt', disk['id'], 'freebsd-zfs', {'swapsize': 2048}))
+            disk = self.dispatcher.call_sync('disk.query', [('id', '=', disk['id'])], {'single': True})
+
+        if vol.get('key_encrypted') or vol.get('password_encrypted'):
+            encryption = vol['encryption']
+            if vol.get('password_encrypted'):
+                if not is_password(
+                        password,
+                        encryption.get('salt', ''),
+                        encryption.get('hashed_password', '')
+                ):
+                    raise TaskException(
+                        errno.EINVAL,
+                        'Password provided for volume {0} is not valid'.format(id)
+                    )
+
+            self.join_subtasks(self.run_subtask('disk.geli.init', disk['id'], {
+                'key': encryption['key'],
+                'password': password
+            }))
+
+            if encryption['slot'] is not 0:
+                self.join_subtasks(self.run_subtask('disk.geli.ukey.set', disk['id'], {
+                    'key': encryption['key'],
+                    'password': password,
+                    'slot': 1
+                }))
+
+                self.join_subtasks(self.run_subtask('disk.geli.ukey.del', disk['id'], 0))
+
+            if vol.get('providers_presence', 'NONE') != 'NONE':
+                self.join_subtasks(self.run_subtask('disk.geli.attach', disk['id'], {
+                    'key': encryption['key'],
+                    'password': password
+                }))
+
+        self.join_subtasks(self.run_subtask('zfs.pool.replace', id, vdev, {
+            'type': 'disk',
+            'path': disk['status']['data_partition_path']
+        }))
+
+        if spare:
+            self.join_subtasks(self.run_subtask('zfs.pool.detach', id, vdev))
+
+
 @description('Replaces failed disk in active volume')
 @accepts(str, str, h.one_of(str, None))
 class VolumeAutoReplaceTask(Task):
@@ -3133,6 +3205,7 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('volume.export', VolumeDetachTask)
     plugin.register_task_handler('volume.update', VolumeUpdateTask)
     plugin.register_task_handler('volume.upgrade', VolumeUpgradeTask)
+    plugin.register_task_handler('volume.replace', VolumeReplaceTask)
     plugin.register_task_handler('volume.autoreplace', VolumeAutoReplaceTask)
     plugin.register_task_handler('volume.lock', VolumeLockTask)
     plugin.register_task_handler('volume.unlock', VolumeUnlockTask)
