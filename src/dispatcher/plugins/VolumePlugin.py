@@ -1311,13 +1311,16 @@ class VolumeReplaceTask(Task):
     def verify(self, id, vdev, disk, password=None):
         return ['zpool:{0}'.format(id)]
 
-    def run(self, id, vdev, disk, password=None):
+    def run(self, id, vdev, path, password=None):
         vol = self.dispatcher.call_sync('volume.query', [('id', '=', id)], {'single': True})
         if not vol:
             raise TaskException(errno.ENOENT, 'Volume {0} not found'.format(id))
 
-        disk = self.dispatcher.call_sync('disk.query', [('path', '=', disk)], {'single': True})
+        disk = self.dispatcher.call_sync('disk.query', [('path', '=', path)], {'single': True})
         spares = vol['topology'].get('spare', [])
+
+        if not disk['online']:
+            raise TaskException('Cannot replace with {0}: disk is not online'.format(path))
 
         if first_or_default(lambda v: v['path'] == os.path.join('/dev', disk['path']), spares):
             # New disk is a spare. No need to format it, but we need to remove it from the spares
@@ -1392,60 +1395,25 @@ class VolumeAutoReplaceTask(Task):
         if not vol:
             raise TaskException(errno.ENOENT, 'Volume {0} not found'.format(id))
 
-        def do_replace(disk, global_spare=False):
-            if vol.get('key_encrypted') or vol.get('password_encrypted'):
-                encryption = vol['encryption']
-                if vol.get('password_encrypted'):
-                    if not is_password(
-                            password,
-                            encryption.get('salt', ''),
-                            encryption.get('hashed_password', '')
-                    ):
-                        raise TaskException(
-                            errno.EINVAL,
-                            'Password provided for volume {0} is not valid'.format(id)
-                        )
+        empty_disks = self.dispatcher.call_sync('disk.query', [
+            ('status.empty', '=', True),
+            ('online', '=', True)
+        ])
 
-                self.join_subtasks(self.run_subtask('disk.geli.init', disk['id'], {
-                    'key': encryption['key'],
-                    'password': password
-                }))
-
-                if encryption['slot'] is not 0:
-                    self.join_subtasks(self.run_subtask('disk.geli.ukey.set', disk['id'], {
-                        'key': encryption['key'],
-                        'password': password,
-                        'slot': 1
-                    }))
-
-                    self.join_subtasks(self.run_subtask('disk.geli.ukey.del', disk['id'], 0))
-
-                if vol.get('providers_presence', 'NONE') != 'NONE':
-                    self.join_subtasks(self.run_subtask('disk.geli.attach', disk['id'], {
-                        'key': encryption['key'],
-                        'password': password
-                    }))
-
-            self.join_subtasks(self.run_subtask('zfs.pool.replace', id, failed_vdev, {
-                'type': 'disk',
-                'path': disk['status']['data_partition_path']
-            }))
-
-            if not global_spare:
-                self.join_subtasks(self.run_subtask('zfs.pool.detach', id, failed_vdev))
-
-        empty_disks = self.dispatcher.call_sync('disk.query', [('status.empty', '=', True)])
         vdev = self.dispatcher.call_sync('zfs.pool.vdev_by_guid', id, failed_vdev)
         minsize = vdev['stats']['size']
 
         # First, try to find spare assigned to the pool
         spares = vol['topology'].get('spare', [])
-        if spares:
-            spare = spares[0]
+        for spare in spares:
             disk = self.dispatcher.call_sync('disk.query', [('path', '=', spare['path'])], {'single': True})
-            do_replace(disk)
+            if not disk['online']:
+                continue
+
+            self.join_subtasks(self.run_subtask('volume.replace', id, failed_vdev, disk['path']))
             return
 
+        # Now into global hot-sparing mode
         if self.configstore.get('storage.hotsparing.strong_match'):
             pass
         else:
@@ -1453,8 +1421,7 @@ class VolumeAutoReplaceTask(Task):
             disk = first_or_default(lambda d: d['mediasize'] >= minsize, matching_disks)
             if disk:
                 self.join_subtasks(self.run_subtask('disk.format.gpt', disk['id'], 'freebsd-zfs', {'swapsize': 2048}))
-                disk = self.dispatcher.call_sync('disk.query', [('id', '=', disk['id'])], {'single': True})
-                do_replace(disk, True)
+                self.join_subtasks(self.run_subtask('volume.replace', id, failed_vdev, disk['path']))
                 return
 
         raise TaskException(errno.EBUSY, 'No matching disk to be used as spare found')
@@ -3233,6 +3200,9 @@ def _init(dispatcher, plugin):
 
     plugin.register_hook('volume.pre_rename')
     plugin.register_hook('volume.post_rename')
+
+    plugin.register_hook('volume.snapshot.pre_create')
+    plugin.register_hook('volume.snapshot.post_create')
 
     plugin.register_event_handler('entity-subscriber.zfs.pool.changed', on_pool_change)
     plugin.register_event_handler('fs.zfs.vdev.removed', on_vdev_remove)
