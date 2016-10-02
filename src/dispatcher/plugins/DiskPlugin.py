@@ -186,26 +186,29 @@ class EnclosureProvider(Provider):
 
         def collect():
             for sesdev in glob.glob('/dev/ses[0-9]*'):
-                dev = CamEnclosure(sesdev)
-                if dev.id in seen_ids:
-                    continue
+                try:
+                    dev = CamEnclosure(sesdev)
+                    if dev.id in seen_ids:
+                        continue
 
-                seen_ids.add(dev.id)
-                yield {
-                    'id': dev.id,
-                    'name': os.path.basename(sesdev),
-                    'description': dev.name,
-                    'status': [i.name for i in dev.status],
-                    'devices': [
-                        {
-                            'index': i.index,
-                            'status': i.status.name,
-                            'name': i.description,
-                            'disk_name': get_devname(i.devnames)
-                        }
-                        for i in dev.devices if i.status != ElementStatus.UNSUPPORTED
-                    ]
-                }
+                    seen_ids.add(dev.id)
+                    yield {
+                        'id': dev.id,
+                        'name': os.path.basename(sesdev),
+                        'description': dev.name,
+                        'status': [i.name for i in dev.status],
+                        'devices': [
+                            {
+                                'index': i.index,
+                                'status': i.status.name,
+                                'name': i.description,
+                                'disk_name': get_devname(i.devnames)
+                            }
+                            for i in dev.devices if i.status != ElementStatus.UNSUPPORTED
+                        ]
+                    }
+                except OSError:
+                    continue
 
         return q.query(collect(), *(filter or []), **(params or {}))
 
