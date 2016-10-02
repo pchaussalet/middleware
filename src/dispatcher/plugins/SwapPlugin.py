@@ -173,7 +173,7 @@ def _init(dispatcher, plugin):
         try:
             disks = dispatcher.call_sync('volume.get_volume_disks', args['name'])
         except RpcException as err:
-            logger.warning('Cannot get disks from volume {0}: {1}'.format(i['id'], str(err)))
+            logger.warning('Cannot get disks from volume {0}: {1}'.format(args['name'], str(err)))
             return True
 
         remove_swap(dispatcher, disks)
