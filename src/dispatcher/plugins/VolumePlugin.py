@@ -1300,7 +1300,7 @@ class VolumeUpgradeTask(Task):
 
 @description('Replaces a disk in active volume')
 @accepts(str, str, str, h.one_of(str, None))
-class VolumeReplaceTask(Task):
+class VolumeReplaceTask(ProgressTask):
     @classmethod
     def early_describe(cls):
         return "Replacing a disk in a volume"
@@ -1364,10 +1364,16 @@ class VolumeReplaceTask(Task):
                     'password': password
                 }))
 
-        self.join_subtasks(self.run_subtask('zfs.pool.replace', id, vdev, {
-            'type': 'disk',
-            'path': disk['status']['data_partition_path']
-        }))
+        self.join_subtasks(
+            self.run_subtask(
+                'zfs.pool.replace',
+                id, vdev, {
+                    'type': 'disk',
+                    'path': disk['status']['data_partition_path']
+                },
+                progress_callback=self.set_progress
+            )
+        )
 
         if spare:
             self.join_subtasks(self.run_subtask('zfs.pool.detach', id, vdev))
@@ -1375,7 +1381,7 @@ class VolumeReplaceTask(Task):
 
 @description('Replaces failed disk in active volume')
 @accepts(str, str, h.one_of(str, None))
-class VolumeAutoReplaceTask(Task):
+class VolumeAutoReplaceTask(ProgressTask):
     @classmethod
     def early_describe(cls):
         return "Replacing failed disk in a volume"
@@ -1421,7 +1427,11 @@ class VolumeAutoReplaceTask(Task):
             disk = first_or_default(lambda d: d['mediasize'] >= minsize, matching_disks)
             if disk:
                 self.join_subtasks(self.run_subtask('disk.format.gpt', disk['id'], 'freebsd-zfs', {'swapsize': 2048}))
-                self.join_subtasks(self.run_subtask('volume.replace', id, failed_vdev, disk['path']))
+                self.join_subtasks(self.run_subtask(
+                    'volume.replace',
+                    id, failed_vdev, disk['path'], password,
+                    progress_callback=self.set_progress
+                ))
                 return
 
         raise TaskException(errno.EBUSY, 'No matching disk to be used as spare found')
