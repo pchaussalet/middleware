@@ -782,7 +782,7 @@ class VolumeDestroyTask(Task):
 
 @description("Updates configuration of existing volume")
 @accepts(str, h.ref('volume'), h.one_of(str, None))
-class VolumeUpdateTask(Task):
+class VolumeUpdateTask(ProgressTask):
     @classmethod
     def early_describe(cls):
         return "Updating a volume"
@@ -1044,8 +1044,9 @@ class VolumeUpdateTask(Task):
                 'zfs.pool.extend',
                 id,
                 new_vdevs_gptids,
-                updated_vdevs)
-            )
+                updated_vdevs,
+                progress_callback=self.set_progress
+            ))
 
             volume['topology'] = new_topology
 

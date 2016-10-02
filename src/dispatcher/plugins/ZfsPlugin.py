@@ -265,26 +265,58 @@ class ZfsSnapshotProvider(Provider):
         return snapshots.query(*(filter or []), stream=True, **(params or {}))
 
 
+class ScanStatusTaskMixin(object):
+    def start_watch(self, pool_name, scan_function):
+        self.watch_event = Event()
+        self.watch_thread = Thread(target=self.watch, args=(pool_name, scan_function), daemon=True)
+        self.watch_thread.start()
+
+    def stop_watch(self):
+        if self.watch_thread:
+            self.watch_thread.join()
+
+    def wait_watch(self):
+        if hasattr(self, 'watch_event'):
+            self.watch_event.wait()
+
+        self.stop_watch()
+
+    def watch(self, pool_name, scan_function):
+        zfs = get_zfs()
+        while True:
+            time.sleep(1)
+
+            try:
+                pool = zfs.get(pool_name)
+                scrub = pool.scrub
+            except libzfs.ZFSException as err:
+                raise TaskException(zfs_error_to_errno(err.code), str(err))
+
+            if scrub.function != scan_function:
+                return
+
+            if scrub.state == libzfs.ScanState.SCANNING:
+                self.set_progress(scrub.percentage, "In progress...")
+                continue
+
+            if scrub.state == libzfs.ScanState.FINISHED:
+                self.set_progress(100, "Finished")
+                self.watch_event.set()
+                return
+
+            if scrub.state == libzfs.ScanState.CANCELED:
+                self.watch_event.set()
+                return
+
+
 @private
 @description("Scrubs ZFS pool")
 @accepts(str, int)
-class ZpoolScrubTask(ProgressTask):
+class ZpoolScrubTask(ProgressTask, ScanStatusTaskMixin):
     def __init__(self, dispatcher, datastore):
         super(ZpoolScrubTask, self).__init__(dispatcher, datastore)
         self.pool = None
-        self.started = False
-        self.finish_event = Event()
         self.abort_flag = False
-
-    def __scrub_finished(self, args):
-        if args["pool"] == self.pool:
-            self.state = TaskState.FINISHED
-            self.finish_event.set()
-
-    def __scrub_aborted(self, args):
-        if args["pool"] == self.pool:
-            self.state = TaskState.ABORTED
-            self.finish_event.set()
 
     @classmethod
     def early_describe(cls):
@@ -300,22 +332,15 @@ class ZpoolScrubTask(ProgressTask):
 
     def run(self, pool):
         self.pool = pool
-        self.dispatcher.register_event_handler("fs.zfs.scrub.finish", self.__scrub_finished)
-        self.dispatcher.register_event_handler("fs.zfs.scrub.abort", self.__scrub_aborted)
-        self.finish_event.clear()
-
-        t = Thread(target=self.watch, daemon=True)
-        t.start()
-
         try:
             zfs = get_zfs()
             pool = zfs.get(self.pool)
             pool.start_scrub()
-            self.started = True
+            self.start_watch(self.pool, libzfs.ScanFunction.SCRUB)
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
-        self.finish_event.wait()
+        self.wait_watch()
         if self.abort_flag:
             raise TaskAbortException(errno.EINTR, "User invoked Task.abort()")
 
@@ -323,42 +348,10 @@ class ZpoolScrubTask(ProgressTask):
         try:
             zfs = get_zfs()
             pool = zfs.get(self.pool)
+            self.abort_flag = True
             pool.stop_scrub()
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
-
-        self.abort_flag = True
-        self.finish_event.set()
-        return True
-
-    def watch(self):
-        while True:
-            time.sleep(1)
-
-            if not self.started:
-                self.set_progress(0, "Waiting to start...")
-                continue
-
-            try:
-                zfs = get_zfs()
-                pool = zfs.get(self.pool)
-                scrub = pool.scrub
-            except libzfs.ZFSException as err:
-                raise TaskException(zfs_error_to_errno(err.code), str(err))
-
-            if scrub.state == libzfs.ScanState.SCANNING:
-                self.set_progress(scrub.percentage, "In progress...")
-                continue
-
-            if scrub.state == libzfs.ScanState.CANCELED:
-                self.set_progress(100, "Canceled")
-                self.finish_event.set()
-                return
-
-            if scrub.state == libzfs.ScanState.FINISHED:
-                self.set_progress(100, "Finished")
-                self.finish_event.set()
-                return
 
 
 @private
@@ -451,7 +444,7 @@ class ZpoolCreateTask(Task):
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
 
-class ZpoolBaseTask(Task):
+class ZpoolBaseTask(ProgressTask):
     def verify(self, *args, **kwargs):
         name = args[0]
         try:
@@ -520,7 +513,7 @@ class ZpoolDestroyTask(ZpoolBaseTask):
     )
 )
 @description('Extends ZFS pool with a new disks')
-class ZpoolExtendTask(ZpoolBaseTask):
+class ZpoolExtendTask(ZpoolBaseTask, ScanStatusTaskMixin):
     def __init__(self, dispatcher, datastore):
         super(ZpoolExtendTask, self).__init__(dispatcher, datastore)
         self.pool = None
@@ -553,8 +546,9 @@ class ZpoolExtendTask(ZpoolBaseTask):
                     new_vdev.path = i['vdev']['path']
                     vdev.attach(new_vdev)
 
+                self.start_watch(pool, libzfs.ScanFunction.RESILVER)
+
                 # Wait for resilvering process to complete
-                self.started = True
                 self.dispatcher.test_or_wait_for_event(
                     'fs.zfs.resilver.finished',
                     lambda args: args['guid'] == str(pool.guid),
@@ -563,26 +557,9 @@ class ZpoolExtendTask(ZpoolBaseTask):
                         pool.scrub.function == libzfs.ScanFunction.RESILVER
                 )
 
+                self.stop_watch()
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
-
-    def get_status(self):
-        if not self.started:
-            return TaskStatus(0, "Waiting to start...")
-
-        try:
-            zfs = get_zfs()
-            pool = zfs.get(self.pool)
-            scrub = pool.scrub
-        except libzfs.ZFSException as err:
-            raise TaskException(zfs_error_to_errno(err.code), str(err))
-
-        if scrub.state == libzfs.ScanState.SCANNING:
-            self.progress = scrub.percentage
-            return TaskStatus(self.progress, "Resilvering in progress...")
-
-        if scrub.state == libzfs.ScanState.FINISHED:
-            return TaskStatus(100, "Finished")
 
 
 @private
@@ -623,7 +600,7 @@ class ZpoolDetachTask(ZpoolBaseTask):
 @private
 @accepts(str, str, h.ref('zfs-vdev'))
 @description('Replaces one of ZFS pool\'s disks with a new disk')
-class ZpoolReplaceTask(ZpoolBaseTask):
+class ZpoolReplaceTask(ZpoolBaseTask, ScanStatusTaskMixin):
     @classmethod
     def early_describe(cls):
         return 'Replacing disk in ZFS pool'
@@ -651,12 +628,17 @@ class ZpoolReplaceTask(ZpoolBaseTask):
             new_vdev = libzfs.ZFSVdev(zfs, vdev['type'])
             new_vdev.path = vdev['path']
 
+            def doit():
+                ovdev.replace(new_vdev)
+                self.start_watch(pool, libzfs.ScanFunction.RESILVER)
+
             self.dispatcher.exec_and_wait_for_event(
                 'fs.zfs.resilver.finished',
                 lambda args: args['guid'] == str(pool.guid),
-                lambda: ovdev.replace(new_vdev)
+                doit
             )
 
+            self.stop_watch()
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
