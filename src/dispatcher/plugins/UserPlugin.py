@@ -256,26 +256,26 @@ class UserCreateTask(Task):
         if user['home'] != '/nonexistent':
             user['home'] = os.path.normpath(user['home'])
             zfs_dataset_mountpoints = list(self.dispatcher.call_sync('volume.dataset.query', [], {'select': 'mountpoint'}))
+            zfs_pool_mountpoints = list(self.dispatcher.call_sync('volume.query', [], {'select': 'mountpoint'}))
             homedir_occurrence = self.dispatcher.call_sync(
                 'user.query',
                 [('home', '=', user['home'])],
                 {'single': True}
             )
 
-            homedir_mount_path = os.path.join('/', *(user['home'].split(os.path.sep)[:-1]))
+            if user['home'] in zfs_pool_mountpoints:
+                raise TaskException(
+                    errno.ENXIO,
+                    'ZFS pool mountpoint cannot be set as the home directory.'
+                )
 
+            homedir_mount_path = os.path.join('/', *(user['home'].split(os.path.sep)[:-1]))
             if not any(homedir_mount_path == dataset_mountpoint
                        and os.path.ismount(dataset_mountpoint) for dataset_mountpoint in zfs_dataset_mountpoints):
                 raise TaskException(
                     errno.ENXIO,
                     'Home directory has to reside in zfs pool or dataset.' +
                     ' Provide a path which starts with valid, mounted zfs pool or dataset location.'
-                )
-
-            if user['home'] in zfs_dataset_mountpoints:
-                raise TaskException(
-                    errno.ENXIO,
-                    'Volume mountpoint cannot be set as the home directory.'
                 )
 
             if homedir_occurrence:
@@ -521,9 +521,10 @@ class UserUpdateTask(Task):
         if 'home' in updated_fields and updated_fields['home'] != '/nonexistent':
             updated_fields['home'] = os.path.normpath(updated_fields['home'])
             zfs_dataset_mountpoints = list(self.dispatcher.call_sync('volume.dataset.query', [], {'select': 'mountpoint'}))
+            zfs_pool_mountpoints = list(self.dispatcher.call_sync('volume.query', [], {'select': 'mountpoint'}))
             homedir_occurrence = self.dispatcher.call_sync(
                 'user.query',
-                [('home', '=', user['home'])],
+                [('home', '=', updated_fields['home'])],
                 {'single': True}
             )
             homedir_mount_path = os.path.join('/', *(updated_fields['home'].split(os.path.sep)[:-1]))
@@ -531,18 +532,18 @@ class UserUpdateTask(Task):
 
             if user['home'] != updated_fields['home']:
 
+                if updated_fields['home'] in zfs_pool_mountpoints:
+                    raise TaskException(
+                        errno.ENXIO,
+                        'Volume mountpoint cannot be set as the home directory.'
+                    )
+
                 if not any(homedir_mount_path == dataset_mountpoint
                            and os.path.ismount(dataset_mountpoint) for dataset_mountpoint in zfs_dataset_mountpoints):
                     raise TaskException(
                         errno.ENXIO,
                         'Home directory has to reside in zfs pool or dataset.' +
                         ' Provide a path which starts with valid, mounted zfs pool or dataset location.'
-                    )
-
-                if updated_fields['home'] in zfs_dataset_mountpoints:
-                    raise TaskException(
-                        errno.ENXIO,
-                        'Volume mountpoint cannot be set as the home directory.'
                     )
 
                 if homedir_occurrence:
@@ -885,4 +886,3 @@ def _init(dispatcher, plugin):
 
     # Register debug hook
     plugin.register_debug_hook(collect_debug)
-
