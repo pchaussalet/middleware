@@ -110,9 +110,6 @@ class AmazonS3PeerUpdateTask(Task):
         if not peer:
             raise TaskException(errno.ENOENT, 'Peer {0} does not exist'.format(id))
 
-        if 'type' in updated_fields and peer['type'] != updated_fields['type']:
-            raise TaskException(errno.EINVAL, 'Peer type cannot be updated')
-
         peer.update(updated_fields)
         if self.datastore.exists('peers', ('name', '=', peer['name'])):
             raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
