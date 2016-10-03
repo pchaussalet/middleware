@@ -1372,7 +1372,7 @@
             },
             "DirectoryServiceBindFailed": {
                 "type": "SYSTEM",
-                "subtype": "DIRECTORYS_ERVICES",
+                "subtype": "DIRECTORY_SERVICES",
                 "severity": "WARNING"
             }
         }
