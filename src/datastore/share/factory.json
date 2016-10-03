@@ -1355,6 +1355,11 @@
                 "subtype": "ZFS",
                 "severity": "CRITICAL"
             },
+            "VolumeDiskReplaced": {
+                "type": "VOLUME",
+                "subtype": "ZFS",
+                "severity": "INFO"
+            },
             "DiskControllerFirmwareMismatch": {
                 "type": "DISK",
                 "subtype": "MPS",
@@ -1364,6 +1369,11 @@
                 "type": "SYSTEM",
                 "subtype": "USER",
                 "severity": "INFO"
+            },
+            "DirectoryServiceBindFailed": {
+                "type": "SYSTEM",
+                "subtype": "DIRECTORYS_ERVICES",
+                "severity": "WARNING"
             }
         }
     },
