@@ -2342,6 +2342,7 @@ class SnapshotCreateTask(Task):
             dataset = snapshot['dataset']
             snapshot['id'] = '@'.join([dataset, name])
 
+        self.dispatcher.run_hook('volume.snapshot.pre_create', snapshot, recursive)
         self.join_subtasks(self.run_subtask(
             'zfs.create_snapshot',
             dataset,
@@ -2355,6 +2356,7 @@ class SnapshotCreateTask(Task):
             }
         ))
 
+        self.dispatcher.run_hook('volume.snapshot.post_create', snapshot, recursive)
         return snapshot['id']
 
 
