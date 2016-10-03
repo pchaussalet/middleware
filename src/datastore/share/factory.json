@@ -1581,7 +1581,7 @@
     },
     {
         "metadata": {
-            "name": "vmware.datastores",
+            "name": "vmware.datasets",
             "migration": "keep",
             "pkey-type": "uuid",
             "attributes": {
