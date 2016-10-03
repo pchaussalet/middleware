@@ -91,15 +91,12 @@ class SSHPeerCreateTask(Task):
 
         return ['system']
 
-    def run(self, peer):
+    def run(self, peer, initial_credentials):
         if 'name' not in peer:
             raise TaskException(errno.EINVAL, 'Name has to be specified')
 
         if self.datastore.exists('peers', ('name', '=', peer['name'])):
             raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
-
-        if peer['type'] != peer['credentials']['type']:
-            raise TaskException(errno.EINVAL, 'Peer type and credentials type must match')
 
         return self.datastore.insert('peers', peer)
 

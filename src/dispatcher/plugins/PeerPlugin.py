@@ -70,7 +70,7 @@ class PeerProvider(Provider):
         h.ref('peer'),
         h.required('type', 'credentials')
     ),
-    h.one_of(h.object(), None)
+    h.ref('peer-initial-credentials')
 )
 class PeerCreateTask(Task):
     @classmethod
@@ -228,6 +228,15 @@ def _init(dispatcher, plugin):
             'discriminator': 'type',
             'oneOf': [
                 {'$ref': '{0}-credentials'.format(name)} for name in dispatcher.call_sync('peer.peer_types')
+            ]
+        })
+
+        plugin.register_schema_definition('peer-initial-credentials', {
+            'discriminator': 'type',
+            'oneOf': [
+                {'$ref': '{0}-initial-credentials'.format(name)} for name in dispatcher.call_sync('peer.peer_types')
+            ] + [
+                {'type': 'null'}
             ]
         })
 
