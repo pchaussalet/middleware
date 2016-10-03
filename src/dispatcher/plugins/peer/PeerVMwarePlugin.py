@@ -65,16 +65,16 @@ class VMwarePeerCreateTask(Task):
     def early_describe(cls):
         return 'Creating VMware peer entry'
 
-    def describe(self, peer):
+    def describe(self, peer, initial_credentials):
         return TaskDescription('Creating VMware peer entry {name}', name=peer.get('name', ''))
 
-    def verify(self, peer):
+    def verify(self, peer, initial_credentials):
         if peer.get('type') != 'vmware':
             raise VerifyException(errno.EINVAL, 'Peer type must be selected as VMware')
 
         return ['system']
 
-    def run(self, peer):
+    def run(self, peer, initial_credentials):
         if 'name' not in peer:
             raise TaskException(errno.EINVAL, 'Name has to be specified')
 
