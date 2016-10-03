@@ -65,16 +65,16 @@ class AmazonS3PeerCreateTask(Task):
     def early_describe(cls):
         return 'Creating Amazon S3 peer entry'
 
-    def describe(self, peer):
+    def describe(self, peer, initial_credentials):
         return TaskDescription('Creating Amazon S3 peer entry {name}', name=peer.get('name', ''))
 
-    def verify(self, peer):
+    def verify(self, peer, initial_credentials):
         if peer.get('type') != 'amazon-s3':
             raise VerifyException(errno.EINVAL, 'Peer type must be selected as Amazon S3')
 
         return ['system']
 
-    def run(self, peer):
+    def run(self, peer, initial_credentials):
         if 'name' not in peer:
             raise TaskException(errno.EINVAL, 'Name has to be specified')
 
@@ -158,7 +158,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('amazon-s3-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['amazon-s3']},
+            'type': {'enum': ['amazon-s3-credentials']},
             'access_key': {'type': 'string'},
             'secret_key': {'type': 'string'},
             'region': {'type': ['string', 'null']},

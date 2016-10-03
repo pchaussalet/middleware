@@ -35,8 +35,6 @@ from task import Task, Provider, TaskException, VerifyException, query, TaskDesc
 
 
 logger = logging.getLogger(__name__)
-
-
 peers_status = None
 
 
@@ -67,26 +65,34 @@ class PeerProvider(Provider):
 
 
 @description('Creates a peer entry')
-@accepts(h.all_of(
-    h.ref('peer'),
-    h.required('type', 'credentials')
-))
+@accepts(
+    h.all_of(
+        h.ref('peer'),
+        h.required('type', 'credentials')
+    ),
+    h.one_of(h.object(), None)
+)
 class PeerCreateTask(Task):
     @classmethod
     def early_describe(cls):
         return 'Creating peer entry'
 
-    def describe(self, peer):
+    def describe(self, peer, initial_credentials=None):
         return TaskDescription('Creating peer entry {name}', name=peer.get('name', ''))
 
-    def verify(self, peer):
+    def verify(self, peer, initial_credentials=None):
         if peer.get('type') not in self.dispatcher.call_sync('peer.peer_types'):
             raise VerifyException(errno.EINVAL, 'Unknown peer type {0}'.format(peer.get('type')))
 
         return ['system']
 
-    def run(self, peer):
-        ids = self.join_subtasks(self.run_subtask('peer.{0}.create'.format(peer.get('type')), peer))
+    def run(self, peer, initial_credentials=None):
+        ids = self.join_subtasks(self.run_subtask(
+            'peer.{0}.create'.format(peer.get('type')),
+            peer,
+            initial_credentials
+        ))
+
         self.dispatcher.dispatch_event('peer.changed', {
             'operation': 'create',
             'ids': [ids[0]]

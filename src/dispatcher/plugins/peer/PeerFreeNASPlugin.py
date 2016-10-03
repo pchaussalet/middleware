@@ -186,31 +186,28 @@ class FreeNASPeerCreateTask(Task):
     def early_describe(cls):
         return 'Exchanging SSH keys with remote host'
 
-    def describe(self, peer):
+    def describe(self, peer, initial_credentials):
         return TaskDescription('Exchanging SSH keys with the remote {name}', name=q.get(peer, 'credentials.address', ''))
 
-    def verify(self, peer):
+    def verify(self, peer, initial_credentials):
         credentials = peer['credentials']
         remote = credentials.get('address')
-        username = credentials.get('username')
-        password = credentials.get('password')
+        username = initial_credentials.get('username')
+        password = initial_credentials.get('password')
 
         if not remote:
             raise VerifyException(errno.EINVAL, 'Address of remote host has to be specified')
 
-        if not credentials.get('auth_code') and not credentials.get('key_auth'):
+        if not initial_credentials.get('auth_code') and not initial_credentials.get('key_auth'):
             if not username:
                 raise VerifyException(errno.EINVAL, 'Username has to be specified')
 
             if not password:
                 raise VerifyException(errno.EINVAL, 'Password has to be specified')
 
-        if credentials.get('type') != 'freenas-auth':
-            raise VerifyException(errno.EINVAL, 'Invalid credentials type.')
-
         return ['system']
 
-    def run(self, peer):
+    def run(self, peer, initial_credentials):
         hostid = self.dispatcher.call_sync('system.info.host_uuid')
         hostname = self.dispatcher.call_sync('system.general.get_config')['hostname']
         remote_peer_name = hostname
@@ -218,9 +215,9 @@ class FreeNASPeerCreateTask(Task):
         remote = credentials.get('address')
         username = credentials.get('username')
         port = credentials.get('port', 22)
-        password = credentials.get('password')
-        auth_code = credentials.get('auth_code')
-        key_auth = credentials.get('key_auth')
+        password = initial_credentials.get('password')
+        auth_code = initial_credentials.get('auth_code')
+        key_auth = initial_credentials.get('key_auth')
 
         local_ssh_config = self.dispatcher.call_sync('service.sshd.get_config')
 
@@ -631,7 +628,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('freenas-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['freenas']},
+            'type': {'enum': ['freenas-credentials']},
             'address': {'type': 'string'},
             'port': {'type': 'number'},
             'pubkey': {'type': 'string'},
@@ -640,16 +637,15 @@ def _init(dispatcher, plugin):
         'additionalProperties': False
     })
 
-    plugin.register_schema_definition('freenas-auth-credentials', {
+    # Register schemas
+    plugin.register_schema_definition('freenas-initial-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['freenas-auth']},
-            'address': {'type': 'string'},
-            'username': {'type': 'string'},
-            'port': {'type': 'number'},
-            'password': {'type': 'string'},
-            'key_auth': {'type': 'boolean'},
-            'auth_code': {'type': 'integer'}
+            'type': {'enum': ['freenas-initial-credentials']},
+            'username': {'type': ['string', 'null']},
+            'password': {'type': ['string', 'null']},
+            'auth_code': {'type': ['integer', 'null']},
+            'key_auth': {'type': 'boolean'}
         },
         'additionalProperties': False
     })

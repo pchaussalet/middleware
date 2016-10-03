@@ -82,10 +82,10 @@ class SSHPeerCreateTask(Task):
     def early_describe(cls):
         return 'Creating SSH peer entry'
 
-    def describe(self, peer):
+    def describe(self, peer, initial_credentials):
         return TaskDescription('Creating SSH peer entry {name}', name=peer.get('name', ''))
 
-    def verify(self, peer):
+    def verify(self, peer, initial_credentials):
         if peer.get('type') != 'ssh':
             raise VerifyException(errno.EINVAL, 'Peer type must be selected as SSH')
 
@@ -175,7 +175,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('ssh-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['ssh']},
+            'type': {'enum': ['ssh-credentials']},
             'address': {'type': 'string'},
             'username': {'type': 'string'},
             'port': {'type': 'number'},
