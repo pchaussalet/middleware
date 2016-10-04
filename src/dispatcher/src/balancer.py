@@ -375,8 +375,7 @@ class Task(object):
             "error": self.error,
             "warnings": self.warnings,
             "debugger": self.debugger,
-            "environment": self.environment,
-            "hooks": self.hooks
+            "environment": self.environment
         }
 
     def __emit_progress(self):

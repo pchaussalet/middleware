@@ -644,8 +644,8 @@ class Dispatcher(object):
     def register_task_hook(self, hook, name):
         task_name, hook_name = hook.split(':')
         hooks = self.task_hooks.setdefault(task_name, {})
-        hooklist = hooks.setdefault(hook_name, [])
-        hooklist.append(name)
+        hooklist = hooks.setdefault(hook_name, set())
+        hooklist.add(name)
 
     def unregister_task_hook(self, hook, name):
         task_name, hook_name = hook.split(':')
