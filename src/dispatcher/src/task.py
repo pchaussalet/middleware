@@ -99,7 +99,8 @@ class Task(object):
     def run_subtask(self, classname, *args, **kwargs):
         with self.rlock:
             callback = kwargs.pop('progress_callback', None)
-            tid = self.dispatcher.run_subtask(self, classname, args)
+            environment = kwargs.pop('environment', None)
+            tid = self.dispatcher.run_subtask(self, classname, args, environment)
             if callback:
                 self.progress_callbacks[tid] = callback
 

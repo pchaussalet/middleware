@@ -518,12 +518,12 @@ class TaskService(RpcService):
 
     @private
     @pass_sender
-    def run_subtask(self, name, args, sender):
+    def run_subtask(self, name, args, env, sender):
         executor = self.__balancer.get_executor_by_sender(sender)
         if not executor:
             raise RpcException(errno.EPERM, 'Not authorized')
 
-        ret = self.__dispatcher.balancer.run_subtask(executor.task, name, args)
+        ret = self.__dispatcher.balancer.run_subtask(executor.task, name, args, env)
         return ret.id
 
     @private

@@ -601,7 +601,7 @@ class Balancer(object):
         instance = clazz(self.dispatcher, self.dispatcher.datastore)
         return instance.verify(*args)
 
-    def run_subtask(self, parent, name, args):
+    def run_subtask(self, parent, name, args, env=None):
         args = list(args)
         task = Task(self.dispatcher, name)
         task.created_at = datetime.utcnow()
@@ -613,6 +613,12 @@ class Balancer(object):
         task.description = task.instance.describe(*task.args)
         task.id = self.dispatcher.datastore.insert("tasks", task)
         task.parent = parent
+
+        if env:
+            if not isinstance(env, dict):
+                raise ValueError('env must be a dict')
+
+            task.environment = copy.deepcopy(env)
 
         if self.debugger:
             for m in self.debugged_tasks:

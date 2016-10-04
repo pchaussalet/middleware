@@ -74,8 +74,8 @@ class DispatcherWrapper(object):
     def verify_subtask(self, task, name, args):
         return self.dispatcher.call_sync('task.verify_subtask', name, list(args))
 
-    def run_subtask(self, task, name, args):
-        return self.dispatcher.call_sync('task.run_subtask', name, list(args), timeout=60)
+    def run_subtask(self, task, name, args, env=None):
+        return self.dispatcher.call_sync('task.run_subtask', name, list(args), env, timeout=60)
 
     def join_subtasks(self, *tasks):
         return self.dispatcher.call_sync('task.join_subtasks', tasks, timeout=None)
