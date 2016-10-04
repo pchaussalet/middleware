@@ -134,7 +134,16 @@ class VMWareDatasetUpdateTask(Task):
         return ['system']
 
     def run(self, id, updated_fields):
-        pass
+        dataset = self.datastore.get_by_id('vmware.datasets', id)
+        if not dataset:
+            raise TaskException(errno.ENOENT, 'VMware dataset mapping {0} not found'.format(id))
+
+        dataset.update(updated_fields)
+        self.datastore.update('vmware.datasets', id, dataset)
+        self.dispatcher.emit_event('vmware.dataset.changed', {
+            'operation': 'update',
+            'ids': [id]
+        })
 
 
 class VMWareDatasetDeleteTask(Task):
@@ -193,7 +202,7 @@ class CreateVMSnapshotsTask(ProgressTask):
 
             peer = self.dispatcher.call_sync('peer.query', [('id', '=', mapping['peer'])], {'single': True})
             if not peer:
-                # ???
+                logger.warning('Cannot find peer {0} for mapping {1}'.format(mapping['peer'], mapping['name']))
                 continue
 
             logging.warning(peer)
@@ -272,7 +281,7 @@ class DeleteVMSnapshotsTask(ProgressTask):
                         vm.summary.config.name,
                         mapping['datastore'])
                     )
-                    vm.RemoveSnapshot_Task(True)
+                    snapshot.RemoveSnapshot_Task(True)
 
 
 def can_be_snapshotted(vm):
