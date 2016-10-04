@@ -31,7 +31,7 @@ import uuid
 import logging
 import re
 from datetime import datetime
-from pyVim import connect
+from pyVim import connect, task
 from pyVmomi import vim
 from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
 from freenas.utils import normalize, query as q
@@ -50,7 +50,7 @@ class VMwareProvider(Provider):
         ssl_context.verify_mode = ssl.CERT_NONE
         si = connect.SmartConnect(host=address, user=username, pwd=password, sslContext=ssl_context)
         content = si.RetrieveContent()
-        vm_view = content.viewManager.CreateContainerView(content.rootFolder, vim.VirtualMachine, True)
+        vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
 
         try:
             for datastore in content.viewManager.CreateContainerView(content.rootFolder, vim.Datastore, True).view:
@@ -205,8 +205,6 @@ class CreateVMSnapshotsTask(ProgressTask):
                 logger.warning('Cannot find peer {0} for mapping {1}'.format(mapping['peer'], mapping['name']))
                 continue
 
-            logging.warning(peer)
-
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             ssl_context.verify_mode = ssl.CERT_NONE
             si = connect.SmartConnect(
@@ -216,7 +214,7 @@ class CreateVMSnapshotsTask(ProgressTask):
                 sslContext=ssl_context
             )
             content = si.RetrieveContent()
-            vm_view = content.viewManager.CreateContainerView(content.rootFolder, vim.VirtualMachine, True)
+            vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
 
             for vm in vm_view.view:
                 if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
@@ -226,7 +224,7 @@ class CreateVMSnapshotsTask(ProgressTask):
                     vm.summary.config.name,
                     mapping['datastore'])
                 )
-                vm.CreateSnapshot_Task(name=vm_snapname, description=vm_snapdescr, memory=False, quiesce=False)
+                task.WaitForTask(vm.CreateSnapshot_Task(name=vm_snapname, description=vm_snapdescr, memory=False, quiesce=False))
 
 
 class DeleteVMSnapshotsTask(ProgressTask):
@@ -247,6 +245,8 @@ class DeleteVMSnapshotsTask(ProgressTask):
         if not vm_snapname:
             return
 
+        logger.info('VM snapshot name is: {0}'.format(vm_snapname))
+
         for mapping in self.datastore.query('vmware.datasets'):
             if not re.search('^{0}(/|$)'.format(mapping['dataset']), dataset):
                 continue
@@ -255,8 +255,6 @@ class DeleteVMSnapshotsTask(ProgressTask):
             if not peer:
                 # ???
                 continue
-
-            logging.warning(peer)
 
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             ssl_context.verify_mode = ssl.CERT_NONE
@@ -267,21 +265,32 @@ class DeleteVMSnapshotsTask(ProgressTask):
                 sslContext=ssl_context
             )
             content = si.RetrieveContent()
-            vm_view = content.viewManager.CreateContainerView(content.rootFolder, vim.VirtualMachine, True)
+            vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
+
+            def find_snapshot(snapshots, name):
+                for i in snapshots:
+                    if i.name == name:
+                        return i.snapshot
+
+                    ret = find_snapshot(i.childSnapshotList, name)
+                    if ret:
+                        return ret
+
+                return None
 
             for vm in vm_view.view:
                 if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
                     continue
 
-                for snapshot in vm.snapshot.rootSnapshotList:
-                    if snapshot.name != vm_snapname:
-                        continue
+                snapshot = find_snapshot(vm.snapshot.rootSnapshotList, vm_snapname)
+                if not snapshot:
+                    continue
 
-                    logger.info('Removing snapshot of VM {0} (datastore {1})'.format(
-                        vm.summary.config.name,
-                        mapping['datastore'])
-                    )
-                    snapshot.RemoveSnapshot_Task(True)
+                logger.info('Removing snapshot of VM {0} (datastore {1})'.format(
+                    vm.summary.config.name,
+                    mapping['datastore'])
+                )
+                task.WaitForTask(snapshot.RemoveSnapshot_Task(True))
 
 
 def can_be_snapshotted(vm):
