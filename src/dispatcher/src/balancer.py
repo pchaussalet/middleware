@@ -194,7 +194,8 @@ class TaskExecutor(object):
                 'filename': filename,
                 'args': task.args,
                 'debugger': task.debugger,
-                'environment': task.environment
+                'environment': task.environment,
+                'hooks': task.hooks,
             })
         except RpcException as e:
             self.balancer.logger.warning('Cannot start task {0} on executor #{1}: {2}'.format(
@@ -342,6 +343,7 @@ class Task(object):
         self.resources = []
         self.warnings = []
         self.environment = {}
+        self.hooks = {}
         self.thread = None
         self.instance = None
         self.parent = None
@@ -373,7 +375,8 @@ class Task(object):
             "error": self.error,
             "warnings": self.warnings,
             "debugger": self.debugger,
-            "environment": self.environment
+            "environment": self.environment,
+            "hooks": self.hooks
         }
 
     def __emit_progress(self):
@@ -544,6 +547,7 @@ class Balancer(object):
         task.session_id = sender.session_id
         task.created_at = datetime.utcnow()
         task.clazz = self.dispatcher.tasks[name]
+        task.hooks = self.dispatcher.task_hooks.get(name, {})
         task.args = copy.deepcopy(args)
         task.strict_verify = 'strict_validation' in sender.enabled_features
 
@@ -602,6 +606,7 @@ class Balancer(object):
         task = Task(self.dispatcher, name)
         task.created_at = datetime.utcnow()
         task.clazz = self.dispatcher.tasks[name]
+        task.hooks = self.dispatcher.task_hooks.get(name, {})
         task.args = args
         task.instance = task.clazz(self.dispatcher, self.dispatcher.datastore)
         task.instance.verify(*task.args)

@@ -200,6 +200,11 @@ class Context(object):
             except OSError:
                 pass
 
+    def run_task_hooks(self, instance, task, type, *extra_args):
+        logging.warning(task['hooks'])
+        for hook in task['hooks'].get(type, []):
+            instance.join_subtasks(instance.run_subtask(hook, *(list(extra_args) + task['args'])))
+
     def main(self):
         if len(sys.argv) != 2:
             print("Invalid number of arguments", file=sys.stderr)
@@ -240,12 +245,15 @@ class Context(object):
                 fds = list(self.collect_fds(task['args']))
 
                 try:
-                    self.instance = getattr(module, task['class'])(DispatcherWrapper(self.conn), self.datastore)
+                    dispatcher = DispatcherWrapper(self.conn)
+                    self.instance = getattr(module, task['class'])(dispatcher, self.datastore)
                     self.instance.configstore = self.configstore
                     self.instance.user = task['user']
                     self.instance.environment = task['environment']
                     self.running.set()
+                    self.run_task_hooks(self.instance, task, 'before')
                     result = self.instance.run(*task['args'])
+                    self.run_task_hooks(self.instance, task, 'after', result)
                 except BaseException as err:
                     print("Task exception: {0}".format(str(err)), file=sys.stderr)
                     traceback.print_exc(file=sys.stderr)
@@ -258,6 +266,7 @@ class Context(object):
                             print("Task exception during rollback: {0}".format(str(rerr)), file=sys.stderr)
                             traceback.print_exc(file=sys.stderr)
 
+                    self.run_task_hooks(self.instance, task, 'error', serialize_error(err))
                     self.put_status('FAILED', exception=err)
                 else:
                     self.put_status('FINISHED', result=result)

@@ -43,7 +43,7 @@ import signal
 import time
 import errno
 import setproctitle
-import traceback
+import contextlib
 import tempfile
 import cgi
 import subprocess
@@ -318,6 +318,7 @@ class Dispatcher(object):
         self.queues = {}
         self.providers = {}
         self.tasks = {}
+        self.task_hooks = {}
         self.resource_graph = ResourceGraph()
         self.logger = logging.getLogger('Main')
         self.token_store = TokenStore(self)
@@ -639,6 +640,19 @@ class Dispatcher(object):
 
     def unregister_task_handler(self, name):
         del self.tasks[name]
+
+    def register_task_hook(self, hook, name):
+        task_name, hook_name = hook.split(':')
+        hooks = self.task_hooks.setdefault(task_name, {})
+        hooklist = hooks.setdefault(hook_name, [])
+        hooklist.append(name)
+
+    def unregister_task_hook(self, hook, name):
+        task_name, hook_name = hook.split(':')
+        hooks = self.task_hooks.get(task_name, {})
+        hooklist = hooks.get(hook_name, [])
+        with contextlib.suppress(ValueError):
+            hooklist.remove(name)
 
     def register_provider(self, name, clazz):
         self.logger.debug("New provider: %s", name)
