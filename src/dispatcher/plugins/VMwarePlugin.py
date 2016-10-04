@@ -29,7 +29,8 @@ import ssl
 from pyVim import connect
 from pyVmomi import vim
 from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
-from task import Provider, ProgressTask, query
+from freenas.utils import normalize
+from task import Provider, Task, TaskDescription, ProgressTask, query
 
 
 class VMwareProvider(Provider):
@@ -71,15 +72,90 @@ class VMwareDatasetsProvider(Provider):
     @generator
     @query('vmware-dataset')
     def query(self, filter=None, params=None):
-        pass
+        return self.datastore.query_stream('vmware.datasets', *(filter or []), **(params or {}))
 
 
-class CreateVMSnapshotTask(ProgressTask):
+@accepts(h.all_of(
+    h.ref('vmware-dataset'),
+    h.required('name', 'dataset', 'datastore', 'peer')
+))
+class VMWareDatasetCreateTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return "Creating VMware dataset mapping"
+
+    def describe(self, dataset):
+        return TaskDescription("Creating VMware datastore mapping for {name}", name=dataset['datastore'])
+
+    def verify(self, dataset):
+        return ['system']
+
+    def run(self, dataset):
+        normalize(dataset, {
+            'vm_filter_op': 'ALL',
+            'vm_filter_entries': []
+        })
+
+        id = self.datastore.insert('vmware.datasets', dataset)
+        self.dispatcher.emit_event('vmware.dataset.changed', {
+            'operation': 'create',
+            'ids': [id]
+        })
+
+        return id
+
+
+class VMWareDatasetUpdateTask(Task):
     @classmethod
     def early_describe(cls):
         pass
 
-    def verify(self):
+    def describe(self, id, updated_fields):
+        pass
+
+    def verify(self, id, updated_fields):
+        pass
+
+    def run(self, id, updated_fields):
+        pass
+
+
+class VMWareDatasetDeleteTask(Task):
+    @classmethod
+    def early_describe(cls):
+        pass
+
+    def describe(self, id):
+        pass
+
+    def verify(self, id):
+        pass
+
+    def run(self, id):
+        pass
+
+
+class CreateVMSnapshotsTask(ProgressTask):
+    @classmethod
+    def early_describe(cls, dataset):
+        pass
+
+    def verify(self, dataset):
+        pass
+
+    def run(self, dataset):
+        pass
+
+
+class DeleteVMSnapshotsTask(ProgressTask):
+    @classmethod
+    def early_describe(cls, dataset):
+        pass
+
+    def verify(self, dataset):
+        pass
+
+    def run(self, dataset):
         pass
 
 
@@ -126,10 +202,12 @@ def _init(dispatcher, plugin):
         'additionalProperties': False,
         'properties': {
             'id': {'type': 'string'},
+            'name': {'type': 'string'},
             'dataset': {'type': 'string'},
             'datastore': {'type': 'string'},
+            'peer': {'type': 'string'},
             'vm_filter_op': {'$ref': 'vmware-dataset-filter-op'},
-            'vm_filter': {
+            'vm_filter_entries': {
                 'type': 'array',
                 'items': {'type': 'string'}
             }
@@ -137,4 +215,10 @@ def _init(dispatcher, plugin):
     })
 
     plugin.register_provider('vmware', VMwareProvider)
-    plugin.register_provider('vmware.datasets', VMwareDatasetsProvider)
+    plugin.register_provider('vmware.dataset', VMwareDatasetsProvider)
+
+    plugin.register_task_handler('vmware.dataset.create', VMWareDatasetCreateTask)
+    plugin.register_task_handler('vmware.dataset.update', VMWareDatasetUpdateTask)
+    plugin.register_task_handler('vmware.dataset.delete', VMWareDatasetDeleteTask)
+
+    plugin.register_event_type('vmware.dataset.changed')
