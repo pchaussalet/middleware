@@ -112,7 +112,7 @@ class VolumeProvider(Provider):
             encrypted = vol.get('key_encrypted', False) or vol.get('password_encrypted', False)
 
             if not config:
-                vol['status'] = 'UNKNOWN'
+                vol['status'] = 'LOCKED' if encrypted else 'UNKNOWN'
             else:
                 topology = config['groups']
                 for vdev, _ in iterate_vdevs(topology):
@@ -134,7 +134,7 @@ class VolumeProvider(Provider):
                     'upgraded': None,
                     'topology': topology,
                     'root_vdev': config['root_vdev'],
-                    'status': config['status'],
+                    'status': 'LOCKED' if encrypted and config['status'] == 'UNAVAIL' else config['status'],
                     'scan': config['scan'],
                     'properties': include(
                         config['properties'],
@@ -359,7 +359,7 @@ class VolumeProvider(Provider):
                 ret[boot_disk] = {'type': 'BOOT'}
 
         for vol in self.dispatcher.call_sync('volume.query'):
-            if vol['status'] in ('UNAVAIL', 'UNKNOWN'):
+            if vol['status'] in ('UNAVAIL', 'UNKNOWN', 'LOCKED'):
                 continue
 
             for dev in self.dispatcher.call_sync('volume.get_volume_disks', vol['id']):
@@ -756,7 +756,7 @@ class VolumeDestroyTask(Task):
                     else:
                         pass
 
-                action = 'export' if vol['status'] == 'UNAVAIL' else 'destroy'
+                action = 'export' if vol['status'] in ('UNAVAIL', 'LOCKED') else 'destroy'
                 self.join_subtasks(self.run_subtask('zfs.pool.{0}'.format(action), id))
 
             try:
@@ -2573,7 +2573,7 @@ def register_property_schemas(plugin):
         },
         'health': {
             'type': 'string',
-            'enum': ['ONLINE', 'DEGRADED', 'FAULTED', 'OFFLINE', 'REMOVED', 'UNAVAIL']
+            'enum': ['ONLINE', 'DEGRADED', 'FAULTED', 'OFFLINE', 'REMOVED', 'UNAVAIL', 'LOCKED']
         },
         'version': {
             'type': ['integer', 'null'],

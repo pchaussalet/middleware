@@ -54,7 +54,7 @@ def _init(dispatcher, plugin):
 
     def volumes_upgraded():
         for volume in dispatcher.rpc.call_sync('volume.query'):
-            if volume['status'] == 'UNAVAIL':
+            if volume['status'] in ('UNAVAIL', 'LOCKED'):
                 continue
 
             if volume.get('upgraded') is not False:
