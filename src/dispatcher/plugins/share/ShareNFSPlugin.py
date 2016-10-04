@@ -30,7 +30,7 @@ import logging
 from task import Task, Provider, TaskException, VerifyException, TaskDescription
 from freenas.dispatcher.rpc import description, accepts, private
 from freenas.dispatcher.rpc import SchemaHelper as h
-from freenas.utils import normalize
+from freenas.utils import normalize, query as q
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +74,9 @@ class CreateNFSShareTask(Task):
         if (properties.get('maproot_user') or properties.get('maproot_group')) and \
            (properties.get('mapall_user') or properties.get('mapall_group')):
             raise VerifyException(errno.EINVAL, 'Cannot set maproot and mapall properties simultaneously')
+
+        if share['target_type'] != 'DATASET' and properties.get('alldirs'):
+            raise VerifyException(errno.EINVAL, 'alldirs can be only used with dataset shares')
 
         return ['service:nfs']
 
@@ -119,6 +122,10 @@ class UpdateNFSShareTask(Task):
     def run(self, id, updated_fields):
         share = self.datastore.get_by_id('shares', id)
         share.update(updated_fields)
+
+        if share['target_type'] != 'DATASET' and q.get(share, 'properties.alldirs'):
+            raise VerifyException(errno.EINVAL, 'alldirs can be only used with dataset shares')
+
         self.datastore.update('shares', id, share)
         self.dispatcher.call_sync('etcd.generation.generate_group', 'nfs')
         self.dispatcher.call_sync('service.reload', 'nfs', timeout=60)
