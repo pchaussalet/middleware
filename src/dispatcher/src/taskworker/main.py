@@ -34,6 +34,7 @@ import socket
 import traceback
 import logging
 import queue
+import contextlib
 from threading import Event
 from freenas.dispatcher.client import Client
 from freenas.dispatcher.fd import FileDescriptor
@@ -247,7 +248,10 @@ class Context(object):
                             print("Task exception during rollback: {0}".format(str(rerr)), file=sys.stderr)
                             traceback.print_exc(file=sys.stderr)
 
-                    self.run_task_hooks(self.instance, task, 'error', error=serialize_error(err))
+                    # Main task is already failed at this point, so ignore hook errors
+                    with contextlib.suppress(RpcException):
+                        self.run_task_hooks(self.instance, task, 'error', error=serialize_error(err))
+
                     self.put_status('FAILED', exception=err)
                 else:
                     self.put_status('FINISHED', result=result)
