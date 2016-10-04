@@ -25,12 +25,20 @@
 #
 #####################################################################
 
+import errno
 import ssl
+import uuid
+import logging
+import re
+from datetime import datetime
 from pyVim import connect
 from pyVmomi import vim
 from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
-from freenas.utils import normalize
-from task import Provider, Task, TaskDescription, ProgressTask, query
+from freenas.utils import normalize, query as q
+from task import Provider, Task, TaskDescription, TaskException, ProgressTask, query
+
+
+logger = logging.getLogger(__name__)
 
 
 class VMwareProvider(Provider):
@@ -92,11 +100,20 @@ class VMWareDatasetCreateTask(Task):
 
     def run(self, dataset):
         normalize(dataset, {
-            'vm_filter_op': 'ALL',
+            'vm_filter_op': 'NONE',
             'vm_filter_entries': []
         })
 
+        first = self.datastore.query('vmware.datasets', count=True) == 0
         id = self.datastore.insert('vmware.datasets', dataset)
+
+        if first:
+            # To not waste cycles, we register snapshot pre- and post-creation hooks only if there's at
+            # least one VMware dataset mapping
+            self.dispatcher.register_task_hook('volume.snapshot.create:before', 'vmware.snapshot.take')
+            self.dispatcher.register_task_hook('volume.snapshot.create:after', 'vmware.snapshot.clean')
+            self.dispatcher.register_task_hook('volume.snapshot.create:error', 'vmware.snapshot.clean')
+
         self.dispatcher.emit_event('vmware.dataset.changed', {
             'operation': 'create',
             'ids': [id]
@@ -108,13 +125,13 @@ class VMWareDatasetCreateTask(Task):
 class VMWareDatasetUpdateTask(Task):
     @classmethod
     def early_describe(cls):
-        pass
+        return "Updating VMware dataset mapping"
 
     def describe(self, id, updated_fields):
         pass
 
     def verify(self, id, updated_fields):
-        pass
+        return ['system']
 
     def run(self, id, updated_fields):
         pass
@@ -123,40 +140,139 @@ class VMWareDatasetUpdateTask(Task):
 class VMWareDatasetDeleteTask(Task):
     @classmethod
     def early_describe(cls):
-        pass
+        return "Removing VMware dataset mapping"
 
     def describe(self, id):
-        pass
+        dataset = self.datastore.get_by_id('vmware.datasets', id)
+        return TaskDescription("Removing VMware dataset mapping {name}".format(name=q.get(dataset, 'name')))
 
     def verify(self, id):
-        pass
+        return ['system']
 
     def run(self, id):
-        pass
+        if not self.datastore.get_by_id('vmware.datasets', id):
+            raise TaskException(errno.ENOENT, 'VMware dataset mapping {0} not found'.format(id))
+
+        self.datastore.delete('vmware.datasets', id)
+
+        if self.datastore.query('vmware.datasets', count=True) == 0:
+            # Unregister hooks once we remove the last mapping
+            self.dispatcher.unregister_task_hook('volume.snapshot.create:before', 'vmware.snapshot.take')
+            self.dispatcher.unregister_task_hook('volume.snapshot.create:after', 'vmware.snapshot.clean')
+            self.dispatcher.unregister_task_hook('volume.snapshot.create:error', 'vmware.snapshot.clean')
+
+        self.dispatcher.emit_event('vmware.dataset.changed', {
+            'operation': 'delete',
+            'ids': [id]
+        })
 
 
 class CreateVMSnapshotsTask(ProgressTask):
     @classmethod
-    def early_describe(cls, dataset):
-        pass
+    def early_describe(cls):
+        return "Creating VMware snapshots"
 
-    def verify(self, dataset):
-        pass
+    def describe(self, snapshot, recursive=False):
+        return TaskDescription("Creating VMware snapshots")
 
-    def run(self, dataset):
-        pass
+    def verify(self, snapshot, recursive=False):
+        return []
+
+    def run(self,  snapshot, recursive=False):
+        # Find the matching datastore mappings
+        dataset = snapshot.get('dataset') or snapshot.get('id').split('@')[0]
+        vm_snapname = 'FreeNAS-{0}'.format(str(uuid.uuid4()))
+        vm_snapdescr = '{0} (Created by FreeNAS)'.format(datetime.utcnow())
+
+        # Save the snapshot name in parent task environment to the delete counterpart can find it
+        self.dispatcher.task_setenv(self.environment['parent'], 'vmware_snapshot_name', vm_snapname)
+
+        for mapping in self.datastore.query('vmware.datasets'):
+            if not re.search('^{0}(/|$)'.format(mapping['dataset']), dataset):
+                continue
+
+            peer = self.dispatcher.call_sync('peer.query', [('id', '=', mapping['peer'])], {'single': True})
+            if not peer:
+                # ???
+                continue
+
+            logging.warning(peer)
+
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            ssl_context.verify_mode = ssl.CERT_NONE
+            si = connect.SmartConnect(
+                host=q.get(peer, 'credentials.address'),
+                user=q.get(peer, 'credentials.username'),
+                pwd=q.get(peer, 'credentials.password'),
+                sslContext=ssl_context
+            )
+            content = si.RetrieveContent()
+            vm_view = content.viewManager.CreateContainerView(content.rootFolder, vim.VirtualMachine, True)
+
+            for vm in vm_view.view:
+                if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
+                    continue
+
+                logger.info('Creating snapshot of VM {0} (datastore {1})'.format(
+                    vm.summary.config.name,
+                    mapping['datastore'])
+                )
+                vm.CreateSnapshot_Task(name=vm_snapname, description=vm_snapdescr, memory=False, quiesce=False)
 
 
 class DeleteVMSnapshotsTask(ProgressTask):
     @classmethod
-    def early_describe(cls, dataset):
-        pass
+    def early_describe(cls):
+        return "Removing VMware snapshots"
 
-    def verify(self, dataset):
-        pass
+    def describe(self, snapshot, recursive=False):
+        return TaskDescription("Removing VMware snapshots")
 
-    def run(self, dataset):
-        pass
+    def verify(self, snapshot, recursive=False):
+        return []
+
+    def run(self, snapshot, recursive=False):
+        dataset = snapshot.get('dataset') or snapshot.get('id').split('@')[0]
+        vm_snapname = self.environment.get('vmware_snapshot_name')
+
+        if not vm_snapname:
+            return
+
+        for mapping in self.datastore.query('vmware.datasets'):
+            if not re.search('^{0}(/|$)'.format(mapping['dataset']), dataset):
+                continue
+
+            peer = self.dispatcher.call_sync('peer.query', [('id', '=', mapping['peer'])], {'single': True})
+            if not peer:
+                # ???
+                continue
+
+            logging.warning(peer)
+
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            ssl_context.verify_mode = ssl.CERT_NONE
+            si = connect.SmartConnect(
+                host=q.get(peer, 'credentials.address'),
+                user=q.get(peer, 'credentials.username'),
+                pwd=q.get(peer, 'credentials.password'),
+                sslContext=ssl_context
+            )
+            content = si.RetrieveContent()
+            vm_view = content.viewManager.CreateContainerView(content.rootFolder, vim.VirtualMachine, True)
+
+            for vm in vm_view.view:
+                if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
+                    continue
+
+                for snapshot in vm.snapshot.rootSnapshotList:
+                    if snapshot.name != vm_snapname:
+                        continue
+
+                    logger.info('Removing snapshot of VM {0} (datastore {1})'.format(
+                        vm.summary.config.name,
+                        mapping['datastore'])
+                    )
+                    vm.RemoveSnapshot_Task(True)
 
 
 def can_be_snapshotted(vm):
@@ -166,8 +282,11 @@ def can_be_snapshotted(vm):
 
         # consider supporting more cases of VMs that can't be snapshoted
         # https://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1006392
-
     return True
+
+
+def _depends():
+    return ['VolumePlugin']
 
 
 def _init(dispatcher, plugin):
@@ -221,4 +340,14 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('vmware.dataset.update', VMWareDatasetUpdateTask)
     plugin.register_task_handler('vmware.dataset.delete', VMWareDatasetDeleteTask)
 
+    plugin.register_task_handler('vmware.snapshot.take', CreateVMSnapshotsTask)
+    plugin.register_task_handler('vmware.snapshot.clean', DeleteVMSnapshotsTask)
+
     plugin.register_event_type('vmware.dataset.changed')
+
+    if dispatcher.datastore.query('vmware.datasets', count=True) > 0:
+        # To not waste cycles, we register snapshot pre- and post-creation hooks only if there's at
+        # least one VMware dataset mapping
+        dispatcher.register_task_hook('volume.snapshot.create:before', 'vmware.snapshot.take')
+        dispatcher.register_task_hook('volume.snapshot.create:after', 'vmware.snapshot.clean')
+        dispatcher.register_task_hook('volume.snapshot.create:error', 'vmware.snapshot.clean')
