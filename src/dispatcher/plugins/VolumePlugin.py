@@ -2342,7 +2342,6 @@ class SnapshotCreateTask(Task):
             dataset = snapshot['dataset']
             snapshot['id'] = '@'.join([dataset, name])
 
-        self.dispatcher.run_hook('volume.snapshot.pre_create', snapshot, recursive)
         self.join_subtasks(self.run_subtask(
             'zfs.create_snapshot',
             dataset,
@@ -2356,7 +2355,6 @@ class SnapshotCreateTask(Task):
             }
         ))
 
-        self.dispatcher.run_hook('volume.snapshot.post_create', snapshot, recursive)
         return snapshot['id']
 
 
@@ -3213,9 +3211,6 @@ def _init(dispatcher, plugin):
 
     plugin.register_hook('volume.pre_rename')
     plugin.register_hook('volume.post_rename')
-
-    plugin.register_hook('volume.snapshot.pre_create')
-    plugin.register_hook('volume.snapshot.post_create')
 
     plugin.register_event_handler('entity-subscriber.zfs.pool.changed', on_pool_change)
     plugin.register_event_handler('fs.zfs.vdev.removed', on_vdev_remove)
