@@ -702,10 +702,10 @@ class Dispatcher(object):
     def detach_hook(self, name, func):
         self.hooks[name].remove(func)
 
-    def run_hook(self, name, args):
+    def run_hook(self, name, *args):
         for h in self.hooks[name]:
             try:
-                if not h(args):
+                if not h(*args):
                     return False
             except BaseException as err:
                 self.report_error('Hook for {0} with args {1} failed'.format(name, args), err)
