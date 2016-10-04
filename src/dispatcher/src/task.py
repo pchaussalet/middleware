@@ -54,6 +54,8 @@ class Task(object):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.subtasks = []
         self.progress_callbacks = {}
+        self.user = None
+        self.environment = {}
         self.do_abort = False
         self.rlock = RLock()
 

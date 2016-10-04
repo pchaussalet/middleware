@@ -432,6 +432,17 @@ class TaskService(RpcService):
     def unregister_task_hook(self, hook, task):
         self.__dispatcher.unregister_task_hook(hook, task)
 
+    @private
+    def task_setenv(self, tid, key, value):
+        task = self.__balancer.get_task(tid)
+        if not task:
+            raise RpcException(errno.ENOENT, 'Task {0} not found'.format(tid))
+
+        if task.ended.is_set():
+            raise RpcException(errno.ENOENT, 'Can set environment only for running tasks')
+
+        task.set_env(key, value)
+
     @query('task')
     @generator
     def query(self, filter=None, params=None):

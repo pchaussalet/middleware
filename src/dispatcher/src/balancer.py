@@ -439,6 +439,10 @@ class Task(object):
                 self.progress = progress
                 self.__emit_progress()
 
+    def set_env(self, key, value):
+        self.environment[key] = value
+        self.dispatcher.datastore.update('tasks', self.id, self)
+
     def set_output(self, output):
         self.output = output
         self.dispatcher.datastore.update('tasks', self.id, self)
@@ -612,12 +616,14 @@ class Balancer(object):
         task.description = task.instance.describe(*task.args)
         task.id = self.dispatcher.datastore.insert("tasks", task)
         task.parent = parent
+        task.environment = copy.deepcopy(parent.environment)
+        task.environment['parent'] = parent.id
 
         if env:
             if not isinstance(env, dict):
                 raise ValueError('env must be a dict')
 
-            task.environment = copy.deepcopy(env)
+            task.environment.update(env)
 
         if self.debugger:
             for m in self.debugged_tasks:
