@@ -311,7 +311,7 @@ class UpdateShareTask(Task):
 
         path_after_update = updated_fields.get('target_path', share['target_path'])
         type_after_update = updated_fields.get('target_type', share['target_type'])
-        permissions = updated_fields.pop('permissions')
+        permissions = updated_fields.pop('permissions', None)
         share_path = self.dispatcher.call_sync('share.expand_path', path_after_update, type_after_update)
 
         if not os.path.exists(share_path):
