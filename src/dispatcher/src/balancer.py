@@ -616,7 +616,7 @@ class Balancer(object):
         task.description = task.instance.describe(*task.args)
         task.id = self.dispatcher.datastore.insert("tasks", task)
         task.parent = parent
-        task.environment = copy.deepcopy(parent.environment)
+        task.environment = copy.deepcopy(parent.environment) if parent else {}
         task.environment['parent'] = parent.id
 
         if env:
