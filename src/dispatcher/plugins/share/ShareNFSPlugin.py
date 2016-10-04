@@ -124,7 +124,7 @@ class UpdateNFSShareTask(Task):
         share.update(updated_fields)
 
         if share['target_type'] != 'DATASET' and q.get(share, 'properties.alldirs'):
-            raise VerifyException(errno.EINVAL, 'alldirs can be only used with dataset shares')
+            raise TaskException(errno.EINVAL, 'alldirs can be only used with dataset shares')
 
         self.datastore.update('shares', id, share)
         self.dispatcher.call_sync('etcd.generation.generate_group', 'nfs')
