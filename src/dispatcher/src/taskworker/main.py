@@ -68,63 +68,42 @@ class DispatcherWrapper(object):
     def __init__(self, dispatcher):
         self.dispatcher = dispatcher
 
-    def __run_hook(self, name, args):
+    def run_hook(self, name, args):
         return self.dispatcher.call_sync('task.run_hook', name, args, timeout=300)
 
-    def __verify_subtask(self, task, name, args):
+    def verify_subtask(self, task, name, args):
         return self.dispatcher.call_sync('task.verify_subtask', name, list(args))
 
-    def __run_subtask(self, task, name, args):
+    def run_subtask(self, task, name, args):
         return self.dispatcher.call_sync('task.run_subtask', name, list(args), timeout=60)
 
-    def __join_subtasks(self, *tasks):
+    def join_subtasks(self, *tasks):
         return self.dispatcher.call_sync('task.join_subtasks', tasks, timeout=None)
 
-    def __abort_subtask(self, id):
+    def abort_subtask(self, id):
         return self.dispatcher.call_sync('task.abort_subtask', id, timeout=60)
 
-    def __add_warning(self, warning):
+    def add_warning(self, warning):
         self.dispatcher.call_sync('task.put_warning', serialize_error(warning))
 
-    def __put_progress(self, progress):
+    def put_progress(self, progress):
         self.dispatcher.call_sync('task.put_progress', progress.__getstate__())
 
-    def __register_resource(self, resource, parents):
+    def register_resource(self, resource, parents):
         self.dispatcher.call_sync('task.register_resource', resource.name, parents)
 
-    def __unregister_resource(self, resource):
+    def unregister_resource(self, resource):
         self.dispatcher.call_sync('task.unregister_resource', resource)
+
+    def register_task_hook(self, hook, task):
+        self.dispatcher.call_sync('task.register_task_hook', hook, task)
+
+    def unregister_task_hook(self, hook, task):
+        self.dispatcher.call_sync('task.unregister_task_hook', hook, task)
 
     def __getattr__(self, item):
         if item == 'dispatch_event':
             return self.dispatcher.emit_event
-
-        if item == 'run_hook':
-            return self.__run_hook
-
-        if item == 'verify_subtask':
-            return self.__verify_subtask
-
-        if item == 'run_subtask':
-            return self.__run_subtask
-
-        if item == 'join_subtasks':
-            return self.__join_subtasks
-
-        if item == 'abort_subtask':
-            return self.__abort_subtask
-
-        if item == 'add_warning':
-            return self.__add_warning
-
-        if item == 'put_progress':
-            return self.__put_progress
-
-        if item == 'register_resource':
-            return self.__register_resource
-
-        if item == 'unregister_resource':
-            return self.__unregister_resource
 
         return getattr(self.dispatcher, item)
 

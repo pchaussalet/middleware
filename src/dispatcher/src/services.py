@@ -424,6 +424,14 @@ class TaskService(RpcService):
 
         return result
 
+    @private
+    def register_task_hook(self, hook, task):
+        self.__dispatcher.register_task_hook(hook, task)
+
+    @private
+    def unregister_task_hook(self, hook, task):
+        self.__dispatcher.unregister_task_hook(hook, task)
+
     @query('task')
     @generator
     def query(self, filter=None, params=None):
