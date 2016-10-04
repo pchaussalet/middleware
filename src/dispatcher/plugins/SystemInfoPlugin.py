@@ -219,21 +219,11 @@ class SystemUIProvider(Provider):
 
         return {
             'webui_protocol': protocol,
-            'webui_listen': self.configstore.get(
-                'service.nginx.listen',
-            ),
-            'webui_http_port': self.configstore.get(
-                'service.nginx.http.port',
-            ),
-            'webui_http_redirect_https': self.configstore.get(
-                'service.nginx.http.redirect_https',
-            ),
-            'webui_https_certificate': self.configstore.get(
-                'service.nginx.https.certificate',
-            ),
-            'webui_https_port': self.configstore.get(
-                'service.nginx.https.port',
-            ),
+            'webui_listen': self.configstore.get('service.nginx.listen'),
+            'webui_http_port': self.configstore.get('service.nginx.http.port'),
+            'webui_http_redirect_https': self.configstore.get( 'service.nginx.http.redirect_https'),
+            'webui_https_certificate': self.configstore.get('service.nginx.https.certificate'),
+            'webui_https_port': self.configstore.get('service.nginx.https.port')
         }
 
 
@@ -452,29 +442,27 @@ class SystemUIConfigureTask(Task):
                 True if 'HTTPS' in webui_protocol else False,
             )
         if 'webui_listen' in props:
-            self.configstore.set('service.nginx.listen', props.get('webui_listen'))
+            self.configstore.set('service.nginx.listen', props['webui_listen'])
+
         if 'webui_http_port' in props:
-            self.configstore.set('service.nginx.http.port', props.get('webui_http_port'))
+            self.configstore.set('service.nginx.http.port', props['webui_http_port'])
+
         if 'webui_http_redirect_https' in props:
-            self.configstore.set(
-                'service.nginx.http.redirect_https', props.get('webui_http_redirect_https')
-            )
+            self.configstore.set( 'service.nginx.http.redirect_https', props['webui_http_redirect_https'])
+
         if 'webui_https_certificate' in props:
-            self.configstore.set(
-                'service.nginx.https.certificate', props.get('webui_https_certificate')
-            )
+            self.configstore.set( 'service.nginx.https.certificate', props['webui_https_certificate'])
+
         if 'webui_https_port' in props:
-            self.configstore.set('service.nginx.https.port', props.get('webui_https_port'))
+            self.configstore.set('service.nginx.https.port', props['webui_https_port'])
 
         try:
-            self.dispatcher.call_sync(
-                'etcd.generation.generate_group', 'nginx'
-            )
+            self.dispatcher.call_sync('etcd.generation.generate_group', 'nginx')
             self.dispatcher.call_sync('service.reload', 'nginx')
         except RpcException as e:
             raise TaskException(
                 errno.ENXIO,
-                'Cannot reconfigure system UI: {0}'.format(str(e),)
+                'Cannot reconfigure system UI: {0}'.format(str(e))
             )
 
         self.dispatcher.dispatch_event('system.ui.changed', {
