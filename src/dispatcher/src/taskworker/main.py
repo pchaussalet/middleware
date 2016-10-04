@@ -101,6 +101,9 @@ class DispatcherWrapper(object):
     def unregister_task_hook(self, hook, task):
         self.dispatcher.call_sync('task.unregister_task_hook', hook, task)
 
+    def task_setenv(self, tid, key, value):
+        self.dispatcher.call_sync('task.task_setenv', tid, key, value)
+
     def __getattr__(self, item):
         if item == 'dispatch_event':
             return self.dispatcher.emit_event
@@ -179,10 +182,9 @@ class Context(object):
             except OSError:
                 pass
 
-    def run_task_hooks(self, instance, task, type, *extra_args):
-        logging.warning(task['hooks'])
+    def run_task_hooks(self, instance, task, type, **extra_env):
         for hook in task['hooks'].get(type, []):
-            instance.join_subtasks(instance.run_subtask(hook, *(list(extra_args) + task['args'])))
+            instance.join_subtasks(instance.run_subtask(hook, *task['args'], **extra_env))
 
     def main(self):
         if len(sys.argv) != 2:
@@ -232,7 +234,7 @@ class Context(object):
                     self.running.set()
                     self.run_task_hooks(self.instance, task, 'before')
                     result = self.instance.run(*task['args'])
-                    self.run_task_hooks(self.instance, task, 'after', result)
+                    self.run_task_hooks(self.instance, task, 'after', result=result)
                 except BaseException as err:
                     print("Task exception: {0}".format(str(err)), file=sys.stderr)
                     traceback.print_exc(file=sys.stderr)
@@ -245,7 +247,7 @@ class Context(object):
                             print("Task exception during rollback: {0}".format(str(rerr)), file=sys.stderr)
                             traceback.print_exc(file=sys.stderr)
 
-                    self.run_task_hooks(self.instance, task, 'error', serialize_error(err))
+                    self.run_task_hooks(self.instance, task, 'error', error=serialize_error(err))
                     self.put_status('FAILED', exception=err)
                 else:
                     self.put_status('FINISHED', result=result)
