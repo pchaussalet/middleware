@@ -220,6 +220,9 @@ class CreateVMSnapshotsTask(ProgressTask):
                 if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
                     continue
 
+                if find_snapshot(vm.snapshot.rootSnapshotList, vm_snapname):
+                    continue
+
                 logger.info('Creating snapshot of VM {0} (datastore {1})'.format(
                     vm.summary.config.name,
                     mapping['datastore'])
@@ -267,17 +270,6 @@ class DeleteVMSnapshotsTask(ProgressTask):
             content = si.RetrieveContent()
             vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
 
-            def find_snapshot(snapshots, name):
-                for i in snapshots:
-                    if i.name == name:
-                        return i.snapshot
-
-                    ret = find_snapshot(i.childSnapshotList, name)
-                    if ret:
-                        return ret
-
-                return None
-
             for vm in vm_view.view:
                 if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
                     continue
@@ -301,6 +293,18 @@ def can_be_snapshotted(vm):
         # consider supporting more cases of VMs that can't be snapshoted
         # https://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1006392
     return True
+
+
+def find_snapshot(snapshots, name):
+    for i in snapshots:
+        if i.name == name:
+            return i.snapshot
+
+        ret = find_snapshot(i.childSnapshotList, name)
+        if ret:
+            return ret
+
+    return None
 
 
 def _depends():
