@@ -43,8 +43,14 @@ logger = logging.getLogger(__name__)
 ALERT_TEMPLATE = """
 Following VMware snapshot operations failed during creation of snapshot ${id}:
 % for i in failed_snapshots:
-- ${"Creating" if i.when == "create" else "Deleting"} snapshot of virtual machine ${i.vm} on datastore ${i.datastore}: ${i.error}
+% if i["when"] == "create":
+- Creating snapshot of virtual machine ${i["vm"]} on datastore ${i["datastore"]}: ${i["error"]}
+% elif i["when"] == "delete":
+- Deleting snapshot of virtual machine ${i["vm"]} on datastore ${i["datastore"]}: ${i["error"]}
+% elif i["when"] == "connect":
+- Connecting to VMware host at ${i["host"]}: ${i["error"]}
 % endif
+% endfor
 """
 
 
@@ -215,22 +221,39 @@ class CreateVMSnapshotsTask(ProgressTask):
 
             peer = self.dispatcher.call_sync('peer.query', [('id', '=', mapping['peer'])], {'single': True})
             if not peer:
-                self.add_warning(TaskWarning(
-                    errno.ENOENT,
-                    'Cannot find peer {0} for mapping {1}'.format(mapping['peer'], mapping['name'])
-                ))
+                failed_snapshots.append({
+                    'when': 'connect',
+                    'host': '<mapping {0}>'.format(mapping['name']),
+                    'datastore': mapping['datastore'],
+                    'error': 'Cannot find peer entry for mapping {0}'.format(mapping['name'])
+                })
                 continue
 
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-            ssl_context.verify_mode = ssl.CERT_NONE
-            si = connect.SmartConnect(
-                host=q.get(peer, 'credentials.address'),
-                user=q.get(peer, 'credentials.username'),
-                pwd=q.get(peer, 'credentials.password'),
-                sslContext=ssl_context
-            )
-            content = si.RetrieveContent()
-            vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
+            try:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+                ssl_context.verify_mode = ssl.CERT_NONE
+                si = connect.SmartConnect(
+                    host=q.get(peer, 'credentials.address'),
+                    user=q.get(peer, 'credentials.username'),
+                    pwd=q.get(peer, 'credentials.password'),
+                    sslContext=ssl_context
+                )
+                content = si.RetrieveContent()
+                vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
+            except BaseException as err:
+                logger.warning('Connecting to VMware instance at {0} failed: {1}'.format(
+                    q.get(peer, 'credentials.address'),
+                    str(err)
+                ))
+
+                failed_snapshots.append({
+                    'when': 'connect',
+                    'host': q.get(peer, 'credentials.address'),
+                    'datastore': mapping['datastore'],
+                    'error': getattr(err, 'msg') or str(err)
+                })
+
+                continue
 
             for vm in vm_view.view:
                 if mapping['vm_filter_op'] == 'INCLUDE' and vm.summary.config.name not in mapping['vm_filter_entries']:
@@ -256,6 +279,7 @@ class CreateVMSnapshotsTask(ProgressTask):
                         memory=False, quiesce=False
                     ))
                 except vmodl.MethodFault as err:
+                    logger.warning('Creating snapshot of {0} failed: {1}'.format(vm.summary.config.name, err.msg))
                     failed_snapshots.append({
                         'when': 'create',
                         'vm': vm.summary.config.name,
@@ -263,8 +287,9 @@ class CreateVMSnapshotsTask(ProgressTask):
                         'error': err.msg
                     })
 
-            self.dispatcher.task_setenv(self.environment['parent'], 'vmware_failed_snapshots', failed_snapshots)
             connect.Disconnect(si)
+
+        self.dispatcher.task_setenv(self.environment['parent'], 'vmware_failed_snapshots', failed_snapshots)
 
 
 class DeleteVMSnapshotsTask(ProgressTask):
@@ -282,7 +307,7 @@ class DeleteVMSnapshotsTask(ProgressTask):
         dataset = snapshot.get('dataset') or snapshot.get('id').split('@')[0]
         id = snapshot.get('id') or '{0}@{1}'.format(dataset, snapshot.get('name'))
         vm_snapname = self.environment.get('vmware_snapshot_name')
-        failed_snapshots = self.environment.get('failed_snapshots', [])
+        failed_snapshots = self.environment.get('vmware_failed_snapshots', [])
 
         if not vm_snapname:
             return
@@ -300,22 +325,42 @@ class DeleteVMSnapshotsTask(ProgressTask):
 
             peer = self.dispatcher.call_sync('peer.query', [('id', '=', mapping['peer'])], {'single': True})
             if not peer:
-                self.add_warning(TaskWarning(
-                    errno.ENOENT,
-                    'Cannot find peer {0} for mapping {1}'.format(mapping['peer'], mapping['name'])
-                ))
+                failed_snapshots.append({
+                    'when': 'connect',
+                    'host': '<mapping {0}>'.format(mapping['name']),
+                    'datastore': mapping['datastore'],
+                    'error': 'Cannot find peer entry for mapping {0}'.format(mapping['name'])
+                })
                 continue
 
-            ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-            ssl_context.verify_mode = ssl.CERT_NONE
-            si = connect.SmartConnect(
-                host=q.get(peer, 'credentials.address'),
-                user=q.get(peer, 'credentials.username'),
-                pwd=q.get(peer, 'credentials.password'),
-                sslContext=ssl_context
-            )
-            content = si.RetrieveContent()
-            vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
+            if any(i.get('host') == q.get(peer, 'credentials.address') for i in failed_snapshots):
+                continue
+
+            try:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+                ssl_context.verify_mode = ssl.CERT_NONE
+                si = connect.SmartConnect(
+                    host=q.get(peer, 'credentials.address'),
+                    user=q.get(peer, 'credentials.username'),
+                    pwd=q.get(peer, 'credentials.password'),
+                    sslContext=ssl_context
+                )
+                content = si.RetrieveContent()
+                vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
+            except BaseException as err:
+                logger.warning('Connecting to VMware instance at {0} failed: {1}'.format(
+                    q.get(peer, 'credentials.address'),
+                    str(err)
+                ))
+
+                failed_snapshots.append({
+                    'when': 'connect',
+                    'host': q.get(peer, 'credentials.address'),
+                    'datastore': mapping['datastore'],
+                    'error': getattr(err, 'msg') or str(err)
+                })
+
+                continue
 
             for vm in vm_view.view:
                 if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
@@ -336,6 +381,7 @@ class DeleteVMSnapshotsTask(ProgressTask):
                 try:
                     task.WaitForTask(snapshot.RemoveSnapshot_Task(True))
                 except vmodl.MethodFault as err:
+                    logger.warning('Deleting snapshot of {0} failed: {1}'.format(vm.summary.config.name, err.msg))
                     failed_snapshots.append({
                         'when': 'delete',
                         'vm': vm.summary.config.name,
@@ -345,14 +391,14 @@ class DeleteVMSnapshotsTask(ProgressTask):
 
             connect.Disconnect(si)
 
-            if failed_snapshots:
-                descr = Template(ALERT_TEMPLATE).render(id=id, failed_snapshots=failed_snapshots)
-                self.dispatcher.call_sync('alert.emit', {
-                    'class': 'VMwareSnapshotFailed',
-                    'target': dataset,
-                    'title': 'Failed to create or remove snapshot of one or more VMware virtual machines',
-                    'description': descr
-                })
+        if failed_snapshots:
+            descr = Template(ALERT_TEMPLATE).render(id=id, failed_snapshots=failed_snapshots)
+            self.dispatcher.call_sync('alert.emit', {
+                'class': 'VMwareSnapshotFailed',
+                'target': dataset,
+                'title': 'Failed to create or remove snapshot of one or more VMware virtual machines',
+                'description': descr
+            })
 
 
 def can_be_snapshotted(vm):
