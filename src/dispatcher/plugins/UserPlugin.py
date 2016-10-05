@@ -80,7 +80,7 @@ class UserProvider(Provider):
     @query('user')
     @generator
     def query(self, filter=None, params=None):
-        if params.get('count'):
+        if params and params.get('count'):
             return None
 
         # Common use cases optimization
@@ -130,7 +130,7 @@ class GroupProvider(Provider):
     @query('group')
     @generator
     def query(self, filter=None, params=None):
-        if params.get('count'):
+        if params and params.get('count'):
             return None
 
         # Common use cases optimization
