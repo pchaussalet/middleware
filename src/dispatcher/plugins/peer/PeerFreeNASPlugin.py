@@ -118,11 +118,12 @@ class PeerFreeNASProvider(Provider):
                 self.dispatcher.submit_task('peer.freenas.create', {
                     'type': 'freenas',
                     'credentials': {
-                        'type': 'freenas-auth',
+                        '%type': 'freenas-credentials',
                         'address': address,
-                        'key_auth': True,
                         'port': port
                     }
+                }, {
+                    'key_auth': True
                 })
                 hostid = self.dispatcher.call_sync('system.info.host_uuid')
                 hostkey, pubkey = self.get_ssh_keys()
@@ -308,10 +309,10 @@ class FreeNASPeerCreateTask(Task):
                     raise TaskException(errno.EEXIST, 'Peer entry of {0} already exists at {1}'.format(hostname, remote))
 
                 peer['credentials'] = {
+                    '%type': 'freenas-credentials',
                     'pubkey': remote_pub_key,
                     'hostkey': remote_host_key,
                     'port': port,
-                    'type': 'freenas',
                     'address': remote_hostname
                 }
 
@@ -329,12 +330,11 @@ class FreeNASPeerCreateTask(Task):
 
                 peer['id'] = hostid
                 peer['name'] = remote_peer_name
-
                 peer['credentials'] = {
+                    '%type': 'freenas-credentials',
                     'pubkey': local_pub_key,
                     'hostkey': local_host_key,
                     'port': local_ssh_config['port'],
-                    'type': 'freenas',
                     'address': hostname
                 }
 
