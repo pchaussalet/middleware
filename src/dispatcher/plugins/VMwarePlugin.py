@@ -33,12 +33,19 @@ import re
 from datetime import datetime
 from pyVim import connect, task
 from pyVmomi import vim, vmodl
+from mako.template import Template
 from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
 from freenas.utils import normalize, query as q
 from task import Provider, Task, TaskDescription, TaskException, TaskWarning, ProgressTask, query
 
 
 logger = logging.getLogger(__name__)
+ALERT_TEMPLATE = """
+Following VMware snapshot operations failed during creation of snapshot ${id}:
+% for i in failed_snapshots:
+- ${"Creating" if i.when == "create" else "Deleting"} snapshot of virtual machine ${i.vm} on datastore ${i.datastore}: ${i.error}
+% endif
+"""
 
 
 class VMwareProvider(Provider):
@@ -235,7 +242,7 @@ class CreateVMSnapshotsTask(ProgressTask):
                 if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
                     continue
 
-                if find_snapshot(vm.snapshot.rootSnapshotList, vm_snapname):
+                if vm.snapshot and find_snapshot(vm.snapshot.rootSnapshotList, vm_snapname):
                     continue
 
                 logger.info('Creating snapshot of VM {0} (datastore {1})'.format(
@@ -273,6 +280,7 @@ class DeleteVMSnapshotsTask(ProgressTask):
 
     def run(self, snapshot, recursive=False):
         dataset = snapshot.get('dataset') or snapshot.get('id').split('@')[0]
+        id = snapshot.get('id') or '{0}@{1}'.format(dataset, snapshot.get('name'))
         vm_snapname = self.environment.get('vmware_snapshot_name')
         failed_snapshots = self.environment.get('failed_snapshots', [])
 
@@ -313,6 +321,9 @@ class DeleteVMSnapshotsTask(ProgressTask):
                 if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
                     continue
 
+                if not vm.snapshot:
+                    continue
+
                 snapshot = find_snapshot(vm.snapshot.rootSnapshotList, vm_snapname)
                 if not snapshot:
                     continue
@@ -333,6 +344,15 @@ class DeleteVMSnapshotsTask(ProgressTask):
                     })
 
             connect.Disconnect(si)
+
+            if failed_snapshots:
+                descr = Template(ALERT_TEMPLATE).render(id=id, failed_snapshots=failed_snapshots)
+                self.dispatcher.call_sync('alert.emit', {
+                    'class': 'VMwareSnapshotFailed',
+                    'target': dataset,
+                    'title': 'Failed to create or remove snapshot of one or more VMware virtual machines',
+                    'description': descr
+                })
 
 
 def can_be_snapshotted(vm):
