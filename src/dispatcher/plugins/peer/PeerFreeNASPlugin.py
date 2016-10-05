@@ -81,9 +81,9 @@ class PeerFreeNASProvider(Provider):
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            start_time = datetime.now()
+            start_time = datetime.utcnow()
             s.connect((credentials['address'], credentials['port']))
-            delta = datetime.now() - start_time
+            delta = datetime.utcnow() - start_time
             return id, {'state': 'ONLINE', 'rtt': delta.seconds + delta.microseconds / 1E6}
         except socket.error:
             return id, {'state': 'OFFLINE', 'rtt': None}
@@ -106,7 +106,7 @@ class PeerFreeNASProvider(Provider):
 
         auth_codes.append({
             'code': code,
-            'expires_at': datetime.now() + timedelta(seconds=auth_code_lifetime)
+            'expires_at': datetime.utcnow() + timedelta(seconds=auth_code_lifetime)
         })
         gevent.spawn(cycle_code_lifetime, code)
         return code
