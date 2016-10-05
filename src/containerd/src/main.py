@@ -718,14 +718,18 @@ class DockerHost(object):
 
 class ContainerConsole(object):
     def __init__(self, host, id):
+        container = host.context.client.call_sync(
+            'containerd.docker.query_containers',
+            [('or', [('id', '=', id), ('exec_ids', 'contains', id)])],
+            {'single': True}
+        )
+        raw_name = q.get(container, 'names.0')
+
         self.host = host
         self.context = self.host.context
         self.id = id
-        self.name = self.context.client.call_sync(
-            'containerd.docker.query_containers',
-            [('id', '=', self.id)],
-            {'single': True, 'select': 'names.0'}
-        )
+        self.is_exec = self.id in container['exec_ids']
+        self.name = raw_name + 'Exec' if self.is_exec else raw_name
         self.stdin = None
         self.stdout = None
         self.stderr = None
@@ -738,13 +742,18 @@ class ContainerConsole(object):
 
     def start_console(self):
         self.host.ready.wait()
-        self.host.connection.start(container=self.id)
 
-        operation = dockerpty.pty.RunOperation(self.host.connection, self.id)
-        self.stdin, self.stdout, self.stderr = operation.sockets()
+        if self.is_exec:
+            operation = dockerpty.pty.ExecOperation(self.host.connection, self.id)
+            self.stdin = operation.sockets()
+            self.stdout = self.stdin
+        else:
+            self.host.connection.start(container=self.id)
+            operation = dockerpty.pty.RunOperation(self.host.connection, self.id)
+            self.stdin, self.stdout, self.stderr = operation.sockets()
+            self.stderr.set_blocking(False)
 
         self.stdout.set_blocking(False)
-        self.stderr.set_blocking(False)
 
         self.scrollback = BinaryRingBuffer(SCROLLBACK_SIZE)
         self.scrollback_t = gevent.spawn(self.console_worker)
@@ -754,13 +763,19 @@ class ContainerConsole(object):
         self.active = False
         self.host.ready.wait()
         self.stdin.write(b'\x10\x11')
-        self.stdin.close()
-        if isinstance(self.stdout, socket.SocketIO):
-            self.stdout.fd.shutdown(socket.SHUT_RDWR)
-        if isinstance(self.stderr, socket.SocketIO):
-            self.stderr.fd.shutdown(socket.SHUT_RDWR)
-        self.stdout.close()
-        self.stderr.close()
+
+        if isinstance(self.stdin, socket.SocketIO):
+            self.stdin.fd.shutdown(socket.SHUT_RDWR)
+            self.stdin.close()
+
+        if not self.is_exec:
+            if isinstance(self.stdout, socket.SocketIO):
+                self.stdout.fd.shutdown(socket.SHUT_RDWR)
+            if isinstance(self.stderr, socket.SocketIO):
+                self.stderr.fd.shutdown(socket.SHUT_RDWR)
+            self.stdout.close()
+            self.stderr.close()
+
         self.scrollback_t.join()
 
     def console_register(self):
@@ -799,13 +814,19 @@ class ContainerConsole(object):
         while True:
             try:
                 fd_o = self.stdout.fileno()
-                fd_e = self.stderr.fileno()
-                r, w, x = select.select([fd_o, fd_e], [], [fd_o, fd_e])
+                fd_e = None
 
-                if any(fd in x for fd in (fd_o, fd_e)):
+                fd_list = [fd_o]
+                if not self.is_exec:
+                    fd_e = self.stderr.fileno()
+                    fd_list.append(fd_e)
+
+                r, w, x = select.select(fd_list, [], fd_list)
+
+                if any(fd in x for fd in fd_list):
                     return
 
-                if not any(fd in r for fd in (fd_o, fd_e)):
+                if not any(fd in r for fd in fd_list):
                     continue
 
                 if fd_o in r:
@@ -943,7 +964,7 @@ class ConsoleService(RpcService):
             type = 'CONTAINER'
             container = self.context.client.call_sync(
                 'containerd.docker.query_containers',
-                [('id', '=', id)],
+                [('or', [('id', '=', id), ('exec_ids', 'contains', id)])],
                 {'single': True}
             )
             if not container:
@@ -1015,7 +1036,8 @@ class DockerService(RpcService):
                     'expose_ports': 'org.freenas.expose_ports_at_host' in details['Config']['Labels'],
                     'autostart': 'org.freenas.autostart' in details['Config']['Labels'],
                     'environment': details['Config']['Env'],
-                    'hostname': details['Config']['Hostname']
+                    'hostname': details['Config']['Hostname'],
+                    'exec_ids': details['ExecIDs'] or []
                 })
 
         return q.query(result, *(filter or []), stream=True, **(params or {}))
@@ -1112,6 +1134,16 @@ class DockerService(RpcService):
             host.connection.create_container(**create_args)
         except BaseException as err:
             raise RpcException(errno.EFAULT, str(err))
+
+    def create_exec(self, id, command):
+        host = self.context.docker_host_by_container_id(id)
+        exec = host.connection.exec_create(
+            container=id,
+            cmd=command,
+            tty=True,
+            stdin=True
+        )
+        return exec['Id']
 
     def delete(self, id):
         try:
@@ -1232,12 +1264,12 @@ class ConsoleConnection(WebSocketApplication, EventEmitter):
             if cid.type == 'CONTAINER':
                 container = self.context.client.call_sync(
                     'containerd.docker.query_containers',
-                    [('id', '=', cid.id)],
+                    [('or', [('id', '=', cid.id), ('exec_ids', 'contains', cid.id)])],
                     {'single': True}
                 )
 
                 if container:
-                    docker_host = self.context.docker_host_by_container_id(cid.id)
+                    docker_host = self.context.docker_host_by_container_id(container['id'])
                     self.console_provider = docker_host.get_container_console(cid.id)
 
             if cid.type == 'VM':

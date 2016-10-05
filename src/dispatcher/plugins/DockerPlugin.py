@@ -134,6 +134,12 @@ class DockerContainerProvider(Provider):
     def request_serial_console(self, id):
         return self.dispatcher.call_sync('containerd.console.request_console', id)
 
+    @description('Creates a new process inside of a container')
+    @accepts(str, str)
+    @returns(str)
+    def create_exec(self, id, command):
+        return self.dispatcher.call_sync('containerd.docker.create_exec', id, command)
+
 
 @description('Provides information about Docker container images')
 class DockerImagesProvider(Provider):
@@ -1029,6 +1035,10 @@ def _init(dispatcher, plugin):
             'interactive': {'type': 'boolean'},
             'web_ui_url': {'type': 'string'},
             'environment': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            },
+            'exec_ids': {
                 'type': 'array',
                 'items': {'type': 'string'}
             },
