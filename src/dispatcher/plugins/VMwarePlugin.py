@@ -257,8 +257,13 @@ class DeleteVMSnapshotsTask(ProgressTask):
         logger.info('VM snapshot name is: {0}'.format(vm_snapname))
 
         for mapping in self.datastore.query('vmware.datasets'):
-            if not re.search('^{0}(/|$)'.format(mapping['dataset']), dataset):
-                continue
+            if recursive:
+                if not re.search('^{0}(/|$)'.format(mapping['dataset']), dataset) and \
+                   not re.search('^{0}(/|$)'.format(dataset), mapping['dataset']):
+                    continue
+            else:
+                if mapping['dataset'] != dataset:
+                    continue
 
             peer = self.dispatcher.call_sync('peer.query', [('id', '=', mapping['peer'])], {'single': True})
             if not peer:
