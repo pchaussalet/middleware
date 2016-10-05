@@ -317,6 +317,9 @@ class ServiceManageTask(Task):
                     action, name, e
                 ))
 
+        if 'rcng' not in service:
+            raise TaskException(errno.ENOTSUP, 'Operation not supported by the service')
+
         rc_scripts = service['rcng'].get('rc-scripts')
         reload_scripts = service['rcng'].get('reload', rc_scripts)
         try:
