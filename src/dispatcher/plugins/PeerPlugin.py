@@ -57,7 +57,7 @@ class PeerProvider(Provider):
     @returns(h.array(str))
     def peer_types(self):
         result = []
-        for p in list(self.dispatcher.plugins.values()):
+        for p in self.dispatcher.plugins.values():
             if p.metadata and p.metadata.get('type') == 'peering':
                 result.append(p.metadata.get('subtype'))
 
@@ -224,20 +224,27 @@ def _init(dispatcher, plugin):
 
     # Register credentials schema
     def update_peer_credentials_schema():
+        credential_types = []
+        initial_credential_types = []
+
+        for p in dispatcher.plugins.values():
+            if p.metadata and p.metadata.get('type') == 'peering':
+                credential_types.append('{0}-credentials'.format(p['subtype']))
+                if p.metadata.get('initial_credentials'):
+                    initial_credential_types.append(p['{0}-initial-credentials'])
+
         plugin.register_schema_definition('peer-credentials', {
             'discriminator': 'type',
             'oneOf': [
-                {'$ref': '{0}-credentials'.format(name)} for name in dispatcher.call_sync('peer.peer_types')
+                {'$ref': name} for name in credential_types
             ]
         })
 
         plugin.register_schema_definition('peer-initial-credentials', {
             'discriminator': 'type',
-            'oneOf': [
-                {'$ref': '{0}-initial-credentials'.format(name)} for name in dispatcher.call_sync('peer.peer_types')
-            ] + [
-                {'type': 'null'}
-            ]
+            'oneOf':
+                [{'$ref': name} for name in initial_credential_types] +
+                [{'type': 'null'}]
         })
 
     # Register providers

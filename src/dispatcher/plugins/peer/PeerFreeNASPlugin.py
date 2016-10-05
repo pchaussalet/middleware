@@ -612,7 +612,8 @@ def _depends():
 def _metadata():
     return {
         'type': 'peering',
-        'subtype': 'freenas'
+        'subtype': 'freenas',
+        'initial_credentials': True
     }
 
 
