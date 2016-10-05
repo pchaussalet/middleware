@@ -274,6 +274,10 @@ def _init(dispatcher, plugin):
                 if i['id'] != boot_pool_name:
                     continue
 
+                dispatcher.dispatch_event('boot.pool.changed', {
+                    'operation': 'update'
+                })
+
                 be = bootenvs.query(('on_reboot', '=', True), single=True)
                 be_realname = q.get(i, 'properties.bootfs.value').split('/')[-1]
 
@@ -325,6 +329,7 @@ def _init(dispatcher, plugin):
     plugin.register_provider('boot.environment', BootEnvironmentsProvider)
 
     plugin.register_event_type('boot.environment.changed')
+    plugin.register_event_type('boot.pool.changed')
 
     plugin.register_task_handler('boot.environment.clone', BootEnvironmentCreate)
     plugin.register_task_handler('boot.environment.activate', BootEnvironmentActivate)
