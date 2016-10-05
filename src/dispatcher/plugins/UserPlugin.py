@@ -80,6 +80,9 @@ class UserProvider(Provider):
     @query('user')
     @generator
     def query(self, filter=None, params=None):
+        if params.get('count'):
+            return None
+
         # Common use cases optimization
         if filter and len(filter) == 1 and params and params.get('single'):
             key, op, value = filter[0]
@@ -127,6 +130,9 @@ class GroupProvider(Provider):
     @query('group')
     @generator
     def query(self, filter=None, params=None):
+        if params.get('count'):
+            return None
+
         # Common use cases optimization
         if filter and len(filter) == 1 and params and params.get('single'):
             key, op, value = filter[0]
