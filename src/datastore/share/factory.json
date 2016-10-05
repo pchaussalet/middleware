@@ -1360,6 +1360,11 @@
                 "subtype": "ZFS",
                 "severity": "INFO"
             },
+            "VMwareSnapshotFailed": {
+                "type": "VOLUME",
+                "subtype": "SNAPSHOT",
+                "severity": "WARNING"
+            },
             "DiskControllerFirmwareMismatch": {
                 "type": "DISK",
                 "subtype": "MPS",
