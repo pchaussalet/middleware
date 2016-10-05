@@ -158,10 +158,13 @@ class SystemGeneralProvider(Provider):
         return sorted(result)
 
     @private
-    @accepts(str)
+    @accepts(str, str)
     @returns(str)
-    def cowsay(self, line):
-        return system('/usr/local/bin/cowsay', '-s', line)
+    def cowsay(self, line, cow_file):
+        if cow_file != 'default' and os.path.exists(cow_file):
+            return system('/usr/local/bin/cowsay', '-f', cow_file, '-s', line)
+        else:
+            return system('/usr/local/bin/cowsay', '-s', line)
 
 
 @description("Provides informations about advanced system settings")
