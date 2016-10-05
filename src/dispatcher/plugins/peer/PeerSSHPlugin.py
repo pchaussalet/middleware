@@ -169,7 +169,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('ssh-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['ssh-credentials']},
+            '%type': {'enum': ['ssh-credentials']},
             'address': {'type': 'string'},
             'username': {'type': 'string'},
             'port': {'type': 'number'},

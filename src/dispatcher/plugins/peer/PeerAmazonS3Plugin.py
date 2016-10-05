@@ -155,7 +155,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('amazon-s3-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['amazon-s3-credentials']},
+            '%type': {'enum': ['amazon-s3-credentials']},
             'access_key': {'type': 'string'},
             'secret_key': {'type': 'string'},
             'region': {'type': ['string', 'null']},

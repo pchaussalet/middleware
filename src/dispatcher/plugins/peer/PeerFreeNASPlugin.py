@@ -629,7 +629,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('freenas-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['freenas-credentials']},
+            '%type': {'enum': ['freenas-credentials']},
             'address': {'type': 'string'},
             'port': {'type': 'number'},
             'pubkey': {'type': 'string'},
@@ -642,7 +642,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('freenas-initial-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['freenas-initial-credentials']},
+            '%type': {'enum': ['freenas-initial-credentials']},
             'username': {'type': ['string', 'null']},
             'password': {'type': ['string', 'null']},
             'auth_code': {'type': ['integer', 'null']},

@@ -234,14 +234,14 @@ def _init(dispatcher, plugin):
                     initial_credential_types.append('{0}-initial-credentials'.format(p.metadata['subtype']))
 
         plugin.register_schema_definition('peer-credentials', {
-            'discriminator': 'type',
+            'discriminator': '%type',
             'oneOf': [
                 {'$ref': name} for name in credential_types
             ]
         })
 
         plugin.register_schema_definition('peer-initial-credentials', {
-            'discriminator': 'type',
+            'discriminator': '%type',
             'oneOf':
                 [{'$ref': name} for name in initial_credential_types] +
                 [{'type': 'null'}]

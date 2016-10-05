@@ -148,7 +148,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('vmware-credentials', {
         'type': 'object',
         'properties': {
-            'type': {'enum': ['vmware-credentials']},
+            '%type': {'enum': ['vmware-credentials']},
             'address': {'type': 'string'},
             'username': {'type': 'string'},
             'password': {'type': 'string'}
