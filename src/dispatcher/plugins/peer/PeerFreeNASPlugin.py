@@ -249,14 +249,12 @@ class FreeNASPeerCreateTask(Task):
 
                 try:
                     self.dispatcher.call_sync('peer.freenas.put_temp_pubkey', pubkey)
-                    self.dispatcher.test_or_wait_for_event(
+                    if not self.dispatcher.test_or_wait_for_event(
                         'peer.changed',
                         lambda ar: ar['operation'] == 'create' and remote_host_uuid in ar['ids'],
                         lambda: self.datastore.exists('peers', ('id', '=', remote_host_uuid)),
                         timeout=30
-                    )
-
-                    if not self.datastore.exists('peers', ('id', '=', remote_host_uuid)):
+                    ):
                         raise TaskException(
                             errno.EAUTH,
                             'FreeNAS peer creation failed. Check connection to host {0}.'.format(remote)
