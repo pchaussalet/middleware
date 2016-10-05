@@ -217,6 +217,12 @@ class CreateVMSnapshotsTask(ProgressTask):
             vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
 
             for vm in vm_view.view:
+                if mapping['vm_filter_op'] == 'INCLUDE' and vm.summary.config.name not in mapping['vm_filter_entries']:
+                    continue
+
+                if mapping['vm_filter_op'] == 'EXCLUDE' and vm.summary.config.name in mapping['vm_filter_entries']:
+                    continue
+
                 if not any(i.info.name == mapping['datastore'] for i in vm.datastore):
                     continue
 
