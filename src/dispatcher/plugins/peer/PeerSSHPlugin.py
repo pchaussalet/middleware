@@ -31,7 +31,7 @@ import logging
 from datetime import datetime
 from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, private, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
-from freenas.utils import query as q
+from freenas.utils import normalize, query as q
 
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class PeerSSHProvider(Provider):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             start_time = datetime.now()
-            s.connect((credentials['address'], credentials['port']))
+            s.connect((credentials['address'], credentials.get('port', 22)))
             delta = datetime.now() - start_time
             return id, {'state': 'ONLINE', 'rtt': delta.seconds + delta.microseconds / 1E6}
         except socket.error:
@@ -94,6 +94,13 @@ class SSHPeerCreateTask(Task):
     def run(self, peer, initial_credentials):
         if 'name' not in peer:
             raise TaskException(errno.EINVAL, 'Name has to be specified')
+
+        normalize(peer, {
+            'port': 22,
+            'password': None,
+            'privkey': None,
+            'hostkey': None
+        })
 
         if self.datastore.exists('peers', ('name', '=', peer['name'])):
             raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
@@ -137,7 +144,7 @@ class SSHPeerUpdateTask(Task):
 class SSHPeerDeleteTask(Task):
     @classmethod
     def early_describe(cls):
-        return 'Deleting SSh peer entry'
+        return 'Deleting SSH peer entry'
 
     def describe(self, id):
         peer = self.datastore.get_by_id('peers', id)
@@ -173,9 +180,9 @@ def _init(dispatcher, plugin):
             'address': {'type': 'string'},
             'username': {'type': 'string'},
             'port': {'type': 'number'},
-            'password': {'type': 'string'},
-            'privkey': {'type': 'string'},
-            'hostkey': {'type': 'string'},
+            'password': {'type': ['string', 'null']},
+            'privkey': {'type': ['string', 'null']},
+            'hostkey': {'type': ['string', 'null']},
         },
         'additionalProperties': False
     })
