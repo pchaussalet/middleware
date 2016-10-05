@@ -35,7 +35,7 @@ from pyVim import connect, task
 from pyVmomi import vim
 from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
 from freenas.utils import normalize, query as q
-from task import Provider, Task, TaskDescription, TaskException, ProgressTask, query
+from task import Provider, Task, TaskDescription, TaskException, TaskWarning, ProgressTask, query
 
 
 logger = logging.getLogger(__name__)
@@ -233,7 +233,11 @@ class CreateVMSnapshotsTask(ProgressTask):
                     vm.summary.config.name,
                     mapping['datastore'])
                 )
-                task.WaitForTask(vm.CreateSnapshot_Task(name=vm_snapname, description=vm_snapdescr, memory=False, quiesce=False))
+                
+                task.WaitForTask(vm.CreateSnapshot_Task(
+                    name=vm_snapname, description=vm_snapdescr,
+                    memory=False, quiesce=False
+                ))
 
 
 class DeleteVMSnapshotsTask(ProgressTask):
