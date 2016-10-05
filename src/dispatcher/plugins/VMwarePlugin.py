@@ -32,7 +32,7 @@ import logging
 import re
 from datetime import datetime
 from pyVim import connect, task
-from pyVmomi import vim
+from pyVmomi import vim, vmodl
 from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
 from freenas.utils import normalize, query as q
 from task import Provider, Task, TaskDescription, TaskException, TaskWarning, ProgressTask, query
@@ -192,17 +192,26 @@ class CreateVMSnapshotsTask(ProgressTask):
         dataset = snapshot.get('dataset') or snapshot.get('id').split('@')[0]
         vm_snapname = 'FreeNAS-{0}'.format(str(uuid.uuid4()))
         vm_snapdescr = '{0} (Created by FreeNAS)'.format(datetime.utcnow())
+        failed_snapshots = []
 
         # Save the snapshot name in parent task environment to the delete counterpart can find it
         self.dispatcher.task_setenv(self.environment['parent'], 'vmware_snapshot_name', vm_snapname)
 
         for mapping in self.datastore.query('vmware.datasets'):
-            if not re.search('^{0}(/|$)'.format(mapping['dataset']), dataset):
-                continue
+            if recursive:
+                if not re.search('^{0}(/|$)'.format(mapping['dataset']), dataset) and \
+                   not re.search('^{0}(/|$)'.format(dataset), mapping['dataset']):
+                    continue
+            else:
+                if mapping['dataset'] != dataset:
+                    continue
 
             peer = self.dispatcher.call_sync('peer.query', [('id', '=', mapping['peer'])], {'single': True})
             if not peer:
-                logger.warning('Cannot find peer {0} for mapping {1}'.format(mapping['peer'], mapping['name']))
+                self.add_warning(TaskWarning(
+                    errno.ENOENT,
+                    'Cannot find peer {0} for mapping {1}'.format(mapping['peer'], mapping['name'])
+                ))
                 continue
 
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
@@ -233,11 +242,22 @@ class CreateVMSnapshotsTask(ProgressTask):
                     vm.summary.config.name,
                     mapping['datastore'])
                 )
-                
-                task.WaitForTask(vm.CreateSnapshot_Task(
-                    name=vm_snapname, description=vm_snapdescr,
-                    memory=False, quiesce=False
-                ))
+
+                try:
+                    task.WaitForTask(vm.CreateSnapshot_Task(
+                        name=vm_snapname, description=vm_snapdescr,
+                        memory=False, quiesce=False
+                    ))
+                except vmodl.MethodFault as err:
+                    failed_snapshots.append({
+                        'when': 'create',
+                        'vm': vm.summary.config.name,
+                        'datastore': mapping['datastore'],
+                        'error': err.msg
+                    })
+
+            self.dispatcher.task_setenv(self.environment['parent'], 'vmware_failed_snapshots', failed_snapshots)
+            connect.Disconnect(si)
 
 
 class DeleteVMSnapshotsTask(ProgressTask):
@@ -254,6 +274,7 @@ class DeleteVMSnapshotsTask(ProgressTask):
     def run(self, snapshot, recursive=False):
         dataset = snapshot.get('dataset') or snapshot.get('id').split('@')[0]
         vm_snapname = self.environment.get('vmware_snapshot_name')
+        failed_snapshots = self.environment.get('failed_snapshots', [])
 
         if not vm_snapname:
             return
@@ -271,7 +292,10 @@ class DeleteVMSnapshotsTask(ProgressTask):
 
             peer = self.dispatcher.call_sync('peer.query', [('id', '=', mapping['peer'])], {'single': True})
             if not peer:
-                # ???
+                self.add_warning(TaskWarning(
+                    errno.ENOENT,
+                    'Cannot find peer {0} for mapping {1}'.format(mapping['peer'], mapping['name'])
+                ))
                 continue
 
             ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
@@ -297,7 +321,18 @@ class DeleteVMSnapshotsTask(ProgressTask):
                     vm.summary.config.name,
                     mapping['datastore'])
                 )
-                task.WaitForTask(snapshot.RemoveSnapshot_Task(True))
+
+                try:
+                    task.WaitForTask(snapshot.RemoveSnapshot_Task(True))
+                except vmodl.MethodFault as err:
+                    failed_snapshots.append({
+                        'when': 'delete',
+                        'vm': vm.summary.config.name,
+                        'datastore': mapping['datastore'],
+                        'error': err.msg
+                    })
+
+            connect.Disconnect(si)
 
 
 def can_be_snapshotted(vm):
@@ -341,7 +376,9 @@ def _init(dispatcher, plugin):
                     'additionalProperties': False,
                     'properties': {
                         'id': {'type': 'string'},
-                        'name': {'type': 'string'}
+                        'name': {'type': 'string'},
+                        'on': {'type': 'boolean'},
+                        'snapshottable': {'type': 'boolean'}
                     }
                 }
             }
