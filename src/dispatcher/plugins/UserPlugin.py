@@ -38,7 +38,7 @@ from datastore import DuplicateKeyException, DatastoreException
 from lib.system import SubprocessException, system
 from freenas.utils import normalize, crypted_password, nt_password, query as q
 
-EMAIL_REGEX = re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,4}\b")
+EMAIL_REGEX = re.compile(r"^\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]*[a-zA-Z0-9]\.[a-zA-Z]{2,4}\b$")
 SKEL_PATH = '/usr/share/skel/'
 
 
