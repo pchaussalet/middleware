@@ -570,7 +570,7 @@ class DockerContainerCreateTask(DockerBaseTask):
 
         image = self.dispatcher.call_sync(
             'docker.image.query',
-            [('host', '=', container['host']), ('names', 'contains', container['image'])],
+            [('hosts', 'contains', container['host']), ('names', 'contains', container['image'])],
             {'single': True}
         )
 
@@ -795,7 +795,7 @@ def _init(dispatcher, plugin):
                 for host_id in args['ids']:
                     new_images = list(dispatcher.call_sync(
                         IMAGES_QUERY,
-                        [('host', '=', host_id)], {'select': 'id'}
+                        [('hosts', 'contains', host_id)], {'select': 'id'}
                     ))
                     new_containers = list(dispatcher.call_sync(
                         CONTAINERS_QUERY,
@@ -810,8 +810,8 @@ def _init(dispatcher, plugin):
                     logger.debug('Docker host {0} started'.format(host_id))
 
             elif args['operation'] == 'delete':
+                sync_cache(images, IMAGES_QUERY)
                 for host_id in args['ids']:
-                    images.remove_many(images.query(('host', '=', host_id), select='id'))
                     containers.remove_many(containers.query(('host', '=', host_id), select='id'))
 
                     logger.debug('Docker host {0} stopped'.format(host_id))
@@ -1091,7 +1091,10 @@ def _init(dispatcher, plugin):
                 'items': {'type': 'string'}
             },
             'size': {'type': 'integer'},
-            'host': {'type': ['string', 'null']},
+            'hosts': {
+                'type': 'array',
+                'items': {'type': 'string'}
+            },
             'presets': {'type': ['object', 'null']},
             'created_at': {'type': 'string'}
         }

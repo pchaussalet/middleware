@@ -698,9 +698,25 @@ class DockerHost(object):
                             self.connection.images(),
                             default=ev
                         )
+                        id = image.get('id') or image.get('Id')
+
+                        def transform_action(action):
+                            operation = actions.get(action, 'update')
+                            if operation in ('create', 'delete'):
+                                ref_cnt = self.context.client(
+                                    'containerd.docker.query_images',
+                                    [('id', '=', id)],
+                                    {'select': 'hosts', 'count': True}
+                                )
+
+                                if (ref_cnt and operation == 'delete') or (ref_cnt > 1 and operation == 'create'):
+                                    return 'update'
+
+                            return operation
+
                         self.context.client.emit_event('containerd.docker.image.changed', {
-                            'operation': actions.get(ev['Action'], 'update'),
-                            'ids': [image.get('id') or image.get('Id')]
+                            'operation': transform_action(ev['Action']),
+                            'ids': [id]
                         })
 
                 self.logger.warning('Disconnected from Docker API endpoint on {0}'.format(self.vm.name))
@@ -1047,14 +1063,20 @@ class DockerService(RpcService):
         result = []
         for host in self.context.iterate_docker_hosts():
             for image in host.connection.images():
-                result.append({
-                    'id': image['Id'],
-                    'names': image['RepoTags'],
-                    'size': image['VirtualSize'],
-                    'labels': image['Labels'],
-                    'host': host.vm.id,
-                    'created_at': datetime.utcfromtimestamp(int(image['Created']))
-                })
+                old_img = first_or_default(lambda o: o['id'] == image['Id'], result)
+
+                if old_img:
+                    old_img['hosts'].append(host.vm.id)
+
+                else:
+                    result.append({
+                        'id': image['Id'],
+                        'names': image['RepoTags'],
+                        'size': image['VirtualSize'],
+                        'labels': image['Labels'],
+                        'hosts': [host.vm.id],
+                        'created_at': datetime.utcfromtimestamp(int(image['Created']))
+                    })
 
         return q.query(result, *(filter or []), stream=True, **(params or {}))
 
