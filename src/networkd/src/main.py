@@ -1073,6 +1073,8 @@ class Main(object):
                 'mtu': {'type': 'integer'},
                 'media_type': {'type': 'string'},
                 'media_subtype': {'type': 'string'},
+                'active_media_type': {'type': 'string'},
+                'active_media_subtype': {'type': 'string'},
                 'media_options': {'$ref': 'network-interface-mediaopts'},
                 'cloned': {'type': 'boolean'},
                 'capabilities': {'$ref': 'network-interface-capabilities'},
