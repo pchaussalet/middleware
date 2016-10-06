@@ -302,7 +302,7 @@ class RsyncCopyTask(ProgressTask):
             # Execute Rsync Task here
             line = '/usr/local/bin/rsync --info=progress2 -h'
             rsync_user = self.datastore.get_one('users', ('username', '=', params.get('user')))
-
+            rsync_group = self.datastore.get_one('groups', ('id', '=', rsync_user['group']))
             rsync_properties = params.get('rsync_properties')
             if rsync_properties:
                 if rsync_properties.get('recursive'):
@@ -384,7 +384,7 @@ class RsyncCopyTask(ProgressTask):
                     stderr=subprocess.PIPE,
                     shell=True,
                     bufsize=0,
-                    preexec_fn=demote(rsync_user['id'], rsync_user['group'])
+                    preexec_fn=demote(rsync_user['uid'], rsync_group["gid"])
                 )
                 self.message = 'Executing Rsync Command'
                 seek = 0
