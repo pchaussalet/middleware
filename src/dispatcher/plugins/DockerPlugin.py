@@ -766,6 +766,34 @@ class DockerImageDeleteTask(DockerBaseTask):
             raise TaskException(errno.EACCES, 'Failed to remove image {0}: {1}'.format(name, err))
 
 
+@description('Removes previously cached container image from all Docker hosts')
+@accepts(str)
+class DockerImageRecursiveDeleteTask(DockerBaseTask):
+    @classmethod
+    def early_describe(cls):
+        return 'Deleting docker image'
+
+    def describe(self, name):
+        return TaskDescription('Deleting docker image {name}'.format(name=name))
+
+    def verify(self, name):
+        return ['docker']
+
+    def run(self, name):
+        hosts = self.dispatcher.call_sync(
+            'docker.image.query',
+            [('names.0', '=', name)],
+            {'select': 'hosts', 'single': True}
+        )
+
+        for hostid in hosts:
+            self.check_host_state(hostid)
+            try:
+                self.dispatcher.call_sync('containerd.docker.delete_image', name, hostid)
+            except RpcException as err:
+                raise TaskException(errno.EACCES, 'Failed to remove image {0}: {1}'.format(name, err))
+
+
 def _depends():
     return ['VMPlugin']
 
@@ -951,6 +979,7 @@ def _init(dispatcher, plugin):
 
     plugin.register_task_handler('docker.container.create', DockerContainerCreateTask)
     plugin.register_task_handler('docker.container.delete', DockerContainerDeleteTask)
+    plugin.register_task_handler('docker.container.recursive_delete', DockerImageRecursiveDeleteTask)
     plugin.register_task_handler('docker.container.start', DockerContainerStartTask)
     plugin.register_task_handler('docker.container.stop', DockerContainerStopTask)
 
