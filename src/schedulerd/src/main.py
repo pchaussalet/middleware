@@ -219,48 +219,6 @@ class Context(object):
         self.scheduler = BackgroundScheduler(jobstores={'default': store}, timezone=pytz.utc)
         self.scheduler.start()
 
-    def register_schemas(self):
-        self.client.register_schema('calendar-task', {
-            'type': 'object',
-            'additionalProperties': False,
-            'properties': {
-                'id': {'type': 'string'},
-                'name': {'type': 'string'},
-                'args': {'type': 'array'},
-                'task': {'type': 'string'},
-                'enabled': {'type': 'boolean'},
-                'hidden': {'type': 'boolean'},
-                'protected': {'type': 'boolean'},
-                'status': {'$ref': 'calendar-task-status'},
-                'schedule': {
-                    'type': 'object',
-                    'additionalProperties': False,
-                    'properties': {
-                        'coalesce': {'type': ['boolean', 'integer', 'null']},
-                        'year': {'type': ['string', 'integer', 'null']},
-                        'month': {'type': ['string', 'integer', 'null']},
-                        'day': {'type': ['string', 'integer', 'null']},
-                        'week': {'type': ['string', 'integer', 'null']},
-                        'day_of_week': {'type': ['string', 'integer', 'null']},
-                        'hour': {'type': ['string', 'integer', 'null']},
-                        'minute': {'type': ['string', 'integer', 'null']},
-                        'second': {'type': ['string', 'integer', 'null']},
-                        'timezone': {'type': ['string', 'null']}
-                    }
-                }
-            }
-        })
-
-        self.client.register_schema('calendar-task-status', {
-            'type': 'object',
-            'properties': {
-                'next_run_time': {'type': 'string'},
-                'last_run_status': {'type': 'string'},
-                'current_run_status': {'type': ['string', 'null']},
-                'current_run_progress': {'type': ['object', 'null']}
-            }
-        })
-
     def connect(self):
         while True:
             try:
@@ -314,7 +272,6 @@ class Context(object):
         self.init_datastore()
         self.init_scheduler()
         self.init_dispatcher()
-        self.register_schemas()
         self.client.wait_forever()
 
 

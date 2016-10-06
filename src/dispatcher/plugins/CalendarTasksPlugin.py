@@ -180,6 +180,49 @@ class CommandTask(Task):
 
 
 def _init(dispatcher, plugin):
+
+    # registering schemas
+    plugin.register_schema_definition('calendar-task', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'id': {'type': 'string'},
+            'name': {'type': 'string'},
+            'args': {'type': 'array'},
+            'task': {'type': 'string'},
+            'enabled': {'type': 'boolean'},
+            'hidden': {'type': 'boolean'},
+            'protected': {'type': 'boolean'},
+            'status': {'$ref': 'calendar-task-status'},
+            'schedule': {
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'coalesce': {'type': ['boolean', 'integer', 'null']},
+                    'year': {'type': ['string', 'integer', 'null']},
+                    'month': {'type': ['string', 'integer', 'null']},
+                    'day': {'type': ['string', 'integer', 'null']},
+                    'week': {'type': ['string', 'integer', 'null']},
+                    'day_of_week': {'type': ['string', 'integer', 'null']},
+                    'hour': {'type': ['string', 'integer', 'null']},
+                    'minute': {'type': ['string', 'integer', 'null']},
+                    'second': {'type': ['string', 'integer', 'null']},
+                    'timezone': {'type': ['string', 'null']}
+                }
+            }
+        }
+    })
+
+    plugin.register_schema_definition('calendar-task-status', {
+        'type': 'object',
+        'properties': {
+            'next_run_time': {'type': 'string'},
+            'last_run_status': {'type': 'string'},
+            'current_run_status': {'type': ['string', 'null']},
+            'current_run_progress': {'type': ['object', 'null']}
+        }
+    })
+
     plugin.register_provider('calendar_task', CalendarTasksProvider)
     plugin.register_task_handler('calendar_task.create', CreateCalendarTask)
     plugin.register_task_handler('calendar_task.update', UpdateCalendarTask)
