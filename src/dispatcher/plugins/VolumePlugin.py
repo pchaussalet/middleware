@@ -2322,7 +2322,7 @@ class SnapshotCreateTask(Task):
         return "Creating a snapshot"
 
     def describe(self, snapshot, recursive=False):
-        name = snapshot.get('id', '{0}@{1}'.format(snapshot['name'], snapshot['dataset']))
+        name = snapshot.get('id') or snapshot.get('id', '{0}@{1}'.format(snapshot['name'], snapshot['dataset']))
         return TaskDescription("Creating the snapshot {name}", name=name)
 
     def verify(self, snapshot, recursive=False):
