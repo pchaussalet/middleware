@@ -28,6 +28,7 @@ import errno
 import logging
 import re
 import os
+import pwd
 from fcntl import flock, LOCK_EX, LOCK_NB, LOCK_UN
 from gevent import subprocess
 from tempfile import TemporaryFile
@@ -214,7 +215,7 @@ class RsyncdModuleDeleteTask(Task):
         })
 
 
-def demote(user_uid, user_gid):
+def demote(user):
     """
     Helper function to call the subprocess as the specific user.
     Taken from: https://gist.github.com/sweenzor/1685717
@@ -222,8 +223,10 @@ def demote(user_uid, user_gid):
     setuid and setgid. This will change the ids for that subprocess only"""
 
     def set_ids():
-        os.setgid(user_gid)
-        os.setuid(user_uid)
+        if user:
+            user_info = pwd.getpwnam(user)
+            os.setgid(user_info.pw_gid)
+            os.setuid(user_info.pw_uid)
 
     return set_ids
 
@@ -301,8 +304,6 @@ class RsyncCopyTask(ProgressTask):
 
             # Execute Rsync Task here
             line = '/usr/local/bin/rsync --info=progress2 -h'
-            rsync_user = self.datastore.get_one('users', ('username', '=', params.get('user')))
-            rsync_group = self.datastore.get_one('groups', ('id', '=', rsync_user['group']))
             rsync_properties = params.get('rsync_properties')
             if rsync_properties:
                 if rsync_properties.get('recursive'):
@@ -384,7 +385,7 @@ class RsyncCopyTask(ProgressTask):
                     stderr=subprocess.PIPE,
                     shell=True,
                     bufsize=0,
-                    preexec_fn=demote(rsync_user['uid'], rsync_group["gid"])
+                    preexec_fn=demote(params.get('user'))
                 )
                 self.message = 'Executing Rsync Command'
                 seek = 0
