@@ -2322,11 +2322,12 @@ class SnapshotCreateTask(Task):
         return "Creating a snapshot"
 
     def describe(self, snapshot, recursive=False):
-        name = snapshot.get('id') or snapshot.get('id', '{0}@{1}'.format(snapshot['name'], snapshot['dataset']))
+        name = snapshot.get('id') or '{0}@{1}'.format(snapshot.get('name'), snapshot.get('dataset'))
         return TaskDescription("Creating the snapshot {name}", name=name)
 
     def verify(self, snapshot, recursive=False):
-        return ['zfs:{0}'.format(snapshot['dataset'])]
+        dataset = snapshot.get('dataset') or snapshot.get('id').split('@')[0]
+        return ['zfs:{0}'.format(dataset)]
 
     def run(self, snapshot, recursive=False):
         normalize(snapshot, {
@@ -2336,7 +2337,7 @@ class SnapshotCreateTask(Task):
         })
 
         if snapshot.get('id'):
-            name, dataset = snapshot['id'].split('@')
+            dataset, name = snapshot['id'].split('@')
         else:
             name = snapshot['name']
             dataset = snapshot['dataset']
