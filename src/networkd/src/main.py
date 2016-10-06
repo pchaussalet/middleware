@@ -473,7 +473,7 @@ class ConfigurationService(RpcService):
                 try:
                     rtable.delete(rtable.default_route_ipv4)
                 except OSError as e:
-                    self.logger.error('Cannot remove default route: {0}'.format(str(e)))
+                    raise RpcException(e.errno, 'Cannot remove default route: {0}'.format(str(e)))
 
             # Default route was added
             elif not rtable.default_route_ipv4 and default_route_ipv4:
@@ -481,7 +481,7 @@ class ConfigurationService(RpcService):
                 try:
                     rtable.add(default_route_ipv4)
                 except OSError as e:
-                    self.logger.error('Cannot add default route: {0}'.format(str(e)))
+                    raise RpcException(e.errno, 'Cannot add default route: {0}'.format(str(e)))
 
             # Default route was changed
             elif rtable.default_route_ipv4 != default_route_ipv4:
@@ -492,7 +492,7 @@ class ConfigurationService(RpcService):
                 try:
                     rtable.change(default_route_ipv4)
                 except OSError as e:
-                    self.logger.error('Cannot add default route: {0}'.format(str(e)))
+                    raise RpcException(e.errno, 'Cannot add default route: {0}'.format(str(e)))
 
         else:
             self.logger.info('Not configuring default route as using DHCP')
