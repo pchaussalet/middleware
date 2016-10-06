@@ -160,7 +160,7 @@ class SystemGeneralProvider(Provider):
     @private
     @accepts(str, str)
     @returns(str)
-    def cowsay(self, line, cow_file):
+    def cowsay(self, line, cow_file='default'):
         if cow_file != 'default' and os.path.exists(cow_file):
             return system('/usr/local/bin/cowsay', '-f', cow_file, '-s', line)
         else:
