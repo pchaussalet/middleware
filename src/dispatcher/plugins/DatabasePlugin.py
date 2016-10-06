@@ -60,7 +60,7 @@ class DownloadDatabaseTask(Task):
 
 
 @description('Uploads database state from file')
-class UploadDatabaseTask(Task):
+class UploadDatabaseTask(ProgressTask):
     @classmethod
     def early_describe(cls):
         return 'Loading database from file'
