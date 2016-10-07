@@ -280,7 +280,6 @@ class ConfigureInterfaceTask(Task):
         if not self.datastore.exists('network.interfaces', ('id', '=', id)):
             raise TaskException(errno.ENOENT, 'Interface {0} does not exist'.format(id))
 
-        task = 'networkd.configuration.configure_interface'
         entity = self.datastore.get_by_id('network.interfaces', id)
 
         if updated_fields.get('dhcp'):
@@ -331,19 +330,12 @@ class ConfigureInterfaceTask(Task):
             if (not vlan['parent'] and vlan['tag']) or (vlan['parent'] and not vlan['tag']):
                 raise TaskException(errno.EINVAL, 'Can only set VLAN parent interface and tag at the same time')
 
-        if 'enabled' in updated_fields:
-            if entity['enabled'] and not updated_fields['enabled']:
-                task = 'networkd.configuration.down_interface'
-
         entity.update(updated_fields)
         self.datastore.update('network.interfaces', id, entity)
 
         try:
-            if task == 'networkd.configuration.configure_interface':
-                for code, message in self.dispatcher.call_sync(task, id):
-                    self.add_warning(TaskWarning(code, message))
-            else:
-                self.dispatcher.call_sync(task, id)
+            for code, message in self.dispatcher.call_sync('networkd.configuration.configure_network'):
+                self.add_warning(TaskWarning(code, message))
         except RpcException as err:
             raise TaskException(err.code, 'Cannot reconfigure interface: {0}'.format(err.message))
 
