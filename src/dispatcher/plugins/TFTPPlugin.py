@@ -67,7 +67,7 @@ class TFTPConfigureTask(Task):
 
     def run(self, tftp):
         try:
-            node = ConfigNode('service.tftp', self.configstore)
+            node = ConfigNode('service.tftpd', self.configstore)
             tftp['umask'] = get_integer(tftp['umask'])
             node.update(tftp)
             self.dispatcher.call_sync('etcd.generation.generate_group', 'services')
@@ -100,7 +100,7 @@ def _init(dispatcher, plugin):
             'allow_new_files': {'type': 'boolean'},
             'username': {'type': 'string'},
             'umask': {'$ref': 'unix-permissions'},
-            'auxiliary': {'type': 'string'},
+            'auxiliary': {'type': ['string', 'null']},
         },
         'additionalProperties': False,
     })
