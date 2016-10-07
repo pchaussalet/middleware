@@ -25,6 +25,7 @@
 #
 #####################################################################
 
+import uuid
 import dns.resolver
 import dns.exception
 import krb5
@@ -147,3 +148,17 @@ def get_a_records(domain, server=None):
             yield i.address
     except dns.exception.DNSException:
         return
+
+
+def uuid2(checksum, id):
+    return uuid.UUID(fields=(checksum, 0, 0, 0, 0, id), version=2)
+
+
+def parse_uuid2(value):
+    if isinstance(value, str):
+        value = uuid.UUID(value)
+
+    if value.version != 2:
+        raise ValueError('Invalid UUID version')
+
+    return value.fields[0], value.fields[5]
