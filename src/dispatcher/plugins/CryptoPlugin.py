@@ -512,6 +512,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('crypto-certificate', {
         'type': 'object',
         'properties': {
+            'id': {'type': 'string'},
             'type': {'$ref': 'crypto-certificate-type'},
             'name': {'type': 'string'},
             'certificate': {'type': ['string', 'null']},
