@@ -193,7 +193,7 @@ class EnclosureProvider(Provider):
                         'id': dev.id,
                         'name': os.path.basename(sesdev),
                         'description': dev.name,
-                        'status': [i.name for i in dev.status],
+                        'status': [i.name for i in dev.status] if dev.status else ['UNKNOWN'],
                         'devices': [
                             {
                                 'index': i.index,
@@ -1633,7 +1633,7 @@ def _init(dispatcher, plugin):
 
     plugin.register_schema_definition('enclosure-element-status', {
         'type': 'string',
-        'enum': list(ElementStatus.__members__.keys())
+        'enum': list(ElementStatus.__members__.keys()) + ['UNKNOWN']
     })
 
     plugin.register_schema_definition('enclosure', {
