@@ -655,7 +655,7 @@ class ConfigurationService(RpcService):
 
                     self.logger.info('Trying to acquire DHCP lease on interface {0}...'.format(name))
                     if not self.context.configure_dhcp(name):
-                        self.logger.warn('Failed to configure interface {0} using DHCP'.format(name))
+                        yield errno.ENETUNREACH, 'Failed to configure interface {0} using DHCP'.format(name)
             else:
                 if name in self.context.dhcp_clients:
                     self.logger.info('Stopping DHCP client on interface {0}'.format(name))
