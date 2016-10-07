@@ -597,6 +597,7 @@ class ConfigurationService(RpcService):
                 iface = netif.get_interface(name)
             else:
                 yield errno.ENOENT, "Interface {0} not found".format(name)
+                return
 
         if not entity.get('enabled'):
             self.logger.info('Interface {0} is disabled'.format(name))
@@ -610,7 +611,7 @@ class ConfigurationService(RpcService):
                     parent = vlan.get('parent')
                     tag = vlan.get('tag')
 
-                    if parent and tag:
+                    if parent != iface.parent or tag != iface.tag:
                         try:
                             tag = int(tag)
                             iface.unconfigure()
@@ -622,9 +623,12 @@ class ConfigurationService(RpcService):
             if entity.get('type') == 'LAGG':
                 lagg = entity.get('lagg')
                 if lagg:
-                    iface.protocol = getattr(netif.AggregationProtocol, lagg.get('protocol', 'FAILOVER'))
+                    new_protocol = getattr(netif.AggregationProtocol, lagg.get('protocol', 'FAILOVER'))
                     old_ports = set(p[0] for p in iface.ports)
                     new_ports = set(lagg['ports'])
+
+                    if lagg.protocol != new_protocol:
+                        lagg.protocol = new_protocol
 
                     for port in old_ports - new_ports:
                         iface.delete_port(port)
@@ -1130,7 +1134,7 @@ class Main(object):
                     ]
                 },
                 'parent': {'type': ['string', 'null']},
-                'tag': {'type': ['string', 'null']}
+                'tag': {'type': ['integer', 'null']}
             }
         })
 
