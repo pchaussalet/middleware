@@ -75,7 +75,7 @@ class ZpoolProvider(Provider):
     @returns(h.array(h.ref('zfs-pool')))
     def find(self):
         zfs = get_zfs()
-        return list([p.__getstate__() for p in threadpool.apply(zfs.find_import)])
+        return threadpool.apply(lambda: [p.__getstate__() for p in zfs.find_import()])
 
     @accepts()
     @returns(h.ref('zfs-pool'))
