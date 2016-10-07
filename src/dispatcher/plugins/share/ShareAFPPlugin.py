@@ -256,7 +256,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            'type': {'enum': ['share-afp']},
+            '%type': {'enum': ['share-afp']},
             'comment': {'type': 'string'},
             'read_only': {'type': 'boolean'},
             'time_machine': {'type': 'boolean'},

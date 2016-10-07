@@ -700,7 +700,7 @@ def _init(dispatcher, plugin):
 
     def update_share_properties_schema():
         plugin.register_schema_definition('share-properties', {
-            'discriminator': 'type',
+            'discriminator': '%type',
             'oneOf': [
                 {'$ref': 'share-{0}'.format(name)} for name in dispatcher.call_sync('share.supported_types')
             ]
