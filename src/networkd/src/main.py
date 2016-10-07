@@ -44,7 +44,7 @@ import socket
 from datastore import get_datastore, DatastoreException
 from datastore.config import ConfigStore
 from freenas.dispatcher.client import Client, ClientError
-from freenas.dispatcher.rpc import RpcService, RpcException, private
+from freenas.dispatcher.rpc import RpcService, RpcException, private, generator
 from freenas.utils.debug import DebugService
 from freenas.utils import configure_logging, first_or_default
 from functools import reduce
@@ -347,8 +347,8 @@ class ConfigurationService(RpcService):
         )
 
         result = {
-            'addresses': [],
-            'search': []
+            'addresses': set(),
+            'search': set()
         }
 
         out, err = proc.communicate()
@@ -364,10 +364,10 @@ class ConfigurationService(RpcService):
 
             tokens = line.split()
             if tokens[0] == 'nameserver':
-                result['addresses'].append(tokens[1])
+                result['addresses'].add(tokens[1])
 
             if tokens[0] == 'search':
-                result['search'].extend(tokens[1:])
+                result['search'].add(tokens[1:])
 
         return result
 
@@ -408,6 +408,7 @@ class ConfigurationService(RpcService):
         rtable = netif.RoutingTable()
         return [r.__getstate__() for r in rtable.routes]
 
+    @generator
     def configure_network(self):
         if self.config.get('network.autoconfigure'):
             # Try DHCP on each interface until we find lease. Mark failed ones as disabled.
@@ -436,13 +437,13 @@ class ConfigurationService(RpcService):
                 else:
                     i.down()
 
-            self.logger.warn('Failed to configure any network interface')
+            yield errno.ENOENT, 'Failed to configure any network interface'
             return
 
         for i in self.datastore.query('network.interfaces'):
             self.logger.info('Configuring interface {0}...'.format(i['id']))
             try:
-                self.configure_interface(i['id'], False)
+                yield from self.configure_interface(i['id'], False)
             except BaseException as e:
                 self.logger.warning('Cannot configure {0}: {1}'.format(i['id'], str(e)), exc_info=True)
 
@@ -454,13 +455,14 @@ class ConfigurationService(RpcService):
             if not self.datastore.exists('network.interfaces', ('id', '=', name)):
                 netif.destroy_interface(name)
 
-        self.configure_routes()
-        self.configure_dns()
+        yield from self.configure_routes()
+        yield from self.configure_dns()
         self.client.call_sync('service.restart', 'rtsold')
         self.client.emit_event('network.changed', {
             'operation': 'update'
         })
 
+    @generator
     def configure_routes(self):
         rtable = netif.RoutingTable()
         static_routes = filter_routes(rtable.static_routes)
@@ -473,7 +475,7 @@ class ConfigurationService(RpcService):
                 try:
                     rtable.delete(rtable.default_route_ipv4)
                 except OSError as e:
-                    raise RpcException(e.errno, 'Cannot remove default route: {0}'.format(str(e)))
+                    yield e.errno, 'Cannot remove default route: {0}'.format(str(e))
 
             # Default route was added
             elif not rtable.default_route_ipv4 and default_route_ipv4:
@@ -481,7 +483,7 @@ class ConfigurationService(RpcService):
                 try:
                     rtable.add(default_route_ipv4)
                 except OSError as e:
-                    raise RpcException(e.errno, 'Cannot add default route: {0}'.format(str(e)))
+                    yield e.errno, 'Cannot add default route: {0}'.format(str(e))
 
             # Default route was changed
             elif rtable.default_route_ipv4 != default_route_ipv4:
@@ -492,7 +494,7 @@ class ConfigurationService(RpcService):
                 try:
                     rtable.change(default_route_ipv4)
                 except OSError as e:
-                    raise RpcException(e.errno, 'Cannot add default route: {0}'.format(str(e)))
+                    yield e.errno, 'Cannot add default route: {0}'.format(str(e))
 
         else:
             self.logger.info('Not configuring default route as using DHCP')
@@ -506,7 +508,7 @@ class ConfigurationService(RpcService):
             try:
                 rtable.delete(rtable.default_route_ipv6)
             except OSError as e:
-                self.logger.error('Cannot remove default route: {0}'.format(str(e)))
+                yield e.errno, 'Cannot remove default route: {0}'.format(str(e))
 
         elif not rtable.default_route_ipv6 and default_route_ipv6:
             # Default route was added
@@ -514,7 +516,7 @@ class ConfigurationService(RpcService):
             try:
                 rtable.add(default_route_ipv6)
             except OSError as e:
-                self.logger.error('Cannot add default route: {0}'.format(str(e)))
+                yield e.errno, 'Cannot add default route: {0}'.format(str(e))
 
         elif rtable.default_route_ipv6 != default_route_ipv6:
             # Default route was changed
@@ -525,7 +527,7 @@ class ConfigurationService(RpcService):
             try:
                 rtable.change(default_route_ipv6)
             except OSError as e:
-                self.logger.error('Cannot add default route: {0}'.format(str(e)))
+                yield e.errno, 'Cannot add default route: {0}'.format(str(e))
 
         # Now the static routes...
         old_routes = set(static_routes)
@@ -536,46 +538,52 @@ class ConfigurationService(RpcService):
             try:
                 rtable.delete(i)
             except OSError as e:
-                self.logger.error('Cannot remove static route to {0}: {1}'.format(describe_route(i), str(e)))
+                yield e.errno, 'Cannot remove static route to {0}: {1}'.format(describe_route(i), str(e))
 
         for i in new_routes - old_routes:
             self.logger.info('Adding static route to {0}'.format(describe_route(i)))
             try:
                 rtable.add(i)
             except OSError as e:
-                self.logger.error('Cannot add static route to {0}: {1}'.format(describe_route(i), str(e)))
+                yield e.errno, 'Cannot add static route to {0}: {1}'.format(describe_route(i), str(e))
 
+    @generator
     def configure_dns(self):
         self.logger.info('Starting DNS configuration')
         resolv = io.StringIO()
         search = self.context.configstore.get('network.dns.search')
-        proc = subprocess.Popen(
-            ['/sbin/resolvconf', '-a', 'lo0'],
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE
-        )
 
-        if search:
-            print('search {0}'.format(' '.join(search)), file=resolv)
+        try:
+            proc = subprocess.Popen(
+                ['/sbin/resolvconf', '-a', 'lo0'],
+                stdout=subprocess.PIPE,
+                stdin=subprocess.PIPE
+            )
 
-        addrs = self.context.configstore.get('network.dns.addresses')
-        for n in addrs:
-            print('nameserver {0}'.format(n), file=resolv)
+            if search:
+                print('search {0}'.format(' '.join(search)), file=resolv)
 
-        proc.communicate(resolv.getvalue().encode('utf8'))
-        proc.wait()
-        resolv.close()
+            addrs = self.context.configstore.get('network.dns.addresses')
+            for n in addrs:
+                print('nameserver {0}'.format(n), file=resolv)
 
-        if not self.context.configstore.get('network.dhcp.assign_dns'):
-            # Purge DNS entries from all other interfaces
-            out = subprocess.check_output(['/sbin/resolvconf', '-i']).decode('ascii')
-            for i in filter(lambda i: i != 'lo0', out.split()):
-                subprocess.call(['/sbin/resolvconf', '-d', i])
+            proc.communicate(resolv.getvalue().encode('utf8'))
+            proc.wait()
+            resolv.close()
 
-        self.client.emit_event('network.dns.configured', {
-            'addresses': addrs,
-        })
+            if not self.context.configstore.get('network.dhcp.assign_dns'):
+                # Purge DNS entries from all other interfaces
+                out = subprocess.check_output(['/sbin/resolvconf', '-i']).decode('ascii')
+                for i in filter(lambda i: i != 'lo0', out.split()):
+                    subprocess.call(['/sbin/resolvconf', '-d', i])
 
+            self.client.emit_event('network.dns.configured', {
+                'addresses': addrs,
+            })
+        except subprocess.CalledProcessError:
+            yield errno.EFAULT, 'Cannot configure DNS servers'
+
+    @generator
     def configure_interface(self, name, restart_rtsold=True):
         entity = self.datastore.get_one('network.interfaces', ('id', '=', name))
         if not entity:
@@ -588,7 +596,7 @@ class ConfigurationService(RpcService):
                 netif.create_interface(entity['id'])
                 iface = netif.get_interface(name)
             else:
-                raise RpcException(errno.ENOENT, "Interface {0} not found".format(name))
+                yield errno.ENOENT, "Interface {0} not found".format(name)
 
         if not entity.get('enabled'):
             self.logger.info('Interface {0} is disabled'.format(name))
@@ -607,9 +615,8 @@ class ConfigurationService(RpcService):
                             tag = int(tag)
                             iface.unconfigure()
                             iface.configure(parent, tag)
-                        except Exception as e:
-                            self.logger.warn('Failed to configure VLAN interface {0}: {1}'.format(name, str(e)))
-                            raise
+                        except OSError as e:
+                            yield e.errno, 'Failed to configure VLAN interface {0}: {1}'.format(name, str(e))
 
             # Configure protocol and member ports for a LAGG
             if entity.get('type') == 'LAGG':
@@ -690,7 +697,7 @@ class ConfigurationService(RpcService):
                 try:
                     iface.mtu = entity['mtu']
                 except OSError as err:
-                    self.logger.warning('Cannot set MTU of {0}: {1}'.format(name, str(err)))
+                    yield err.errno, 'Cannot set MTU of {0}: {1}'.format(name, str(err))
 
             if entity.get('media'):
                 iface.media_subtype = entity['media']
@@ -710,7 +717,7 @@ class ConfigurationService(RpcService):
                 self.logger.info('Bringing interface {0} up'.format(name))
                 iface.up()
         except OSError as err:
-            raise RpcException(err.errno, err.strerror)
+            yield err.errno, err.strerror
 
         self.client.emit_event('network.interface.configured', {
             'interface': name,
