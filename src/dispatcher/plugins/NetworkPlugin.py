@@ -368,7 +368,8 @@ class InterfaceUpTask(Task):
             raise TaskException(errno.ENXIO, 'Interface {0} is disabled'.format(id))
 
         try:
-            self.dispatcher.call_sync('networkd.configuration.up_interface', id)
+            for code, message in self.dispatcher.call_sync('networkd.configuration.up_interface', id):
+                self.add_warning(TaskWarning(code, message))
         except RpcException as err:
             raise TaskException(errno.ENXIO, 'Cannot reconfigure interface: {0}'.format(str(err)))
 
