@@ -161,6 +161,10 @@ class MailConfigureTask(Task):
 
 
 def _init(dispatcher, plugin):
+    plugin.register_schema_definition('mail-encryption-type', {
+        'type': 'string',
+        'enum': ['PLAIN', 'TLS', 'SSL'],
+    })
 
     plugin.register_schema_definition('mail', {
         'type': 'object',
@@ -169,10 +173,7 @@ def _init(dispatcher, plugin):
             'server': {'type': 'string'},
             'port': {'type': 'integer'},
             'auth': {'type': 'boolean'},
-            'encryption': {
-                'type': 'string',
-                'enum': ['PLAIN', 'TLS', 'SSL'],
-            },
+            'encryption': {'$ref': 'mail-encryption-type'},
             'user': {'type': ['string', 'null']},
             'pass': {'type': ['string', 'null']},
         },
