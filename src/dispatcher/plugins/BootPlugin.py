@@ -221,6 +221,30 @@ class BootDetachDisk(Task):
         self.join_subtasks(self.run_subtask('zfs.pool.detach', boot_pool_name, vdev['guid']))
 
 
+@description("Scrubs the boot pool")
+class BootPoolScrubTask(ProgressTask):
+    @classmethod
+    def early_describe(cls):
+        return "Performing a scrub of the boot pool"
+
+    def describe(self):
+        return TaskDescription("Performing a scrub of the boot pool")
+
+    def verify(self):
+        boot_pool_id = self.dispatcher.call_sync('boot.pool.get_config')['id']
+        return ['zpool:{}'.format(boot_pool_id)]
+
+    def abort(self):
+        self.abort_subtasks()
+
+    def run(self):
+        boot_pool_id = self.dispatcher.call_sync('boot.pool.get_config')['id']
+        self.join_subtasks(self.run_subtask(
+            'zfs.pool.scrub', boot_pool_id,
+            progress_callback=self.set_progress
+        ))
+
+
 def _depends():
     return ['DiskPlugin', 'ZfsPlugin']
 
@@ -338,6 +362,7 @@ def _init(dispatcher, plugin):
 
     plugin.register_task_handler('boot.disk.attach', BootAttachDisk)
     plugin.register_task_handler('boot.disk.detach', BootDetachDisk)
+    plugin.register_task_handler('boot.pool.scrub', BootPoolScrubTask)
 
     with bootenvs.lock:
         bootenvs.populate(
