@@ -532,7 +532,7 @@ class Balancer(object):
             return []
 
         schema = self.schema_to_list(clazz.params_schema)
-        val = validator.DefaultDraft4Validator(schema, resolver=self.dispatcher.rpc.get_schema_resolver(schema))
+        val = validator.create_validator(schema, resolver=self.dispatcher.rpc.get_schema_resolver(schema))
         if strict:
             val.fail_read_only = True
         else:
