@@ -84,7 +84,7 @@ class PeerFreeNASProvider(Provider):
             start_time = datetime.utcnow()
             s.connect((credentials['address'], credentials['port']))
             delta = datetime.utcnow() - start_time
-            return {'state': 'ONLINE', 'rtt': delta.seconds + delta.microseconds / 1E6}
+            return {'state': 'ONLINE', 'rtt': delta.total_seconds()}
         except socket.error:
             return {'state': 'OFFLINE', 'rtt': None}
         finally:

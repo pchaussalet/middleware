@@ -25,9 +25,12 @@
 #
 #####################################################################
 
+import ssl
 import errno
 import logging
-from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, private, generator
+from datetime import datetime
+from pyVim import connect
+from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, returns, private, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
 from freenas.utils import query as q
 
@@ -49,9 +52,31 @@ class PeerVMwareProvider(Provider):
 
     @private
     @accepts(str)
-    @returns(h.tuple(str, h.ref('peer-status')))
+    @returns(h.ref('peer-status'))
     def get_status(self, id):
-        return id, {'state': 'NOT_SUPPORTED', 'rtt': None}
+        si = None
+        peer = self.datastore.get_by_id('peers', id)
+        if peer['type'] != 'vmware':
+            raise RpcException(errno.EINVAL, 'Invalid peer type: {0}'.format(peer['type']))
+
+        try:
+            start_time = datetime.now()
+            ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            ssl_context.verify_mode = ssl.CERT_NONE
+            si = connect.SmartConnect(
+                host=q.get(peer, 'credentials.address'),
+                user=q.get(peer, 'credentials.username'),
+                pwd=q.get(peer, 'credentials.password'),
+                sslContext=ssl_context
+            )
+            delta = datetime.now() - start_time
+        except:
+            return {'state': 'OFFLINE', 'rtt': None}
+        finally:
+            if si:
+                connect.Disconnect(si)
+
+        return {'state': 'ONLINE', 'rtt': delta.total_seconds()}
 
 
 @private

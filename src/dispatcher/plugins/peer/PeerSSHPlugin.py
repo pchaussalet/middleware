@@ -64,7 +64,7 @@ class PeerSSHProvider(Provider):
             start_time = datetime.now()
             s.connect((credentials['address'], credentials.get('port', 22)))
             delta = datetime.now() - start_time
-            return {'state': 'ONLINE', 'rtt': delta.seconds + delta.microseconds / 1E6}
+            return {'state': 'ONLINE', 'rtt': delta.total_seconds()}
         except socket.error:
             return {'state': 'OFFLINE', 'rtt': None}
         finally:
