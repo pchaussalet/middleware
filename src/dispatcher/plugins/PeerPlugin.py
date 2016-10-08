@@ -188,7 +188,6 @@ def _init(dispatcher, plugin):
     def on_peer_change(args):
         if args['operation'] == 'create':
             items = list(dispatcher.datastore.query('peers', ('id', 'in', args['ids'])))
-
             peers_status.update(**{i['id']: {'state': 'UNKNOWN', 'rtt': None} for i in items})
 
             for i in items:
@@ -220,7 +219,8 @@ def _init(dispatcher, plugin):
     def health_worker():
         interval = dispatcher.configstore.get('peer.ping_interval')
         while True:
-            for p in dispatcher.call_sync('peer.query'):
+            peer_types = dispatcher.call_sync('peer.peer_types')
+            for p in dispatcher.call_sync('peer.query', [('type', 'in', peer_types)]):
                 update_peer_health(p)
 
             gevent.sleep(interval)
