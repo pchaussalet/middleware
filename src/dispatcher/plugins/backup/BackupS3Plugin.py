@@ -28,12 +28,14 @@
 import os
 import errno
 import boto3
+import botocore
 from task import Task, ProgressTask, TaskException, TaskDescription
 from freenas.dispatcher.rpc import description
 from freenas.utils import normalize
 
 
 CHUNK_SIZE = 5 * 1024 * 1024
+MAX_OBJECT_SIZE = 1024 * 1024 * 1024 * 1024
 
 
 @description('Lists information about a specific S3 backup')
@@ -61,6 +63,10 @@ class BackupS3ListTask(Task):
             )
 
             for i in ret.get('Contents', []):
+                name, ext = os.path.splitext(i['Key'])
+                if ext[1:].isdigit():
+                    continue
+
                 result.append({
                     'name': i['Key'],
                     'size': i['Size'],
@@ -113,47 +119,61 @@ class BackupS3PutTask(ProgressTask):
     def run(self, backup, name, fd):
         client = open_client(self.dispatcher, backup)
         folder = backup['folder'] or ''
-        key = os.path.join(folder, name)
         parts = []
-        idx = 1
+        index = 0
+        end = False
 
         try:
             with os.fdopen(fd.fd, 'rb') as f:
-                mp = client.create_multipart_upload(
-                    Bucket=backup['bucket'],
-                    Key=key
-                )
-
                 while True:
-                    chunk = f.read(CHUNK_SIZE)
-                    if chunk == b'':
-                        break
-
-                    resp = client.upload_part(
+                    key = os.path.join(folder, suffix(name, index))
+                    idx = 1
+                    size = 0
+                    mp = client.create_multipart_upload(
                         Bucket=backup['bucket'],
-                        Key=key,
-                        PartNumber=idx,
-                        UploadId=mp['UploadId'],
-                        ContentLength=CHUNK_SIZE,
-                        Body=chunk
+                        Key=key
                     )
 
-                    parts.append({
-                        'ETag': resp['ETag'],
-                        'PartNumber': idx
-                    })
+                    while True:
+                        chunk = f.read(CHUNK_SIZE)
+                        size += len(chunk)
 
-                    idx += 1
+                        if chunk == b'':
+                            end = True
+                            break
 
-                client.complete_multipart_upload(
-                    Bucket=backup['bucket'],
-                    Key=key,
-                    UploadId=mp['UploadId'],
-                    MultipartUpload={
-                        'Parts': parts
-                    }
-                )
+                        if size >= MAX_OBJECT_SIZE:
+                            break
 
+                        resp = client.upload_part(
+                            Bucket=backup['bucket'],
+                            Key=key,
+                            PartNumber=idx,
+                            UploadId=mp['UploadId'],
+                            ContentLength=CHUNK_SIZE,
+                            Body=chunk
+                        )
+
+                        parts.append({
+                            'ETag': resp['ETag'],
+                            'PartNumber': idx
+                        })
+
+                        idx += 1
+
+                    client.complete_multipart_upload(
+                        Bucket=backup['bucket'],
+                        Key=key,
+                        UploadId=mp['UploadId'],
+                        MultipartUpload={
+                            'Parts': parts
+                        }
+                    )
+
+                    if end:
+                        return
+
+                index += 1
         except Exception as err:
             raise TaskException(errno.EFAULT, 'Cannot put object: {0}'.format(str(err)))
         finally:
@@ -175,19 +195,30 @@ class BackupS3GetTask(Task):
     def run(self, backup, name, fd):
         client = open_client(self.dispatcher, backup)
         folder = backup['folder'] or ''
-        key = os.path.join(folder, name)
-        obj = client.get_object(
-            Bucket=backup['bucket'],
-            Key=key
-        )
+        index = 0
 
-        with os.fdopen(fd.fd, 'wb') as f:
-            while True:
-                chunk = obj['Body'].read(CHUNK_SIZE)
-                if chunk == b'':
-                    break
+        while True:
+            try:
+                key = os.path.join(folder, suffix(name, index))
+                obj = client.get_object(
+                    Bucket=backup['bucket'],
+                    Key=key
+                )
+            except botocore.exceptions.ClientError as e:
+                if index != 0:
+                    return
 
-                f.write(chunk)
+                raise
+
+            with os.fdopen(fd.fd, 'wb') as f:
+                while True:
+                    chunk = obj['Body'].read(CHUNK_SIZE)
+                    if chunk == b'':
+                        break
+
+                    f.write(chunk)
+
+            index += 1
 
 
 def open_client(dispatcher, backup):
@@ -205,6 +236,13 @@ def open_client(dispatcher, backup):
         aws_secret_access_key=creds['secret_key'],
         region_name=creds.get('region')
     )
+
+
+def suffix(name, index):
+    if not index:
+        return name
+
+    return '{0}.{1}'.format(name, index)
 
 
 def _depends():
