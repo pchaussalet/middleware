@@ -30,7 +30,7 @@ import gevent
 import logging
 from cache import CacheStore
 from freenas.utils import query as q
-from freenas.dispatcher.rpc import SchemaHelper as h, description, accepts, returns, generator
+from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, returns, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
 
 
@@ -198,29 +198,32 @@ def _init(dispatcher, plugin):
             peers_status.remove_many(args['ids'])
 
     def update_peer_health(peer):
-        def update_one(result):
-            old_state = peers_status.get(result[0])
-            new_state = result[1]
+        def update_one(id, new_state):
+            if isinstance(new_state, RpcException):
+                logger.warning('Health check for peer {0} failed: {1}'.format(id, str(err)))
+                return
+
+            old_state = peers_status.get(id)
             if old_state != new_state:
-                peers_status.update_one(result[0], state=new_state['state'], rtt=new_state['rtt'])
+                peers_status.update_one(id, state=new_state['state'], rtt=new_state['rtt'])
                 dispatcher.dispatch_event('peer.changed', {
                     'operation': 'update',
-                    'ids': [result[0]]
+                    'ids': [id]
                 })
 
         dispatcher.call_async(
             'peer.{0}.get_status'.format(peer['type']),
-            update_one,
+            lambda result: update_one(peer['id'], result),
             peer['id']
         )
 
     def health_worker():
         interval = dispatcher.configstore.get('peer.ping_interval')
         while True:
+            for p in dispatcher.call_sync('peer.query'):
+                update_peer_health(p)
+
             gevent.sleep(interval)
-            for t in dispatcher.call_sync('peer.peer_types'):
-                for p in dispatcher.call_sync('peer.query', [('type', '=', t)]):
-                    update_peer_health(p)
 
     # Register credentials schema
     def update_peer_credentials_schema():

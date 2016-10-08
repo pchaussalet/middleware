@@ -71,7 +71,7 @@ class PeerFreeNASProvider(Provider):
 
     @private
     @accepts(str)
-    @returns(h.tuple(str, h.ref('peer-status')))
+    @returns(h.ref('peer-status'))
     def get_status(self, id):
         peer = self.dispatcher.call_sync('peer.query', [('id', '=', id), ('type', '=', 'freenas')], {'single': True})
         if not peer:
@@ -84,9 +84,9 @@ class PeerFreeNASProvider(Provider):
             start_time = datetime.utcnow()
             s.connect((credentials['address'], credentials['port']))
             delta = datetime.utcnow() - start_time
-            return id, {'state': 'ONLINE', 'rtt': delta.seconds + delta.microseconds / 1E6}
+            return {'state': 'ONLINE', 'rtt': delta.seconds + delta.microseconds / 1E6}
         except socket.error:
-            return id, {'state': 'OFFLINE', 'rtt': None}
+            return {'state': 'OFFLINE', 'rtt': None}
         finally:
             s.close()
 
