@@ -1217,7 +1217,7 @@ def get_disk_names(dispatcher, pool):
 def sync_zpool_cache(dispatcher, pool, guid=None):
     zfs = get_zfs()
     try:
-        zfspool = zfs.get(pool).__getstate__(False)
+        zfspool = threadpool.apply(lambda: zfs.get(pool).__getstate__(False))
         pools.put(pool, zfspool)
         zpool_sync_resources(dispatcher, pool)
     except libzfs.ZFSException as e:
@@ -1236,13 +1236,13 @@ def sync_dataset_cache(dispatcher, dataset, old_dataset=None, recursive=False):
     pool = dataset.split('/')[0]
     sync_zpool_cache(dispatcher, pool)
     try:
-        ds = zfs.get_dataset(dataset)
+        ds = threadpool.apply(lambda: zfs.get_dataset(dataset))
 
         if old_dataset:
             datasets.rename(old_dataset, dataset)
             dispatcher.unregister_resource('zfs:{0}'.format(old_dataset))
 
-        if datasets.put(dataset, ds.__getstate__(recursive=False)) or old_dataset:
+        if datasets.put(dataset, threadpool.apply(lambda: ds.__getstate__(False))) or old_dataset:
             dispatcher.register_resource(
                 Resource('zfs:{0}'.format(dataset)),
                 parents=['zpool:{0}'.format(pool)])
@@ -1261,7 +1261,7 @@ def sync_dataset_cache(dispatcher, dataset, old_dataset=None, recursive=False):
         snapshots.update(**ds_snapshots)
 
         if recursive:
-            for i in ds.children:
+            for i in threadpool.apply(lambda: list(ds.children)):
                 oldpath = os.path.join(old_dataset, os.path.relpath(i.name, dataset)) if old_dataset else None
                 sync_dataset_cache(dispatcher, i.name, old_dataset=oldpath, recursive=True)
 
@@ -1498,7 +1498,7 @@ def _init(dispatcher, plugin):
             gevent.sleep(interval)
             with dispatcher.get_lock('zfs-cache'):
                 for key, i in pools.itervalid():
-                    zfspool = zfs.get(key).__getstate__(False)
+                    zfspool = threadpool.apply(lambda: zfs.get(key).__getstate__(False))
                     if zfspool != i:
                         pools.put(key, zfspool)
 
