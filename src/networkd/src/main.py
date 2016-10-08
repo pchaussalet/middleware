@@ -367,7 +367,8 @@ class ConfigurationService(RpcService):
                 result['addresses'].add(tokens[1])
 
             if tokens[0] == 'search':
-                result['search'].add(tokens[1:])
+                for i in tokens[1:]:
+                    result['search'].add(i)
 
         return result
 
