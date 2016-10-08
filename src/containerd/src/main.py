@@ -643,6 +643,25 @@ class DockerHost(object):
                             'ids': [ev['id']]
                         })
 
+                        if actions.get(ev['Action']) != 'delete':
+                            details = self.connection.inspect_container(ev['id'])
+                            state = details['State']
+                            name = details['Name'][1:]
+                            if not state.get('Running') and state.get('ExitCode'):
+                                self.context.client.call_sync('alert.emit', {
+                                    'class': 'DockerContainerDied',
+                                    'target': details['Name'],
+                                    'title': 'Docker container exited with nonzero status.',
+                                    'description': 'Docker container {0} has exited with status {1}'.format(
+                                        name,
+                                        state.get('ExitCode')
+                                    )
+                                })
+                                self.logger.debug('Container {0} exited with nonzero status {1}'.format(
+                                    name,
+                                    state.get('ExitCode')
+                                ))
+
                         p = pf.PF()
 
                         if ev['Action'] == 'destroy':
@@ -1246,7 +1265,10 @@ class ConsoleConnection(WebSocketApplication, EventEmitter):
 
         def write_worker():
             for i in self.inq:
-                self.console_provider.console_write(i)
+                try:
+                    self.console_provider.console_write(i)
+                except BrokenPipeError:
+                    return
 
         self.wr = gevent.spawn(write_worker)
         self.rd = gevent.spawn(read_worker)

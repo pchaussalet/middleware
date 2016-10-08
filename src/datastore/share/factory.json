@@ -1365,6 +1365,11 @@
                 "subtype": "SNAPSHOT",
                 "severity": "WARNING"
             },
+            "DockerContainerDied": {
+                "type": "SYSTEM",
+                "subtype": "CONTAINER",
+                "severity": "WARNING"
+            },
             "DiskControllerFirmwareMismatch": {
                 "type": "DISK",
                 "subtype": "MPS",
