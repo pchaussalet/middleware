@@ -36,7 +36,7 @@ from pyVmomi import vim, vmodl
 from mako.template import Template
 from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
 from freenas.utils import normalize, query as q
-from task import Provider, Task, TaskDescription, TaskException, TaskWarning, ProgressTask, query
+from task import Provider, Task, TaskDescription, TaskException, ProgressTask, query
 
 
 logger = logging.getLogger(__name__)

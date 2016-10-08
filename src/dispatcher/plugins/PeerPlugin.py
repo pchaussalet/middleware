@@ -200,7 +200,7 @@ def _init(dispatcher, plugin):
     def update_peer_health(peer):
         def update_one(id, new_state):
             if isinstance(new_state, RpcException):
-                logger.warning('Health check for peer {0} failed: {1}'.format(id, str(err)))
+                logger.warning('Health check for peer {0} failed: {1}'.format(id, str(new_state)))
                 return
 
             old_state = peers_status.get(id)
