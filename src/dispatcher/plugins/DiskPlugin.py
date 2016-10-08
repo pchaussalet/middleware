@@ -1708,4 +1708,4 @@ def _init(dispatcher, plugin):
 
     # Generate cache for all disks
     for i in dispatcher.rpc.call_sync('system.device.get_devices', 'disk'):
-        on_device_attached({'path': i['path']})
+        gevent.spawn(on_device_attached, {'path': i['path']})
