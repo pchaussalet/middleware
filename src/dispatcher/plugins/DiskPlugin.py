@@ -189,6 +189,7 @@ class EnclosureProvider(Provider):
                         continue
 
                     seen_ids.add(dev.id)
+                    devices = self.dispatcher.threaded(lambda: list(dev.devices))
                     yield {
                         'id': dev.id,
                         'name': os.path.basename(sesdev),
@@ -201,7 +202,7 @@ class EnclosureProvider(Provider):
                                 'name': i.description,
                                 'disk_name': get_devname(i.devnames)
                             }
-                            for i in dev.devices if i.status != ElementStatus.UNSUPPORTED
+                            for i in devices if i.status != ElementStatus.UNSUPPORTED
                         ]
                     }
                 except OSError:
