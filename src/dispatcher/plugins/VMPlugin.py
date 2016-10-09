@@ -269,8 +269,8 @@ class VMTemplateProvider(Provider):
                                 template['template']['readme'] = readme_file.read()
                         template['template']['path'] = root
                         template['template']['cached'] = False
-                        template['template']['driver'] = root.split('/')[-2]
-                        if template['template']['driver'] == 'ipfs':
+                        template['template']['source'] = root.split('/')[-2]
+                        if template['template']['source'] == 'ipfs':
                             with open(os.path.join(root, 'hash')) as ipfs_hash:
                                 template['template']['hash'] = ipfs_hash.read()
                         if os.path.isdir(os.path.join(cache_dir, template['template']['name'])):
@@ -1821,6 +1821,7 @@ def _init(dispatcher, plugin):
                 'properties': {
                     'name': {'type': 'string'},
                     'path': {'type': 'string'},
+                    'source': {'type': 'string'},
                     'readme': {'type': ['string', 'null']},
                     'cached': {'type': 'boolean'}
                 }
