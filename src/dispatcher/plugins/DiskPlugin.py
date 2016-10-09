@@ -1039,7 +1039,7 @@ def get_disk_by_lunid(lunid):
 def clean_multipaths(dispatcher):
     global multipaths
 
-    geom.scan()
+    dispatcher.threaded(geom.scan)
     cls = geom.class_by_name('MULTIPATH')
     if cls:
         for i in cls.geoms:
@@ -1054,7 +1054,7 @@ def clean_multipaths(dispatcher):
 
 
 def clean_mirrors(dispatcher):
-    geom.scan()
+    dispatcher.threaded(geom.scan)
     cls = geom.class_by_name('MIRROR')
     if cls:
         for i in cls.geoms:
@@ -1148,7 +1148,7 @@ def attach_to_multipath(dispatcher, disk, ds_disk, path):
     with open(os.path.join('/dev/multipath', nodename), 'rb+') as f:
         pass
 
-    geom.scan()
+    dispatcher.threaded(geom.scan)
     gmultipath = geom.geom_by_name('MULTIPATH', nodename)
     ret['multipath'] = generate_multipath_info(gmultipath)
     return ret
@@ -1203,7 +1203,7 @@ def generate_multipath_info(gmultipath):
 
 
 def update_disk_cache(dispatcher, path):
-    geom.scan()
+    dispatcher.threaded(geom.scan)
     name = re.match('/dev/(.*)', path).group(1)
     gdisk = geom.geom_by_name('DISK', name)
     gpart = geom.geom_by_name('PART', name)
@@ -1305,7 +1305,7 @@ def update_disk_cache(dispatcher, path):
 
 def generate_disk_cache(dispatcher, path):
     diskinfo_cache_lock.acquire()
-    geom.scan()
+    dispatcher.threaded(geom.scan)
     name = os.path.basename(path)
     gdisk = geom.geom_by_name('DISK', name)
     multipath_info = None
@@ -1325,7 +1325,7 @@ def generate_disk_cache(dispatcher, path):
 
     provider = gdisk.provider
     try:
-        camdev = CamDevice(gdisk.name)
+        camdev = dispatcher.threaded(CamDevice, gdisk.name)
     except RuntimeError:
         camdev = None
 
@@ -1355,7 +1355,7 @@ def generate_disk_cache(dispatcher, path):
 
 
 def purge_disk_cache(dispatcher, path):
-    geom.scan()
+    dispatcher.threaded(geom.scan)
     delete = False
     disk = get_disk_by_path(path)
 

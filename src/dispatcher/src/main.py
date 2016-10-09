@@ -55,6 +55,7 @@ import websocket  # do not remove - we import it only for side effects
 import gevent
 from io import UnsupportedOperation
 from pyee import EventEmitter
+from gevent.threadpool import ThreadPool
 from gevent.os import tp_read, tp_write, forkpty_and_watch
 from gevent.queue import Queue
 from gevent.lock import RLock
@@ -341,6 +342,7 @@ class Dispatcher(object):
         self.port = 0
         self.file_ws_connectios = None
         self.logdb_proc = None
+        self.threadpool = ThreadPool(20)
         self.load_disabled_plugins = kwargs.get('load_disabled', False)
 
     def init(self):
@@ -764,6 +766,9 @@ class Dispatcher(object):
         self.event_delivery_lock.release()
         done.wait(timeout=timeout)
         self.unregister_event_handler(event, handler)
+
+    def threaded(self, fn, *args, **kwargs):
+        return self.threadpool.apply(fn, args, kwargs)
 
     def get_lock(self, name):
         self.call_sync('lock.init', name)

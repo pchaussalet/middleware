@@ -31,7 +31,6 @@ import errno
 import logging
 import time
 import gevent
-import gevent.threadpool
 import libzfs
 from threading import Thread, Event
 from cache import EventCacheStore
@@ -57,7 +56,6 @@ VOLATILE_ZFS_PROPERTIES = [
 ]
 
 logger = logging.getLogger('ZfsPlugin')
-threadpool = gevent.threadpool.ThreadPool(5)
 pools = None
 datasets = None
 snapshots = None
@@ -75,7 +73,7 @@ class ZpoolProvider(Provider):
     @returns(h.array(h.ref('zfs-pool')))
     def find(self):
         zfs = get_zfs()
-        return threadpool.apply(lambda: [p.__getstate__() for p in zfs.find_import()])
+        return self.dispatcher.threaded(lambda: [p.__getstate__() for p in zfs.find_import()])
 
     @accepts()
     @returns(h.ref('zfs-pool'))
@@ -235,7 +233,7 @@ class ZfsDatasetProvider(Provider):
         try:
             zfs = get_zfs()
             ds = zfs.get_dataset(dataset_name)
-            snaps = threadpool.apply(lambda: [d.__getstate__() for d in ds.snapshots])
+            snaps = self.dispatcher.threaded(lambda: [d.__getstate__() for d in ds.snapshots])
             snaps.sort(key=lambda s: int(q.get(s, 'properties.creation.rawvalue')))
             return snaps
         except libzfs.ZFSException as err:
@@ -1217,7 +1215,7 @@ def get_disk_names(dispatcher, pool):
 def sync_zpool_cache(dispatcher, pool, guid=None):
     zfs = get_zfs()
     try:
-        zfspool = threadpool.apply(lambda: zfs.get(pool).__getstate__(False))
+        zfspool = dispatcher.threaded(lambda: zfs.get(pool).__getstate__(False))
         pools.put(pool, zfspool)
         zpool_sync_resources(dispatcher, pool)
     except libzfs.ZFSException as e:
@@ -1236,19 +1234,19 @@ def sync_dataset_cache(dispatcher, dataset, old_dataset=None, recursive=False):
     pool = dataset.split('/')[0]
     sync_zpool_cache(dispatcher, pool)
     try:
-        ds = threadpool.apply(lambda: zfs.get_dataset(dataset))
+        ds = dispatcher.threaded(lambda: zfs.get_dataset(dataset))
 
         if old_dataset:
             datasets.rename(old_dataset, dataset)
             dispatcher.unregister_resource('zfs:{0}'.format(old_dataset))
 
-        if datasets.put(dataset, threadpool.apply(lambda: ds.__getstate__(False))) or old_dataset:
+        if datasets.put(dataset, dispatcher.threaded(lambda: ds.__getstate__(False))) or old_dataset:
             dispatcher.register_resource(
                 Resource('zfs:{0}'.format(dataset)),
                 parents=['zpool:{0}'.format(pool)])
 
         ds_snapshots = {}
-        for i in threadpool.apply(lambda: [d.__getstate__() for d in ds.snapshots]):
+        for i in dispatcher.threaded(lambda: [d.__getstate__() for d in ds.snapshots]):
             name = i['name']
             try:
                 ds_snapshots[name] = i
@@ -1261,7 +1259,7 @@ def sync_dataset_cache(dispatcher, dataset, old_dataset=None, recursive=False):
         snapshots.update(**ds_snapshots)
 
         if recursive:
-            for i in threadpool.apply(lambda: list(ds.children)):
+            for i in dispatcher.threaded(lambda: list(ds.children)):
                 oldpath = os.path.join(old_dataset, os.path.relpath(i.name, dataset)) if old_dataset else None
                 sync_dataset_cache(dispatcher, i.name, old_dataset=oldpath, recursive=True)
 
@@ -1315,11 +1313,11 @@ def zpool_sync_resources(dispatcher, name):
             parents=get_disk_names(dispatcher, pool))
 
 
-def zpool_try_clear(name, vdev):
+def zpool_try_clear(dispatcher, name, vdev):
     zfs = get_zfs()
     try:
         pool = zfs.get(name)
-        if threadpool.apply(pool.clear):
+        if dispatcher.threaded(pool.clear):
             logger.info('Device {0} reattached successfully to pool {1}'.format(vdev['path'], name))
             return
     except libzfs.ZFSException:
@@ -1489,7 +1487,7 @@ def _init(dispatcher, plugin):
                     )
 
                     # Try to clear errors
-                    zpool_try_clear(p['name'], vd)
+                    zpool_try_clear(dispatcher, p['name'], vd)
 
     def sync_sizes():
         zfs = get_zfs()
@@ -1498,7 +1496,7 @@ def _init(dispatcher, plugin):
             gevent.sleep(interval)
             with dispatcher.get_lock('zfs-cache'):
                 for key, i in pools.itervalid():
-                    zfspool = threadpool.apply(lambda: zfs.get(key).__getstate__(False))
+                    zfspool = dispatcher.threaded(lambda: zfs.get(key).__getstate__(False))
                     if zfspool != i:
                         pools.put(key, zfspool)
 
@@ -1713,10 +1711,10 @@ def _init(dispatcher, plugin):
         zfs = get_zfs()
         opts = {'cachefile': USER_CACHE_FILE}
 
-        for pool in threadpool.apply(lambda: list(zfs.find_import(cachefile=USER_CACHE_FILE))):
+        for pool in dispatcher.threaded(lambda: list(zfs.find_import(cachefile=USER_CACHE_FILE))):
             try:
                 logger.info('Importing pool {0} <{1}>'.format(pool.name, pool.guid))
-                threadpool.apply(zfs.import_pool, args=(pool, pool.name, opts))
+                dispatcher.threaded(zfs.import_pool, pool, pool.name, opts)
             except libzfs.ZFSException as err:
                 logger.error('Cannot import user pool {0}: {1}'.format(pool.name, str(err)))
                 continue
@@ -1730,7 +1728,7 @@ def _init(dispatcher, plugin):
         unimported_unique_pools = {}
         unimported_duplicate_pools = []
 
-        for pool in threadpool.apply(lambda: list(zfs.find_import(search_paths=['/dev/gptid']))):
+        for pool in dispatcher.threaded(lambda: list(zfs.find_import(search_paths=['/dev/gptid']))):
             if pool.guid in unimported_unique_pools:
                 # This means that the pool is prolly a duplicate
                 # Thus remove it from this dict of pools
@@ -1769,7 +1767,7 @@ def _init(dispatcher, plugin):
                 if vol['id'] == pool_to_import.name:
                     try:
                         logger.info('Importing pool {0} <{1}>'.format(vol['id'], vol['guid']))
-                        threadpool.apply(zfs.import_pool, args=(pool_to_import, pool_to_import.name, opts))
+                        dispatcher.threaded(zfs.import_pool, pool_to_import, pool_to_import.name, opts)
                     except libzfs.ZFSException as err:
                         logger.error('Cannot import pool {0} <{1}>: {2}'.format(
                             pool_to_import.name,
@@ -1790,7 +1788,7 @@ def _init(dispatcher, plugin):
             try:
                 z = get_zfs()
                 pool = z.get(vol['id'])
-                threadpool.apply(pool.clear)
+                dispatcher.threaded(pool.clear)
             except libzfs.ZFSException:
                 pass
 
@@ -1837,7 +1835,7 @@ def _init(dispatcher, plugin):
         snapshots = EventCacheStore(dispatcher, 'zfs.snapshot', snap_sort_func)
 
         pools_dict = {}
-        for i in threadpool.apply(lambda: [p.__getstate__(False) for p in zfs.pools]):
+        for i in dispatcher.threaded(lambda: [p.__getstate__(False) for p in zfs.pools]):
             name = i['name']
             pools_dict[name] = i
             zpool_sync_resources(dispatcher, name)
@@ -1845,7 +1843,7 @@ def _init(dispatcher, plugin):
 
         logger.info("Syncing ZFS datasets...")
         datasets_dict = {}
-        for i in threadpool.apply(lambda: [d.__getstate__(False) for d in zfs.datasets]):
+        for i in dispatcher.threaded(lambda: [d.__getstate__(False) for d in zfs.datasets]):
             name = i['id']
             datasets_dict[name] = i
             dispatcher.register_resource(
@@ -1855,7 +1853,7 @@ def _init(dispatcher, plugin):
 
         logger.info("Syncing ZFS snapshots...")
         snapshots_dict = {}
-        for i in threadpool.apply(lambda: [s.__getstate__() for s in zfs.snapshots]):
+        for i in dispatcher.threaded(lambda: [s.__getstate__() for s in zfs.snapshots]):
             snapshots_dict[i['id']] = i
         snapshots.update(**snapshots_dict)
 
