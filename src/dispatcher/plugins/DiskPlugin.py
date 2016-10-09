@@ -1719,5 +1719,8 @@ def _init(dispatcher, plugin):
     clean_multipaths(dispatcher)
 
     # Generate cache for all disks
+    greenlets = []
     for i in dispatcher.rpc.call_sync('system.device.get_devices', 'disk'):
-        gevent.spawn(on_device_attached, {'path': i['path']})
+        greenlets.append(gevent.spawn(on_device_attached, {'path': i['path']}))
+
+    gevent.wait(greenlets)
