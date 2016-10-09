@@ -1490,6 +1490,23 @@ class DeleteFilesTask(Task):
         shutil.rmtree(images_dir)
 
 
+@description('Deletes all of cached VM files')
+class FlushFilesTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return 'Deleting VM files cache'
+
+    def describe(self):
+        return TaskDescription('Deleting VM files cache')
+
+    def verify(self):
+        return ['system-dataset']
+
+    def run(self):
+        cache_dir = self.dispatcher.call_sync('system_dataset.request_directory', 'vm_image_cache')
+        shutil.rmtree(cache_dir)
+
+
 @private
 @accepts(str, str, str)
 @description('Downloads VM file')
@@ -2099,6 +2116,7 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('vm.file.download', DownloadFileTask)
     plugin.register_task_handler('vm.cache.update', CacheFilesTask)
     plugin.register_task_handler('vm.cache.delete', DeleteFilesTask)
+    plugin.register_task_handler('vm.cache.flush', FlushFilesTask)
     plugin.register_task_handler('vm.template.fetch', VMTemplateFetchTask)
     plugin.register_task_handler('vm.template.delete', VMTemplateDeleteTask)
     plugin.register_task_handler('vm.template.ipfs.fetch', VMIPFSTemplateFetchTask)
