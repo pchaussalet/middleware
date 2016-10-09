@@ -1745,11 +1745,18 @@ class VMTemplateDeleteTask(ProgressTask):
         return ['system-dataset']
 
     def run(self, name):
-        template_path = self.dispatcher.call_sync(
+        template = self.dispatcher.call_sync(
             'vm.template.query',
             [('template.name', '=', name)],
-            {'single': True, 'select': 'template.path'}
+            {'single': True, 'select': 'template'}
         )
+        if not template:
+            raise TaskException(errno.ENOENT, 'Template {0} does not exist'.format(name))
+
+        if template['source'] == 'github':
+            raise TaskException(errno.EINVAL, 'Default templates cannot be deleted')
+
+        template_path = template.get('path')
         if not template_path:
             raise TaskException(errno.ENOENT, 'Selected template {0} does not exist'.format(name))
 
