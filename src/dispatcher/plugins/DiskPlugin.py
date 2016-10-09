@@ -1458,6 +1458,10 @@ def configure_disk(datastore, id):
     disk = datastore.get_by_id('disks', id)
     acc_level = getattr(AcousticLevel, disk.get('acoustic_level', 'DISABLED')).value
     powermgmt = disk.get('apm_mode', 0)
+
+    if not disk['path'].startswith('/dev/ada'):
+        return
+
     try:
         system('/usr/local/sbin/ataidle', '-P', str(powermgmt), '-A', str(acc_level), disk['path'])
     except SubprocessException as err:
