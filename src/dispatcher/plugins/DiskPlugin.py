@@ -951,7 +951,7 @@ class DiskParallelTestTask(ProgressTask):
         for d in disks:
             subtasks.append(self.run_subtask('disk.test', d['id'], test_type))
 
-        self.join_subtasks(subtasks)
+        self.join_subtasks(*subtasks)
 
 
 def get_twcli(controller):
