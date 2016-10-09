@@ -991,8 +991,6 @@ def device_to_identifier(name, serial=None):
 
 def info_from_device(devname):
     disk_info = {
-        'serial': None,
-        'max_rotation': None,
         'smart_enabled': False,
         'smart_capable': False,
         'smart_status': None,
@@ -1008,10 +1006,8 @@ def info_from_device(devname):
     health_assessment_greenlet.join()
     disk_info['is_ssd'] = dev_smart_info.is_ssd
     disk_info['smart_capable'] = dev_smart_info.smart_capable
-    disk_info['serial'] = dev_smart_info.serial
     if dev_smart_info.smart_capable:
         disk_info['model'] = dev_smart_info.model
-        disk_info['max_rotation'] = dev_smart_info.rotation_rate
         disk_info['interface'] = dev_smart_info.interface
         disk_info['smart_enabled'] = dev_smart_info.smart_enabled
         if dev_smart_info.smart_enabled:
@@ -1234,12 +1230,16 @@ def update_disk_cache(dispatcher, path):
     if not gdisk:
         return
 
+    try:
+        camdev = CamDevice(gdisk.name)
+    except RuntimeError:
+        camdev = None
+
     disk_info = info_from_device(gdisk.name)
-    serial = disk_info['serial']
 
     provider = gdisk.provider
     partitions = list(generate_partitions_list(gpart))
-    identifier = device_to_identifier(gdisk.name, serial)
+    identifier = device_to_identifier(gdisk.name, camdev.serial if camdev else None)
     data_part = first_or_default(lambda x: x['type'] == 'freebsd-zfs', partitions)
     data_uuid = data_part["uuid"] if data_part else None
     data_path = data_uuid
@@ -1263,7 +1263,6 @@ def update_disk_cache(dispatcher, path):
     disk.update({
         'mediasize': provider.mediasize,
         'sectorsize': provider.sectorsize,
-        'max_rotation': disk_info['max_rotation'],
         'smart_capable': disk_info['smart_capable'],
         'smart_enabled': disk_info['smart_enabled'],
         'smart_status': disk_info['smart_status'],
@@ -1311,7 +1310,13 @@ def generate_disk_cache(dispatcher, path):
     multipath_info = None
 
     disk_info = info_from_device(gdisk.name)
-    serial = disk_info['serial']
+    try:
+        camdev = CamDevice(gdisk.name)
+    except RuntimeError:
+        camdev = None
+
+    serial = camdev.serial if camdev else None
+
     identifier = device_to_identifier(name, serial)
     ds_disk = dispatcher.datastore.get_by_id('disks', identifier)
 
@@ -1324,20 +1329,27 @@ def generate_disk_cache(dispatcher, path):
             multipath_info = attach_to_multipath(dispatcher, d, ds_disk, path)
 
     provider = gdisk.provider
+
     try:
         camdev = dispatcher.threaded(CamDevice, gdisk.name)
     except RuntimeError:
         camdev = None
+
+    try:
+        max_rotation = int(provider.config.get('rotationrate', 0))
+    except:
+        max_rotation = 0
 
     disk = {
         'path': path,
         'is_multipath': False,
         'description': provider.config['descr'],
         'serial': serial,
+        'max_rotation': max_rotation,
+        'is_ssd': True if max_rotation else False,
         'lunid': provider.config.get('lunid'),
         'model': disk_info['model'],
         'interface': disk_info['interface'],
-        'is_ssd': disk_info['is_ssd'],
         'id': identifier,
         'controller': camdev.__getstate__() if camdev else None,
     }
@@ -1513,8 +1525,7 @@ def _init(dispatcher, plugin):
             'name': {'type': 'string'},
             'rname': {'type': 'string'},
             'path': {'type': 'string'},
-            'description': {'type': 'string'},
-            'serial': {'type': 'string'},
+            'serial': {'type': ['string', 'null']},
             'mediasize': {'type': 'integer'},
             'smart': {'type': 'boolean'},
             'smart_options': {'type': 'string'},
@@ -1536,7 +1547,7 @@ def _init(dispatcher, plugin):
             'mediasize': {'type': 'integer'},
             'sectorsize': {'type': 'integer'},
             'description': {'type': 'string'},
-            'serial': {'type': 'string'},
+            'serial': {'type': ['string', 'null']},
             'lunid': {'type': 'string'},
             'max_rotation': {'type': 'integer'},
             'smart_capable': {'type': 'boolean'},
