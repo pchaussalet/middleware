@@ -60,7 +60,6 @@ EXPIRE_TIMEOUT = timedelta(hours=24)
 multipaths = -1
 diskinfo_cache = CacheStore()
 logger = logging.getLogger('DiskPlugin')
-diskinfo_cache_lock = RLock()
 
 
 class AcousticLevel(enum.IntEnum):
@@ -1304,7 +1303,6 @@ def update_disk_cache(dispatcher, path):
 
 
 def generate_disk_cache(dispatcher, path):
-    diskinfo_cache_lock.acquire()
     dispatcher.threaded(geom.scan)
     name = os.path.basename(path)
     gdisk = geom.geom_by_name('DISK', name)
@@ -1364,7 +1362,6 @@ def generate_disk_cache(dispatcher, path):
     configure_disk(dispatcher.datastore, identifier)
 
     logger.info('Added <%s> (%s) to disk cache', identifier, disk['description'])
-    diskinfo_cache_lock.release()
 
 
 def purge_disk_cache(dispatcher, path):
