@@ -1701,7 +1701,7 @@ def _init(dispatcher, plugin):
 
     # Register transport plugin schema
     plugin.register_schema_definition('replication-transport-option', {
-        'discriminator': 'name',
+        'discriminator': '%type',
         'oneOf': [
             {'$ref': '{0}-transport-option'.format(name)} for name in dispatcher.call_sync('replication.transport.plugin_types')
         ]
