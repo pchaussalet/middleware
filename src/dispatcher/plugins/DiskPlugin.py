@@ -995,7 +995,6 @@ def info_from_device(devname):
         'smart_capable': False,
         'smart_status': None,
         'model': None,
-        'is_ssd': False,
         'interface': None
     }
 
@@ -1004,7 +1003,6 @@ def info_from_device(devname):
     health_assessment_greenlet = gevent.spawn(smart_health_assement, devname)
     dev_smart_info = Device(os.path.join('/dev/', devname), abridged=True)
     health_assessment_greenlet.join()
-    disk_info['is_ssd'] = dev_smart_info.is_ssd
     disk_info['smart_capable'] = dev_smart_info.smart_capable
     if dev_smart_info.smart_capable:
         disk_info['model'] = dev_smart_info.model
