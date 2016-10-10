@@ -374,11 +374,12 @@ class TransportSendTask(Task):
             raw_subtasks = []
 
             for type in ['compress', 'encrypt', 'throttle']:
-                plugin = first_or_default(lambda p: p['%type'] == type, plugins)
+                plugin = first_or_default(lambda p: p['%type'].startswith(type), plugins)
                 if plugin:
                     rd, wr = os.pipe()
                     self.fds.append(rd)
                     self.fds.append(wr)
+                    plugin['%type'] = type + '-replication-transport-plugin'
                     plugin['read_fd'] = FileDescriptor(last_rd_fd)
                     plugin['write_fd'] = FileDescriptor(wr)
                     last_rd_fd = rd
@@ -598,9 +599,10 @@ class TransportReceiveTask(ProgressTask):
             subtasks = []
 
             for type in ['encrypt', 'compress']:
-                plugin = first_or_default(lambda p: p['%type'] == type, plugins)
+                plugin = first_or_default(lambda p: p['%type'].startswith(type), plugins)
                 if plugin:
-                    if plugin['%type'] == 'encrypt':
+                    plugin['%type'] = type + '-replication-transport-plugin'
+                    if type == 'encrypt':
                         plugin['auth_token'] = transport.get('auth_token')
                     rd, wr = os.pipe()
                     self.fds.append(rd)
@@ -609,11 +611,16 @@ class TransportReceiveTask(ProgressTask):
                     plugin['write_fd'] = FileDescriptor(wr)
                     last_rd_fd = rd
                     subtasks.append(self.run_subtask(
-                        'replication.transport.{0}'.format('decrypt' if plugin['%type'] == 'encrypt' else 'decompress'),
+                        'replication.transport.{0}'.format(
+                            'decrypt' if plugin['%type'].startswith('encrypt') else 'decompress'
+                        ),
                         plugin
                     ))
                     logger.debug(
-                        'Registered {0} transport layer plugin for {1}:{2} connection'.format(plugin['%type'], *addr)
+                        'Registered {0} transport layer plugin for {1}:{2} connection'.format(
+                            'decrypt' if plugin['%type'].startswith('encrypt') else 'decompress',
+                            *addr
+                        )
                     )
 
             ret = write_fd(self.sock.fileno(), token_buf, token_size)
@@ -746,7 +753,7 @@ class TransportReceiveTask(ProgressTask):
 
 @private
 @description('Compress the input stream and pass it to the output')
-@accepts(h.ref('compress-plugin'))
+@accepts(h.ref('compress-replication-transport-plugin'))
 class TransportCompressTask(Task):
     def __init__(self, dispatcher, datastore):
         super(TransportCompressTask, self).__init__(dispatcher, datastore)
@@ -869,7 +876,7 @@ class TransportCompressTask(Task):
 
 @private
 @description('Decompress the input stream and pass it to the output')
-@accepts(h.ref('compress-plugin'))
+@accepts(h.ref('compress-replication-transport-plugin'))
 class TransportDecompressTask(Task):
     def __init__(self, dispatcher, datastore):
         super(TransportDecompressTask, self).__init__(dispatcher, datastore)
@@ -988,7 +995,7 @@ class TransportDecompressTask(Task):
 
 @private
 @description('Encrypt the input stream and pass it to the output')
-@accepts(h.ref('encrypt-plugin'))
+@accepts(h.ref('encrypt-replication-transport-plugin'))
 class TransportEncryptTask(Task):
     def __init__(self, dispatcher, datastore):
         super(TransportEncryptTask, self).__init__(dispatcher, datastore)
@@ -1251,7 +1258,7 @@ class TransportEncryptTask(Task):
 
 @private
 @description('Decrypt the input stream and pass it to the output')
-@accepts(h.ref('encrypt-plugin'))
+@accepts(h.ref('encrypt-replication-transport-plugin'))
 class TransportDecryptTask(Task):
     def __init__(self, dispatcher, datastore):
         super(TransportDecryptTask, self).__init__(dispatcher, datastore)
@@ -1491,7 +1498,7 @@ class TransportDecryptTask(Task):
 
 @private
 @description('Limit throughput to one buffer size per second')
-@accepts(h.ref('throttle-plugin'))
+@accepts(h.ref('throttle-replication-transport-plugin'))
 class TransportThrottleTask(Task):
     def __init__(self, dispatcher, datastore):
         super(TransportThrottleTask, self).__init__(dispatcher, datastore)
@@ -1623,7 +1630,7 @@ def _init(dispatcher, plugin):
             'estimated_size': {'type': 'integer'},
             'transport_plugins': {
                 'type': ['array', 'null'],
-                'items': {'$ref': 'replication-transport-plugin'}
+                'items': {'oneOf': [{'$ref': 'replication-transport-plugin'}, {'$ref': 'replication-transport-option'}]}
             },
             'receive_properties':{
                 'name': {'type': 'string'},
@@ -1636,10 +1643,10 @@ def _init(dispatcher, plugin):
         'additionalProperties': False
     })
 
-    plugin.register_schema_definition('compress-plugin', {
+    plugin.register_schema_definition('compress-replication-transport-plugin', {
         'type': 'object',
         'properties': {
-            '%type': {'enum': ['compress']},
+            '%type': {'enum': ['compress-replication-transport-plugin']},
             'read_fd': {'type': 'fd'},
             'write_fd': {'type': 'fd'},
             'level': {'$ref': 'compress-plugin-level'},
@@ -1653,10 +1660,10 @@ def _init(dispatcher, plugin):
         'enum': ['FAST', 'DEFAULT', 'BEST']
     })
 
-    plugin.register_schema_definition('encrypt-plugin', {
+    plugin.register_schema_definition('encrypt-replication-transport-plugin', {
         'type': 'object',
         'properties': {
-            '%type': {'enum': ['encrypt']},
+            '%type': {'enum': ['encrypt-replication-transport-plugin']},
             'type': {'$ref': 'encrypt-plugin-type'},
             'read_fd': {'type': 'fd'},
             'write_fd': {'type': 'fd'},
@@ -1673,10 +1680,10 @@ def _init(dispatcher, plugin):
         'enum': ['AES128', 'AES192', 'AES256']
     })
 
-    plugin.register_schema_definition('throttle-plugin', {
+    plugin.register_schema_definition('throttle-replication-transport-plugin', {
         'type': 'object',
         'properties': {
-            '%type': {'enum': ['throttle']},
+            '%type': {'enum': ['throttle-replication-transport-plugin']},
             'buffer_size': {'type': 'integer'},
             'read_fd': {'type': 'fd'},
             'write_fd': {'type': 'fd'}
@@ -1691,7 +1698,9 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('replication-transport-plugin', {
         'discriminator': '%type',
         'oneOf': [
-            {'$ref': '{0}-plugin'.format(name)} for name in dispatcher.call_sync('replication.transport.plugin_types')
+            {'$ref': '{0}-replication-transport-plugin'.format(name)} for name in dispatcher.call_sync(
+                'replication.transport.plugin_types'
+            )
         ]
     })
 

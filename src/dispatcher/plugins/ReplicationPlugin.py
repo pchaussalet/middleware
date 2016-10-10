@@ -1663,37 +1663,28 @@ def _init(dispatcher, plugin):
         'enum': ['FILESYSTEM', 'VOLUME']
     })
 
-    plugin.register_schema_definition('compress-transport-option', {
+    plugin.register_schema_definition('compress-replication-transport-option', {
         'type': 'object',
         'properties': {
-            'name': {
-                'type': 'string',
-                'enum': ['compress']
-            },
+            '%type': {'enum': ['compress-replication-transport-option']},
             'level': {'$ref': 'compress-plugin-level'}
         },
         'additionalProperties': False
     })
 
-    plugin.register_schema_definition('encrypt-transport-option', {
+    plugin.register_schema_definition('encrypt-replication-transport-option', {
         'type': 'object',
         'properties': {
-            'name': {
-                'type': 'string',
-                'enum': ['encrypt']
-            },
+            '%type': {'enum': ['encrypt-replication-transport-option']},
             'type': {'$ref': 'encrypt-plugin-type'}
         },
         'additionalProperties': False
     })
 
-    plugin.register_schema_definition('throttle-transport-option', {
+    plugin.register_schema_definition('throttle-replication-transport-option', {
         'type': 'object',
         'properties': {
-            'name': {
-                'type': 'string',
-                'enum': ['throttle']
-            },
+            '%type': {'enum': ['throttle-replication-transport-option']},
             'buffer_size': {'type': 'integer'}
         },
         'additionalProperties': False
@@ -1703,7 +1694,9 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('replication-transport-option', {
         'discriminator': '%type',
         'oneOf': [
-            {'$ref': '{0}-transport-option'.format(name)} for name in dispatcher.call_sync('replication.transport.plugin_types')
+            {'$ref': '{0}-replication-transport-option'.format(name)} for name in dispatcher.call_sync(
+                'replication.transport.plugin_types'
+            )
         ]
     })
 
