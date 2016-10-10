@@ -1261,6 +1261,8 @@ def update_disk_cache(dispatcher, path):
     disk.update({
         'mediasize': provider.mediasize,
         'sectorsize': provider.sectorsize,
+        'model': disk_info['model'],
+        'interface': disk_info['interface'],
         'smart_capable': disk_info['smart_capable'],
         'smart_enabled': disk_info['smart_enabled'],
         'smart_status': disk_info['smart_status'],
@@ -1306,7 +1308,6 @@ def generate_disk_cache(dispatcher, path):
     gdisk = geom.geom_by_name('DISK', name)
     multipath_info = None
 
-    disk_info = info_from_device(gdisk.name)
     try:
         camdev = CamDevice(gdisk.name)
     except RuntimeError:
@@ -1345,8 +1346,6 @@ def generate_disk_cache(dispatcher, path):
         'max_rotation': max_rotation,
         'is_ssd': False if max_rotation else True,
         'lunid': provider.config.get('lunid'),
-        'model': disk_info['model'],
-        'interface': disk_info['interface'],
         'id': identifier,
         'controller': camdev.__getstate__() if camdev else None,
     }
