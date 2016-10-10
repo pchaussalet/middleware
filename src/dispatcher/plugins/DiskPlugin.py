@@ -37,6 +37,7 @@ import base64
 import gevent
 import time
 import libzfs
+import contextlib
 from xml.etree import ElementTree
 from bsd import geom, getswapinfo
 from resources import Resource
@@ -385,10 +386,8 @@ class DiskEraseTask(Task):
                 "Cannot perform erase operation on an allocated disk {0}".format(disk['path'])
             )
 
-        try:
+        with contextlib.suppress(OSError):
             libzfs.clear_label(disk['path'])
-        except SubprocessException:
-            pass
 
         try:
             self.dispatcher.call_sync('disk.update_disk_cache', disk['path'], timeout=120)
