@@ -337,7 +337,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            'type': {'enum': ['alert-emitter-email']},
+            '%type': {'enum': ['alert-emitter-email']},
             'addresses': {
                 'type': 'array',
                 'items': {'type': 'string'}
@@ -351,7 +351,7 @@ def _init(dispatcher, plugin):
             'id': {'type': 'string'},
             'emitter': {'type': 'string'},
             'parameters': {
-                'discriminator': 'type',
+                'discriminator': '%type',
                 'oneOf': [
                     {'$ref': 'alert-emitter-email'}
                 ]
