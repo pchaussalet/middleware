@@ -1017,7 +1017,7 @@ def _init(dispatcher, plugin):
         'properties': {
             'id': {'type': 'string'},
             'name': {'type': 'string'},
-            'state': {'$ref': 'docker-host-status'},
+            'state': {'$ref': 'docker-host-state'},
             'status': {
                 'oneOf': [{'$ref': 'docker-host-status'}, {'type': 'null'}]
             }
