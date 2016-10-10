@@ -644,7 +644,7 @@ class DockerHost(object):
                         })
                         details = self.connection.inspect_container(ev['id'])
 
-                        if actions.get(ev['Action']) != 'delete':
+                        if ev['Action'] == 'die':
                             state = details['State']
                             name = details['Name'][1:]
                             if not state.get('Running') and state.get('ExitCode'):
