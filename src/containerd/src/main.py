@@ -662,6 +662,15 @@ class DockerHost(object):
                                     state.get('ExitCode')
                                 ))
 
+                        elif ev['Action'] == 'oom':
+                            self.context.client.call_sync('alert.emit', {
+                                'class': 'DockerContainerDied',
+                                'target': details['Name'],
+                                'title': 'Docker container ran out of memory.',
+                                'description': 'Docker container {0} has run out of memory.'.format(name)
+                            })
+                            self.logger.debug('Container {0} has run out of memory'.format(name))
+
                         p = pf.PF()
 
                         if ev['Action'] == 'destroy':
