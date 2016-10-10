@@ -535,7 +535,7 @@ def _init(context):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            'type': {'enum': ['winbind-directory-params']},
+            '%type': {'enum': ['winbind-directory-params']},
             'realm': {'type': 'string'},
             'username': {'type': 'string'},
             'password': {'type': ['string', 'null']},

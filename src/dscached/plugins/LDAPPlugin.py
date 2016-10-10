@@ -221,14 +221,18 @@ def _init(context):
     context.register_plugin('ldap', LDAPPlugin)
 
     context.register_schema('ldap-directory-params', {
-        'type': {'enum': ['ldap-directory-params']},
-        'server': {'type': 'string'},
-        'base_dn': {'type': 'string'},
-        'bind_dn': {'type': 'string'},
-        'password': {'type': 'string'},
-        'user_suffix': {'type': ['string', 'null']},
-        'group_suffix': {'type': ['string', 'null']},
-        'krb_realm': {'type': ['string', 'null']}
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            '%type': {'enum': ['ldap-directory-params']},
+            'server': {'type': 'string'},
+            'base_dn': {'type': 'string'},
+            'bind_dn': {'type': 'string'},
+            'password': {'type': 'string'},
+            'user_suffix': {'type': ['string', 'null']},
+            'group_suffix': {'type': ['string', 'null']},
+            'krb_realm': {'type': ['string', 'null']}
+        }
     })
 
     context.register_schema('ldap-directory-status', {

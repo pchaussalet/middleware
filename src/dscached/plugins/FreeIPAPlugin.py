@@ -293,7 +293,7 @@ def _init(context):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            'type': {'enum': ['ldap-directory-params']},
+            '%type': {'enum': ['freeipa-directory-params']},
             'realm': {'type': 'string'},
             'server': {'type': ['string', 'null']},
             'kdc': {'type': ['string', 'null']},

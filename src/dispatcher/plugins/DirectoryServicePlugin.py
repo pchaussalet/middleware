@@ -228,6 +228,13 @@ def _init(dispatcher, plugin):
         }
     })
 
+    plugin.register_schema_definition('directory-params', {
+        'discriminator': '%type',
+        'oneOf': [
+            {'$ref': '{0}-directory-params'.format(name)} for name in ('winbind', 'freeipa', 'ldap')
+        ]
+    })
+
     plugin.register_schema_definition('directory',  {
         'type': 'object',
         'additionalProperties': False,
@@ -254,9 +261,7 @@ def _init(dispatcher, plugin):
                     {'type': 'integer'}
                 ]
             },
-            'parameters': {
-                'type': 'object'
-            },
+            'parameters': {'$ref': 'directory-params'},
             'status': {
                 'type': 'object',
                 'additionalProperties': False,
