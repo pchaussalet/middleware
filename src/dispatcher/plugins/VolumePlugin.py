@@ -780,6 +780,23 @@ class VolumeDestroyTask(Task):
             })
 
 
+@accepts(str)
+class ExportedVolumeDestroyTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return "Destroying an exported volume"
+
+    def describe(self, id):
+        return TaskDescription("Destroying an exported volume {name}", name=id)
+
+    def verify(self, id):
+        disks = self.dispatcher.call_sync('disk.query', {'select': 'path'})
+        return ['disk:{0}'.format(d) for d in disks]
+
+    def run(self, id):
+        self.join_subtasks(self.run_subtask('zfs.pool.destroy_exported', id))
+
+
 @description("Updates configuration of existing volume")
 @accepts(str, h.ref('volume'), h.one_of(str, None))
 class VolumeUpdateTask(ProgressTask):
@@ -3178,6 +3195,7 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('volume.create', VolumeCreateTask)
     plugin.register_task_handler('volume.create_auto', VolumeAutoCreateTask)
     plugin.register_task_handler('volume.delete', VolumeDestroyTask)
+    plugin.register_task_handler('volume.delete_exported', ExportedVolumeDestroyTask)
     plugin.register_task_handler('volume.import', VolumeImportTask)
     plugin.register_task_handler('volume.import_disk', VolumeDiskImportTask)
     plugin.register_task_handler('volume.autoimport', VolumeAutoImportTask)

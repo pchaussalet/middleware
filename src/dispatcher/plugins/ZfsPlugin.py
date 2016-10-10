@@ -35,7 +35,7 @@ import libzfs
 from threading import Thread, Event
 from cache import EventCacheStore
 from task import (
-    Provider, Task, ProgressTask, TaskStatus, TaskException,
+    Provider, Task, ProgressTask, TaskWarning, TaskException,
     VerifyException, TaskAbortException, query, TaskDescription
 )
 from freenas.dispatcher.rpc import RpcException, accepts, returns, description, private, generator
@@ -779,6 +779,46 @@ class ZpoolExportTask(ZpoolBaseTask):
             zfs.export_pool(pool)
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
+
+
+@private
+@accepts(str)
+@description('Destroys an exported pool')
+class ZpoolDestroyExportedTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return 'Destroying an exported poool'
+
+    def describe(self, name):
+        return TaskDescription('Destroying exported pool {name}', name=name)
+
+    def verify(self, name):
+        return ['disk:{0}'.format(d) for d in self.dispatcher.call_sync('disk.query', {'select': 'path'})]
+
+    def run(self, name):
+        def check_and_clear_label(path):
+            if not path:
+                return
+
+            try:
+                label = libzfs.read_label(path)
+            except OSError:
+                return
+
+            if not label or label.get('state') == libzfs.PoolState.DESTROYED or label.get('name') != name:
+                return
+
+            try:
+                libzfs.clear_label(path)
+            except OSError as err:
+                self.add_warning(TaskWarning(
+                    err.errno,
+                    'Failed to remove ZFS label on {0}: {1}'.format(path, err.strerror)
+                ))
+
+        for disk in self.dispatcher.call_sync('disk.query'):
+            check_and_clear_label(disk['path'])
+            check_and_clear_label(q.get(disk, 'status,data_partition_path'))
 
 
 class ZfsBaseTask(Task):
@@ -1683,6 +1723,7 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('zfs.pool.import', ZpoolImportTask)
     plugin.register_task_handler('zfs.pool.export', ZpoolExportTask)
     plugin.register_task_handler('zfs.pool.destroy', ZpoolDestroyTask)
+    plugin.register_task_handler('zfs.pool.destroy_exported', ZpoolDestroyExportedTask)
     plugin.register_task_handler('zfs.pool.scrub', ZpoolScrubTask)
 
     plugin.register_task_handler('zfs.mount', ZfsDatasetMountTask)
