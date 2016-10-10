@@ -35,10 +35,10 @@ import logging
 import tempfile
 import base64
 import gevent
+import time
 import libzfs
 from xml.etree import ElementTree
 from bsd import geom, getswapinfo
-from gevent.lock import RLock
 from resources import Resource
 from datetime import datetime, timedelta
 from freenas.utils import first_or_default, query as q
@@ -1719,7 +1719,9 @@ def _init(dispatcher, plugin):
 
     # Generate cache for all disks
     greenlets = []
+    disk_cache_start = time.time()
     for i in dispatcher.rpc.call_sync('system.device.get_devices', 'disk'):
         greenlets.append(gevent.spawn(on_device_attached, {'path': i['path']}))
 
     gevent.wait(greenlets)
+    logger.info("Syncing disk cache took {0:.0f} ms".format((time.time() - disk_cache_start) * 1000))
