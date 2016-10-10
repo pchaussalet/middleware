@@ -1907,7 +1907,7 @@ def _init(dispatcher, plugin):
             'name': {'type': 'string'},
             'type': {'$ref': 'vm-device-type'},
             'properties': {
-                'discriminator': '@type',
+                'discriminator': '%type',
                 'oneOf': [
                     {'$ref': 'vm-device-nic'},
                     {'$ref': 'vm-device-disk'},
@@ -1930,7 +1930,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            '@type': {'enum': ['vm-device-nic']},
+            '%type': {'enum': ['vm-device-nic']},
             'device': {'$ref': 'vm-device-nic-device'},
             'mode': {'$ref': 'vm-device-nic-mode'},
             'link_address': {'type': 'string'},
@@ -1952,7 +1952,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            '@type': {'enum': ['vm-device-disk']},
+            '%type': {'enum': ['vm-device-disk']},
             'mode': {'$ref': 'vm-device-disk-mode'},
             'size': {'type': 'integer'},
             'source': {'type': 'string'}
@@ -1969,7 +1969,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            '@type': {'enum': ['vm-device-cdrom']},
+            '%type': {'enum': ['vm-device-cdrom']},
             'path': {'type': 'string'}
         },
         'required': ['path']
@@ -1980,7 +1980,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            '@type': {'enum': ['vm-device-volume']},
+            '%type': {'enum': ['vm-device-volume']},
             'type': {'$ref': 'vm-device-volume-type'},
             'auto': {'type': ['boolean', 'null']},
             'destination': {'type': ['string', 'null']},
@@ -1997,7 +1997,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            '@type': {'enum': ['vm-device-graphics']},
+            '%type': {'enum': ['vm-device-graphics']},
             'resolution': {'$ref': 'vm-device-graphics-resolution'},
             'vnc_enabled': {'type': 'boolean'},
             'vnc_port': {
@@ -2042,7 +2042,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            '@type': {'enum': ['vm-device-usb']},
+            '%type': {'enum': ['vm-device-usb']},
             'device': {'$ref': 'vm-device-usb-device'},
             'config': {
                 'type': 'object'  # XXX: not sure what goes there

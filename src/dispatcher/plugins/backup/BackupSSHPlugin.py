@@ -236,7 +236,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            'type': {'enum': ['backup-ssh']},
+            '%type': {'enum': ['backup-ssh']},
             'peer': {'type': 'string'},
             'directory': {'type': 'string'}
         }

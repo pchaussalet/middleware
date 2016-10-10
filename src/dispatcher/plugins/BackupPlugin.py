@@ -473,7 +473,7 @@ def _init(dispatcher, plugin):
 
     def update_backup_properties_schema():
         plugin.register_schema_definition('backup-properties', {
-            'discriminator': 'type',
+            'discriminator': '%type',
             'oneOf': [
                 {'$ref': 'backup-{0}'.format(name)} for name in dispatcher.call_sync('backup.supported_providers')
             ]

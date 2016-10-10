@@ -261,7 +261,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            'type': {'enum': ['backup-s3']},
+            '%type': {'enum': ['backup-s3']},
             'peer': {'type': 'string'},
             'bucket': {'type': ['string', 'null']},
             'folder': {'type': ['string', 'null']}
