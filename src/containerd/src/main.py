@@ -642,9 +642,9 @@ class DockerHost(object):
                             'operation': actions.get(ev['Action'], 'update'),
                             'ids': [ev['id']]
                         })
+                        details = self.connection.inspect_container(ev['id'])
 
                         if actions.get(ev['Action']) != 'delete':
-                            details = self.connection.inspect_container(ev['id'])
                             state = details['State']
                             name = details['Name'][1:]
                             if not state.get('Running') and state.get('ExitCode'):
@@ -671,8 +671,6 @@ class DockerHost(object):
                                     p.delete_rule('rdr', rule.index)
 
                         elif ev['Action'] == 'start':
-                            details = self.connection.inspect_container(ev['id'])
-
                             if 'org.freenas.expose_ports_at_host' not in details['Config']['Labels']:
                                 continue
 
