@@ -1343,7 +1343,7 @@ def generate_disk_cache(dispatcher, path):
         'description': provider.config['descr'],
         'serial': serial,
         'max_rotation': max_rotation,
-        'is_ssd': True if max_rotation else False,
+        'is_ssd': False if max_rotation else True,
         'lunid': provider.config.get('lunid'),
         'model': disk_info['model'],
         'interface': disk_info['interface'],
