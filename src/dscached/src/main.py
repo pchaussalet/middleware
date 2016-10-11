@@ -257,9 +257,12 @@ class Directory(object):
         self.context.logger.info('Initializing directory {0}'.format(self.name))
 
         try:
+            if self.plugin_type not in context.plugins:
+                raise RuntimeError('Plugin type {0} not found'.format(self.plugin_type))
+
             self.instance = context.plugins[self.plugin_type](self.context)
         except BaseException as err:
-            self.context.logger.error('Failed to initialize directory {0}: {1}'.format(self.name, str(err)))
+            self.context.logger.error('Failed to initialize directory {0}: {1}'.format(self.name, str(err)), exc_info=True)
             self.context.logger.error('Parameters: {0}'.format(self.parameters))
             raise ValueError('Failed to initialize {0}'.format(self.plugin_type))
 
