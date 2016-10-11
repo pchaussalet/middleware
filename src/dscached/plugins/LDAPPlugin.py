@@ -25,21 +25,22 @@
 #
 #####################################################################
 
+import binascii
 import errno
 import uuid
 import ldap3
 import ldap3.utils.dn
 import logging
 import threading
+import ssl
 from datetime import datetime
 from plugin import DirectoryServicePlugin, DirectoryState
-from utils import obtain_or_renew_ticket, join_dn, dn_to_domain, domain_to_dn, LdapQueryBuilder
+from utils import obtain_or_renew_ticket, join_dn, dn_to_domain, domain_to_dn, LdapQueryBuilder, uuid2, parse_uuid2
+from utils import crc32
 from freenas.utils import first_or_default, normalize
-from freenas.utils.query import get
+from freenas.utils.query import get, contains
 
 
-LDAP_USER_UUID = uuid.UUID('ACA6D9B8-AF83-49D9-9BD7-A5E771CE17EB')
-LDAP_GROUP_UUID = uuid.UUID('86657E0F-C5E8-44E0-8896-DD57C78D9766')
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +64,12 @@ class LDAPPlugin(DirectoryServicePlugin):
     def normalize_parameters(cls, parameters):
         return normalize(parameters, {
             'user_suffix': 'ou=users',
-            'group_suffix': 'ou=groups'
+            'group_suffix': 'ou=groups',
+            'krb_realm': None,
+            'krb_principal': None,
+            'encryption': 'OFF',
+            'certificate': None,
+            'verify_certificate': True
         })
 
     def search(self, search_base, search_filter, attributes=None):
@@ -79,20 +85,31 @@ class LDAPPlugin(DirectoryServicePlugin):
         return first_or_default(None, self.search(*args, **kwargs))
 
     def get_id(self, entry):
+        checksum = crc32(dn_to_domain(self.parameters['base_dn']))
+
         if 'entryUUID' in entry:
             return get(entry, 'entryUUID.0')
 
         if 'uidNumber' in entry:
-            return str(uuid.uuid5(LDAP_USER_UUID, get(entry, 'uidNumber.0')))
+            return str(uuid2(checksum, int(get(entry, 'uidNumber.0'))))
 
         if 'gidNumber' in entry:
-            return str(uuid.uuid5(LDAP_GROUP_UUID, get(entry, 'gidNumber.0')))
+            return str(uuid2(checksum, int(get(entry, 'gidNumber.0'))))
 
         return str(uuid.uuid4())
 
     def convert_user(self, entry):
         entry = dict(entry['attributes'])
         pwd_change_time = get(entry, 'sambaPwdLastSet.0')
+
+        if contains(entry, 'gidNumber.0'):
+            group = self.search_one(
+                self.group_dn,
+                '(gidNumber={0})'.format(get(entry, 'gidNumber.0')),
+                attributes='ipaUniqueID'
+            )
+
+            group = dict(group['attributes'])
 
         return {
             'id': self.get_id(entry),
@@ -166,21 +183,35 @@ class LDAPPlugin(DirectoryServicePlugin):
             return True
 
     def configure(self, enable, directory):
+        def create_server_args(params):
+            validate = ssl.CERT_REQUIRED if params['verify_certificate'] else ssl.CERT_NONE
+
+            if params['encryption'] == 'OFF':
+                return {}
+
+            if params['encryption'] == 'SSL':
+                tls = ldap3.Tls(validate=validate)
+                return {
+                    'port': 636,
+                    'use_ssl': True,
+                    'tls': tls
+                }
+
+            if params['encryption'] == 'TLS':
+                tls = ldap3.Tls(validate=validate)
+                return {
+                    'use_ssl': True,
+                    'tls': tls
+                }
+
         with self.cv:
             self.directory = directory
             self.parameters = directory.parameters
             self.enabled = enable
-            self.server = ldap3.Server(self.parameters['server'])
+            self.server = ldap3.Server(self.parameters['server'], **create_server_args(self.parameters))
             self.base_dn = self.parameters['base_dn']
             self.user_dn = join_dn(self.parameters['user_suffix'], self.base_dn)
             self.group_dn = join_dn(self.parameters['group_suffix'], self.base_dn)
-            self.conn = ldap3.Connection(
-                self.server,
-                client_strategy='ASYNC',
-                user=self.parameters['bind_dn'],
-                password=self.parameters['password']
-            )
-
             self.cv.notify_all()
 
         return dn_to_domain(directory.parameters['base_dn'])
@@ -239,7 +270,8 @@ def _init(context):
             'krb_realm': {'type': ['string', 'null']},
             'krb_principal': {'type': ['string', 'null']},
             'encryption': {'$ref': 'ldap-directory-params-encryption'},
-            'certificate': {'type': ['string', 'null']}
+            'certificate': {'type': ['string', 'null']},
+            'verify_certificate': {'type': 'boolean'}
         }
     })
 
