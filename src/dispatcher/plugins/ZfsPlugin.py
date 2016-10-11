@@ -818,7 +818,7 @@ class ZpoolDestroyExportedTask(Task):
 
         for disk in self.dispatcher.call_sync('disk.query'):
             check_and_clear_label(disk['path'])
-            check_and_clear_label(q.get(disk, 'status,data_partition_path'))
+            check_and_clear_label(q.get(disk, 'status.data_partition_path'))
 
 
 class ZfsBaseTask(Task):
