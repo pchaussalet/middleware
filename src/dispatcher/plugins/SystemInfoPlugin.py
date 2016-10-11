@@ -188,7 +188,8 @@ class SystemAdvancedProvider(Provider):
             'motd': cs.get('system.motd'),
             'boot_scrub_internal': cs.get('system.boot_scrub_internal'),
             'periodic_notify_user': cs.get('system.periodic.notify_user'),
-            'graphite_servers': cs.get('system.graphite_servers')
+            'graphite_servers': cs.get('system.graphite_servers'),
+            'freenas_token_lifetime': cs.get('peer.freenas.token_lifetime')
         }
 
 
@@ -389,6 +390,9 @@ class SystemAdvancedConfigureTask(Task):
                 cs.set('system.graphite_servers', props['graphite_servers'])
                 self.dispatcher.call_sync('etcd.generation.generate_group', 'collectd')
                 self.dispatcher.call_sync('service.restart', 'collectd')
+
+            if 'freenas_token_lifetime' in props:
+                cs.set('peer.freenas.token_lifetime', props['freenas_token_lifetime'])
 
             if console:
                 self.dispatcher.call_sync('etcd.generation.generate_group', 'console')
@@ -639,7 +643,8 @@ def _init(dispatcher, plugin):
             'graphite_servers': {
                 'type': 'array',
                 'items': {'type': 'string'}
-            }
+            },
+            'freenas_token_lifetime': {'type': 'integer'}
         },
         'additionalProperties': False,
     })
