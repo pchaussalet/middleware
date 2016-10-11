@@ -25,6 +25,7 @@
 #
 #####################################################################
 
+import binascii
 import uuid
 import dns.resolver
 import dns.exception
@@ -148,6 +149,10 @@ def get_a_records(domain, server=None):
             yield i.address
     except dns.exception.DNSException:
         return
+
+
+def crc32(domain):
+    return binascii.crc32(domain.encode('utf-8'))
 
 
 def uuid2(checksum, id):
