@@ -46,7 +46,7 @@ class SMBSharesProvider(Provider):
         result = []
         for i in smbconf.get_active_users():
             try:
-                user = pwd.getpwuid(i.uid).pw_name
+                user = self.dispatcher.threaded(pwd.getpwuid, i.uid).pw_name
             except KeyError:
                 user = None
 
