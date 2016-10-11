@@ -161,7 +161,7 @@ PassivePorts ${config['passive_ports_min']} ${config['passive_ports_max']}
   TimesGMT off
 </Global>
 
-
+% if config['tls']:
 LoadModule mod_tls.c
 <IfModule mod_tls.c>
   TLSEngine on
@@ -174,6 +174,7 @@ LoadModule mod_tls.c
   TLSVerifyClient off
   TLSRequired ${config['tls_policy'].lower()}
 </IfModule>
+% endif
 
 <IfModule mod_ban.c>
   BanEngine off
