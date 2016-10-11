@@ -50,7 +50,7 @@
 %   endif
 % endif
 
-% for share in dispatcher.call_sync("share.query", [("type", "=", "afp"), ("enabled", "=", True)]):
+% for share in datastore.query("shares", ("type", "=", "afp"), ("enabled", "=", True)):
 [${share["name"]}]
 ${opt("path", share["filesystem_path"])}\
 ${opt("valid users", norm_users(share["properties"].get("users_allow"), share["properties"].get("groups_allow")))}\
