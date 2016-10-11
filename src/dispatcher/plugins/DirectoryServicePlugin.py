@@ -231,7 +231,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('directory-params', {
         'discriminator': '%type',
         'oneOf': [
-            {'$ref': '{0}-directory-params'.format(name)} for name in ('winbind', 'freeipa', 'ldap')
+            {'$ref': '{0}-directory-params'.format(name)} for name in ('winbind', 'freeipa', 'ldap', 'nis')
         ]
     })
 
@@ -243,7 +243,7 @@ def _init(dispatcher, plugin):
             'name': {'type': 'string'},
             'type': {
                 'type': 'string',
-                'enum': ['file', 'local', 'winbind', 'freeipa', 'ldap']
+                'enum': ['file', 'local', 'winbind', 'freeipa', 'ldap', 'nis']
             },
             'enabled': {'type': 'boolean'},
             'enumerate': {'type': 'boolean'},
