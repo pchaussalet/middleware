@@ -62,8 +62,8 @@ class LDAPPlugin(DirectoryServicePlugin):
     @classmethod
     def normalize_parameters(cls, parameters):
         return normalize(parameters, {
-            'user_suffix': 'OU=users',
-            'group_suffix': 'OU=groups'
+            'user_suffix': 'ou=users',
+            'group_suffix': 'ou=groups'
         })
 
     def search(self, search_base, search_filter, attributes=None):
@@ -220,6 +220,11 @@ class LDAPPlugin(DirectoryServicePlugin):
 def _init(context):
     context.register_plugin('ldap', LDAPPlugin)
 
+    context.register_schema('ldap-directory-params-encryption', {
+        'type': 'string',
+        'enum': ['OFF', 'LDAPS', 'TLS']
+    })
+
     context.register_schema('ldap-directory-params', {
         'type': 'object',
         'additionalProperties': False,
@@ -231,7 +236,10 @@ def _init(context):
             'password': {'type': 'string'},
             'user_suffix': {'type': ['string', 'null']},
             'group_suffix': {'type': ['string', 'null']},
-            'krb_realm': {'type': ['string', 'null']}
+            'krb_realm': {'type': ['string', 'null']},
+            'krb_principal': {'type': ['string', 'null']},
+            'encryption': {'$ref': 'ldap-directory-params-encryption'},
+            'certificate': {'type': ['string', 'null']}
         }
     })
 
