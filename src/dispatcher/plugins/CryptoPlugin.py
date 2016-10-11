@@ -88,7 +88,7 @@ def load_privatekey(buf, passphrase=None):
 
 def get_file_contents(path):
     with open(path, 'r') as f:
-        return "".join(f.readlines())
+        return f.read()
 
 
 def get_utc_string_from_asn1generalizedtime(asn1):
@@ -295,34 +295,43 @@ class CertificateImportTask(Task):
             raise VerifyException(errno.EINVAL, 'Provide certificate name without : `"`')
 
         if certificate['type'] not in ('CERT_EXISTING', 'CA_EXISTING'):
-            raise VerifyException(errno.EINVAL,
-                                  'Invalid certificate type: {0}. Should be "CERT_EXISTING" or "CA_EXISTING"'.format(
-                                      certificate['type']))
+            raise VerifyException(
+                errno.EINVAL,
+                'Invalid certificate type: {0}. Should be "CERT_EXISTING" or "CA_EXISTING"'.format(
+                    certificate['type']
+                )
+            )
 
         if certificate['certificate_path'] and not Path(certificate['certificate_path']).is_file():
-            raise VerifyException(errno.ENFILE,
-                                  "Certificate file: '{0}' does not exist".format(certificate['certificate_path']))
+            raise VerifyException(
+                errno.ENOENT,
+                'Certificate file {0} does not exist'.format(certificate['certificate_path'])
+            )
 
         if certificate['privatekey_path'] and not Path(certificate['privatekey_path']).is_file():
-            raise VerifyException(errno.ENFILE,
-                                  "Certificate's privatekey file: '{0}' does not exist".format(
-                                      certificate['privatekey_path']))
+            raise VerifyException(
+                errno.ENOENT,
+                "Certificate's privatekey file {0} does not exist".format(certificate['privatekey_path'])
+            )
 
         if certificate['certificate_path']:
             try:
                 crypto.load_certificate(crypto.FILETYPE_PEM, get_file_contents(
                     certificate['certificate_path']).encode('utf-8'))
             except Exception:
-                raise VerifyException(errno.EINVAL,
-                                      "Invalid certificate file contents: '{0}'".format(
-                                          certificate['certificate_path']))
+                raise VerifyException(
+                    errno.EINVAL,
+                    "Invalid certificate file contents: '{0}'".format(certificate['certificate_path'])
+                )
 
         if certificate['privatekey_path']:
             try:
                 crypto.load_privatekey(crypto.FILETYPE_PEM, get_file_contents(certificate['privatekey_path']))
             except Exception:
-                raise VerifyException(errno.EINVAL,
-                                      "Invalid privatekey file contents: '{0}'".format(certificate['privatekey_path']))
+                raise VerifyException(
+                    errno.EINVAL,
+                    "Invalid privatekey file contents: '{0}'".format(certificate['privatekey_path'])
+                )
 
         """
         try:
@@ -546,8 +555,10 @@ def _init(dispatcher, plugin):
 
     plugin.register_schema_definition('crypto-certificate-type', {
         'type': 'string',
-        'enum': ['CA_EXISTING', 'CA_INTERMEDIATE', 'CA_INTERNAL',
-                 'CERT_CSR', 'CERT_EXISTING', 'CERT_INTERMEDIATE', 'CERT_INTERNAL']
+        'enum': [
+            'CA_EXISTING', 'CA_INTERMEDIATE', 'CA_INTERNAL',
+            'CERT_CSR', 'CERT_EXISTING', 'CERT_INTERMEDIATE', 'CERT_INTERNAL'
+        ]
     })
 
     plugin.register_schema_definition('crypto-certificate-digestalgorithm', {
