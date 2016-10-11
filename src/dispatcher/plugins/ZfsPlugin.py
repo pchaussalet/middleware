@@ -1324,7 +1324,7 @@ def sync_snapshot_cache(dispatcher, snapshot, old_snapshot=None):
         if old_snapshot:
             snapshots.rename(old_snapshot, snapshot)
 
-        snapshots.put(snapshot, zfs.get_snapshot(snapshot).__getstate__())
+        snapshots.put(snapshot, dispatcher.threaded(lambda: zfs.get_snapshot(snapshot).__getstate__()))
     except libzfs.ZFSException as e:
         if e.code == libzfs.Error.NOENT:
             snapshots.remove(snapshot)
