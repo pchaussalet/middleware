@@ -58,6 +58,7 @@ from pySMART import Device, smart_health_assement
 
 
 EXPIRE_TIMEOUT = timedelta(hours=24)
+SMART_CHECK_INTERVAL = 600  # in seconds (i.e. 10 minutes)
 multipaths = -1
 diskinfo_cache = CacheStore()
 logger = logging.getLogger('DiskPlugin')
@@ -988,31 +989,6 @@ def device_to_identifier(name, serial=None):
     return "devicename:{0}".format(os.path.join('/dev', name))
 
 
-def info_from_device(devname):
-    disk_info = {
-        'smart_enabled': False,
-        'smart_capable': False,
-        'smart_status': None,
-        'model': None,
-        'interface': None
-    }
-
-    # TODO, fix this to deal with above generated args for interface
-    # whilst obtaining disk info, get smart health assessment via a greenlet
-    health_assessment_greenlet = gevent.spawn(smart_health_assement, devname)
-    dev_smart_info = Device(os.path.join('/dev/', devname), abridged=True)
-    health_assessment_greenlet.join()
-    disk_info['smart_capable'] = dev_smart_info.smart_capable
-    if dev_smart_info.smart_capable:
-        disk_info['model'] = dev_smart_info.model
-        disk_info['interface'] = dev_smart_info.interface
-        disk_info['smart_enabled'] = dev_smart_info.smart_enabled
-        if dev_smart_info.smart_enabled:
-            disk_info['smart_status'] = health_assessment_greenlet.value
-
-    return disk_info
-
-
 def get_disk_by_path(path):
     for disk in diskinfo_cache.validvalues():
         if disk['path'] == path:
@@ -1233,8 +1209,6 @@ def update_disk_cache(dispatcher, path):
     except RuntimeError:
         camdev = None
 
-    disk_info = info_from_device(gdisk.name)
-
     provider = gdisk.provider
     partitions = list(generate_partitions_list(gpart))
     identifier = device_to_identifier(gdisk.name, camdev.serial if camdev else None)
@@ -1261,11 +1235,6 @@ def update_disk_cache(dispatcher, path):
     disk.update({
         'mediasize': provider.mediasize,
         'sectorsize': provider.sectorsize,
-        'model': disk_info['model'],
-        'interface': disk_info['interface'],
-        'smart_capable': disk_info['smart_capable'],
-        'smart_enabled': disk_info['smart_enabled'],
-        'smart_status': disk_info['smart_status'],
         'id': identifier,
         'schema': gpart.config.get('scheme') if gpart else None,
         'empty': len(partitions) == 0,
@@ -1278,6 +1247,9 @@ def update_disk_cache(dispatcher, path):
         'gdisk_name': gdisk.name,
         'enclosure': enclosure
     })
+
+    # Get S.M.A.R.T information
+    update_smart_info(dispatcher, disk)
 
     if gmultipath:
         disk['multipath'] = generate_multipath_info(gmultipath)
@@ -1477,6 +1449,19 @@ def configure_disk(datastore, id):
         gevent.spawn_later(60, configure_standby, standby_mode)
 
 
+def update_smart_info(dispatcher, disk):
+    updated = False
+    smart_info = Device(disk['gdisk_name'])
+    updated_disk = disk.copy()
+    # setting all_info to False below makes pySMART skip over fields we already
+    # have in the disk dict (like name, path, serial number, is_ssd, max_roation and so on)
+    updated_disk.update({'smart_info': smart_info.__getstate__(all_info=False)})
+    if updated_disk != disk:
+        diskinfo_cache.put(disk['id'], updated_disk)
+        updated = True
+    return updated
+
+
 def collect_debug(dispatcher):
     yield AttachCommandOutput('gpart', ['/sbin/gpart', 'show'])
     yield AttachData('disk-cache-state', json.dumps(diskinfo_cache.query(), indent=4))
@@ -1517,6 +1502,21 @@ def _init(dispatcher, plugin):
                 logger.info('Updating disk cache for device %s', args['path'])
                 update_disk_cache(dispatcher, args['path'])
 
+    def smart_updater():
+        while True:
+            updated_disks = [
+                disk['id'] for disk in diskinfo_cache.validvalues() if update_smart_info(dispatcher, disk)
+            ]
+            if updated_disks:
+                dispatcher.dispatch_event(
+                    'disk.changed',
+                    {
+                        'operation': 'update',
+                        'ids': updated_disks
+                    }
+                )
+            gevent.sleep(SMART_CHECK_INTERVAL)
+
     plugin.register_schema_definition('disk', {
         'type': 'object',
         'properties': {
@@ -1549,11 +1549,6 @@ def _init(dispatcher, plugin):
             'serial': {'type': ['string', 'null']},
             'lunid': {'type': 'string'},
             'max_rotation': {'type': 'integer'},
-            'smart_capable': {'type': 'boolean'},
-            'smart_enabled': {'type': 'boolean'},
-            'smart_status': {'type': 'string'},
-            'model': {'type': 'string'},
-            'interface': {'type': 'string'},
             'is_ssd': {'type': 'boolean'},
             'is_multipath': {'type': 'boolean'},
             'is_encrypted': {'type': 'boolean'},
@@ -1582,7 +1577,8 @@ def _init(dispatcher, plugin):
             'swap_partition_path': {'type': 'string'},
             'encrypted': {'type': 'boolean'},
             'gdisk_name': {'type': 'string'},
-            'enclosure': {'type': ['string', 'null']}
+            'enclosure': {'type': ['string', 'null']},
+            'smart_info': {'$ref': 'smart_info'},
         }
     })
 
@@ -1673,6 +1669,87 @@ def _init(dispatcher, plugin):
         }
     })
 
+    plugin.register_schema_definition('smart_info', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'interface': {'type': ['string', 'null']},
+            'model': {'type': ['string', 'null']},
+            'smart_capable': {'type': 'boolean'},
+            'smart_enabled': {'type': 'boolean'},
+            'smart_status': {'type': ['string', 'null']},
+            'firmware': {'type': ['string', 'null']},
+            'messages': h.array(str),
+            'test_capabilities': {'$ref': 'supported_smart_tests'},
+            'tests': {
+                'oneOf': [
+                    {
+                        'type': 'array',
+                        'items': {'$ref': 'smart_test_result'},
+                    },
+                    {'type': 'null'}
+                ]
+            },
+            'diagnostics': h.object(),
+            'temperature': {'type': 'integer'},
+            'attributes': {
+                'type': 'array',
+                'items': {'oneOf': [{'$ref': 'smart_attribute'}, {'type': 'null'}]},
+                'minItems': 255,
+                'maxItems': 255
+            }
+        }
+    })
+
+    plugin.register_schema_definition('smart_test_result', {
+        'type': 'object',
+        'additonalProperties': False,
+        'properties': {
+            'num': {'type': ['integer', 'null']},
+            'type': {'type': 'string'},
+            'status': {'type': 'string'},
+            'hours': {'type': 'string'},
+            'lba': {'type': 'string'},
+            'remain': {'type': 'string'},
+            'segment': {'type': ['string', 'null']},
+            'sense': {'type': ['string', 'null']},
+            'asc': {'type': ['string', 'null']},
+            'ascq': {'type': ['string', 'null']}
+        }
+    })
+
+    plugin.register_schema_definition('supported_smart_tests', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'offline': {'type': 'boolean'},
+            'short': {'type': 'boolean'},
+            'long': {'type': 'boolean'},
+            'conveyance': {'type': 'boolean'},
+            'selective': {'type': 'boolean'}
+        }
+    })
+
+    plugin.register_schema_definition('smart_attribute', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'num': {
+                'type': 'integer',
+                'minimum': 1,
+                'maximum': 255
+            },
+            'flags': {'type': 'string'},
+            'raw': {'type': 'string'},
+            'value': {'type': 'string'},
+            'worst': {'type': 'string'},
+            'threshold': {'type': 'string'},
+            'type': {'type': 'string'},
+            'updated': {'type': 'string'},
+            'when_failed': {'type': 'string'},
+        }
+    })
+
     plugin.register_provider('disk', DiskProvider)
     plugin.register_provider('disk.enclosure', EnclosureProvider)
     plugin.register_event_handler('system.device.attached', on_device_attached)
@@ -1724,3 +1801,4 @@ def _init(dispatcher, plugin):
 
     gevent.wait(greenlets)
     logger.info("Syncing disk cache took {0:.0f} ms".format((time.time() - disk_cache_start) * 1000))
+    gevent.spawn(smart_updater)
