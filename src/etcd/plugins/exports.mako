@@ -2,7 +2,7 @@
     config = dispatcher.call_sync('service.nfs.get_config')
 
     def unique_networks():
-        for s in datastore.query("shares", ("type", "=", "nfs"), ("enabled", "=", True)):
+        for s in ds.query("shares", ("type", "=", "nfs"), ("enabled", "=", True)):
             if not s.get('hosts'):
                 yield s, None
                 continue
