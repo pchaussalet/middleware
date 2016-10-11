@@ -55,6 +55,7 @@ class LDAPPlugin(DirectoryServicePlugin):
         self.base_dn = None
         self.user_dn = None
         self.group_dn = None
+        self.start_tls = False
         self.bind_lock = threading.RLock()
         self.bind_thread = threading.Thread(target=self.bind, daemon=True)
         self.cv = threading.Condition()
@@ -200,7 +201,6 @@ class LDAPPlugin(DirectoryServicePlugin):
             if params['encryption'] == 'TLS':
                 tls = ldap3.Tls(validate=validate)
                 return {
-                    'use_ssl': True,
                     'tls': tls
                 }
 
@@ -212,6 +212,7 @@ class LDAPPlugin(DirectoryServicePlugin):
             self.base_dn = self.parameters['base_dn']
             self.user_dn = join_dn(self.parameters['user_suffix'], self.base_dn)
             self.group_dn = join_dn(self.parameters['group_suffix'], self.base_dn)
+            self.start_tls = self.parameters['encryption'] == 'TLS'
             self.cv.notify_all()
 
         return dn_to_domain(directory.parameters['base_dn'])
@@ -233,6 +234,11 @@ class LDAPPlugin(DirectoryServicePlugin):
                             user=self.parameters['bind_dn'],
                             password=self.parameters['password']
                         )
+
+                        if self.start_tls:
+                            logger.debug('Performing STARTTLS...')
+                            self.conn.open()
+                            self.conn.start_tls()
 
                         self.conn.bind()
                         self.directory.put_state(DirectoryState.BOUND)
