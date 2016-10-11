@@ -222,7 +222,7 @@ def _init(context):
 
     context.register_schema('ldap-directory-params-encryption', {
         'type': 'string',
-        'enum': ['OFF', 'LDAPS', 'TLS']
+        'enum': ['OFF', 'SSL', 'TLS']
     })
 
     context.register_schema('ldap-directory-params', {
