@@ -28,6 +28,8 @@
 import errno
 import os
 import stat
+import pwd
+import grp
 import bsd
 from datetime import datetime
 from bsd import acl
@@ -77,14 +79,12 @@ class FilesystemProvider(Provider):
             raise RpcException(err.errno, str(err))
 
         try:
-            user = self.dispatcher.call_sync('dscached.account.getpwuid', st.st_uid)
-            username = user['username']
-        except RpcException:
+            username = self.dispatcher.threaded(pwd.getpwuid, st.st_uid).pw_name
+        except KeyError:
             username = None
 
         try:
-            group = self.dispatcher.call_sync('dscached.group.getgrgid', st.st_gid)
-            groupname = group['name']
+            groupname = self.dispatcher.threaded(grp.getgrgid, st.st_gid).gr_name
         except RpcException:
             groupname = None
 
@@ -99,7 +99,7 @@ class FilesystemProvider(Provider):
             'gid': st.st_gid,
             'group': groupname,
             'permissions': {
-                'acls': a.__getstate__(),
+                'acls': self.dispatcher.threaded(a.__getstate__),
                 'user': username,
                 'group': groupname,
                 'modes': {
