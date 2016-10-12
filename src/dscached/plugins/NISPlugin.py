@@ -53,7 +53,7 @@ class NISPlugin(DirectoryServicePlugin):
         tmp = (self.domain_name or "").encode('utf-8')
         
         return {
-            'id': uuid2(crc32(tmp), entry.pw_uid),
+            'id': str(uuid2(crc32(tmp), entry.pw_uid)),
             'uid': entry.pw_uid,
             'gid': entry.pw_gid,
             'builtin': False,
@@ -62,17 +62,17 @@ class NISPlugin(DirectoryServicePlugin):
             'shell': entry.pw_shell,
             'home': entry.pw_dir,
             'sshpubkey': None,
-            'group': uuid2(crc32(tmp), entry.pw_gid),
+            'group': str(uuid2(crc32(tmp), entry.pw_gid)),
             'groups': None,
             'sudo': False,
             }
     
     def _convert_group(self, entry):
-        tmp  (self.domain_name or "").encode('utf-8')
+        tmp = (self.domain_name or "").encode('utf-8')
         return {
-            'id': uuid2(crc32(tmp), entry.gr_gid),
+            'id': str(uuid2(crc32(tmp), int(entry.gr_gid))),
             'gid': entry.gr_gid,
-            'name': entry.gr_nam,
+            'name': entry.gr_name,
             'parents': None,
             'builtin': False,
             'sudo': False,
@@ -120,7 +120,9 @@ class NISPlugin(DirectoryServicePlugin):
         (checksum, gid) = parse_uuid2(uuid)
         if crc32(tmp) != checksum:
             return None
-        return self._convert_group(self.server.getgrgid(gid))
+        tmp = self.server.getgrgid(gid)
+        retval = self._convert_group(tmp)
+        return retval
 
     def change_password(self, username, password):
         # Not currently implemented, or at least not implemented well
