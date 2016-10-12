@@ -433,8 +433,8 @@ class ZpoolCreateTask(Task):
 
         try:
             self.dispatcher.exec_and_wait_for_event(
-                'zfs.pool.changed',
-                lambda args: name in args['ids'],
+                'fs.zfs.pool.created',
+                lambda args: args['pool'] == name,
                 lambda: zfs.create(name, nvroot, opts, fsopts),
                 600
             )
@@ -934,7 +934,12 @@ class ZfsDatasetCreateTask(Task):
 
             zfs = get_zfs()
             pool = zfs.get(path.split('/')[0])
-            pool.create(path, params, fstype=self.type, sparse_vol=sparse)
+            self.dispatcher.exec_and_wait_for_event(
+                'fs.zfs.dataset.created',
+                lambda args: args['ds'] == path,
+                lambda: pool.create(path, params, fstype=self.type, sparse_vol=sparse),
+                600
+            )
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
@@ -957,7 +962,12 @@ class ZfsSnapshotCreateTask(ZfsBaseTask):
         try:
             zfs = get_zfs()
             ds = zfs.get_dataset(path)
-            ds.snapshot('{0}@{1}'.format(path, snapshot_name), recursive=recursive, fsopts=params)
+            self.dispatcher.exec_and_wait_for_event(
+                'fs.zfs.dataset.created',
+                lambda args: args['ds'] == '{0}@{1}'.format(path, snapshot_name),
+                lambda: ds.snapshot('{0}@{1}'.format(path, snapshot_name), recursive=recursive, fsopts=params),
+                600
+            )
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
@@ -977,7 +987,12 @@ class ZfsSnapshotDeleteTask(ZfsBaseTask):
         try:
             zfs = get_zfs()
             snap = zfs.get_snapshot('{0}@{1}'.format(path, snapshot_name))
-            snap.delete(recursive)
+            self.dispatcher.exec_and_wait_for_event(
+                'fs.zfs.dataset.deleted',
+                lambda args: args['ds'] == '{0}@{1}'.format(path, snapshot_name),
+                lambda: snap.delete(recursive),
+                600
+            )
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
@@ -1003,7 +1018,12 @@ class ZfsSnapshotDeleteMultipleTask(ZfsBaseTask):
 
             for i in snapshot_names:
                 snap = zfs.get_snapshot('{0}@{1}'.format(path, i))
-                snap.delete(recursive)
+                self.dispatcher.exec_and_wait_for_event(
+                    'fs.zfs.dataset.deleted',
+                    lambda args: args['ds'] == '{0}@{1}'.format(path, i),
+                    lambda: snap.delete(recursive),
+                    600
+                )
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
@@ -1061,7 +1081,12 @@ class ZfsDestroyTask(ZfsBaseTask):
         try:
             zfs = get_zfs()
             dataset = zfs.get_object(name)
-            dataset.delete()
+            self.dispatcher.exec_and_wait_for_event(
+                'fs.zfs.dataset.deleted',
+                lambda args: args['ds'] == name,
+                lambda: dataset.delete(),
+                600
+            )
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
@@ -1081,7 +1106,12 @@ class ZfsRenameTask(ZfsBaseTask):
         try:
             zfs = get_zfs()
             dataset = zfs.get_object(name)
-            dataset.rename(new_name)
+            self.dispatcher.exec_and_wait_for_event(
+                'fs.zfs.dataset.deleted',
+                lambda args: args['ds'] == name,
+                lambda: dataset.rename(new_name),
+                600
+            )
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
