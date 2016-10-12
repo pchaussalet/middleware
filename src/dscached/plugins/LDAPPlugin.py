@@ -102,15 +102,18 @@ class LDAPPlugin(DirectoryServicePlugin):
     def convert_user(self, entry):
         entry = dict(entry['attributes'])
         pwd_change_time = get(entry, 'sambaPwdLastSet.0')
+        groups = []
+        group = None
 
-        if contains(entry, 'gidNumber.0'):
-            group = self.search_one(
+        if 'gidNumber.0' in entry:
+            ret = self.search_one(
                 self.group_dn,
                 '(gidNumber={0})'.format(get(entry, 'gidNumber.0')),
                 attributes='ipaUniqueID'
             )
 
-            group = dict(group['attributes'])
+            if ret:
+                group = dict(ret['attributes'])
 
         return {
             'id': self.get_id(entry),
@@ -124,7 +127,8 @@ class LDAPPlugin(DirectoryServicePlugin):
             'nthash': get(entry, 'sambaNTPassword.0'),
             'lmhash': get(entry, 'sambaLMPassword.0'),
             'password_changed_at': datetime.utcfromtimestamp(int(pwd_change_time)) if pwd_change_time else None,
-            'groups': [],
+            'group': self.get_id(entry) if group else None,
+            'groups': groups,
             'sudo': False
         }
 
