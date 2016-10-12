@@ -32,6 +32,7 @@ import errno
 import subprocess
 import gevent
 import logging
+import tracemalloc
 from resources import Resource
 from gevent.event import Event
 from gevent.lock import Semaphore
@@ -206,6 +207,19 @@ class DebugService(RpcService):
         if self.backdoor_server:
             self.backdoor_server.close()
             self.backdoor_server = None
+
+    @private
+    def start_tracemalloc(self):
+        tracemalloc.start()
+
+    @private
+    def stop_tracemalloc(self):
+        tracemalloc.stop()
+
+    @private
+    def snapshot_tracemalloc(self):
+        snap = tracemalloc.take_snapshot()
+        return [str(i) for i in snap.statistics('lineno')[:100]]
 
 
 class EventService(RpcService):
