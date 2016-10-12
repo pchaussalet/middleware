@@ -63,7 +63,7 @@ class Migration(DataMigration):
 
         # get all non-builtin groups plus `wheel`
         for g in orm['account.bsdGroups'].objects.filter(bsdgrp_builtin=False, bsdgrp_group='wheel'):
-            ds.insert('groups', {
+            ds.upsert('groups', {
                 'id': str(uuid.uuid4()) if g.bsdgrp_gid else WHEEL_ID,
                 'gid': g.bsdgrp_gid,
                 'builtin': False,
@@ -105,7 +105,7 @@ class Migration(DataMigration):
             }
 
             convert_smbhash(user, u.bsdusr_smbhash)
-            ds.insert('users', user)
+            ds.upsert('users', user)
 
         ds.collection_record_migration('groups', 'freenas9_migration')
         ds.collection_record_migration('users', 'freenas9_migration')
