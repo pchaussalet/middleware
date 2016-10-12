@@ -118,7 +118,7 @@ class TaskExecutor(object):
         with self.cv:
             # Try to collect rusage at this point, when process is still alive
             try:
-                kinfo = bsd.kinfo_getproc(self.pid)
+                kinfo = self.balancer.dispatcher.threaded(bsd.kinfo_getproc, self.pid)
                 self.task.rusage = kinfo.rusage
             except LookupError:
                 pass
