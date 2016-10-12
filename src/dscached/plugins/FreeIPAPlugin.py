@@ -111,13 +111,14 @@ class FreeIPAPlugin(DirectoryServicePlugin):
         group = None
 
         if 'gidNumber.0' in entry:
-            group = self.search_one(
+            ret = self.search_one(
                 self.group_dn,
                 '(gidNumber={0})'.format(get(entry, 'gidNumber.0')),
                 attributes='ipaUniqueID'
             )
 
-            group = dict(group['attributes'])
+            if ret:
+                group = dict(ret['attributes'])
 
         if get(entry, 'memberOf'):
             builder = LdapQueryBuilder()
