@@ -439,11 +439,11 @@ class Task(object):
             if progress and self.state not in (TaskState.FINISHED, TaskState.FAILED, TaskState.ABORTED):
                 self.progress = progress
                 self.__emit_progress()
-                
+
                 try:
                     self.balancer.task_list.remove(self)
                 except ValueError:
-                    # a subtask
+                    # failed in verify stage
                     pass
 
     def set_env(self, key, value):
@@ -732,7 +732,6 @@ class Balancer(object):
             except Exception as err:
                 self.logger.warning("Cannot verify task %d: %s", task.id, err)
                 task.set_state(TaskState.FAILED, TaskStatus(0), serialize_error(err))
-                self.task_list.append(task)
                 task.ended.set()
                 self.distribution_lock.release()
 
