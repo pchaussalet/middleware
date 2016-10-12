@@ -44,6 +44,7 @@ debugd_enable="YES"
 neighbord_enable="YES"
 clid_enable="YES"
 restd_enable="YES"
+syslogd_enable="NO"
 syslog_ng_enable="YES"
 # turbo boost
 performance_cpu_freq="HIGH"
