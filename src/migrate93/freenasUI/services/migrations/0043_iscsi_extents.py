@@ -3,11 +3,11 @@ import datetime
 from south.db import db
 from south.v2 import DataMigration
 from django.db import models
-from lxml import etree
+from libxml2 import parseDoc
 
 def geom_confxml(self):
     sysctl_proc = Popen(['sysctl', '-b', 'kern.geom.confxml'], stdout=PIPE)
-    return etree.fromstring(sysctl_proc.communicate()[0][:-1])
+    return parseDoc(sysctl_proc.communicate()[0][:-1])
 
 def serial_from_device(self, devname):
     p1 = Popen(["/usr/local/sbin/smartctl", "-i", "/dev/%s" % devname], stdout=PIPE)
@@ -28,17 +28,17 @@ def identifier_to_device(self, ident):
     value = search.group("value")
 
     if tp == 'uuid':
-        search = doc.xpath("//class[name = 'PART']/geom//config[rawuuid = '%s']/../../name" % value)
+        search = doc.xpathEval("//class[name = 'PART']/geom//config[rawuuid = '%s']/../../name" % value)
         if len(search) > 0:
             for entry in search:
-                if not entry.text.startswith("label"):
-                    return entry.text
+                if not entry.content.startswith("label"):
+                    return entry.content
         return None
 
     elif tp == 'label':
-        search = doc.xpath("//class[name = 'LABEL']/geom//provider[name = '%s']/../name" % value)
+        search = doc.xpathEval("//class[name = 'LABEL']/geom//provider[name = '%s']/../name" % value)
         if len(search) > 0:
-            return search[0].text
+            return search[0].content
         return None
 
     elif tp == 'serial':
