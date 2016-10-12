@@ -13,6 +13,7 @@ RUN_DEPENDS=	\
 		${PYTHON_PKGNAMEPREFIX}django16>0:${PORTSDIR}/www/py-django16 \
 		${PYTHON_PKGNAMEPREFIX}south>0:${PORTSDIR}/databases/py-south \
 		${PYTHON_PKGNAMEPREFIX}lxml>0:${PORTSDIR}/devel/py-lxml
+		${PYTHON_PKGNAMEPREFIX}libxml2>0:${PORTSDIR}/textproc/py-libxml2
 
 USES=		python
 USE_PYTHON=	py3kplist
