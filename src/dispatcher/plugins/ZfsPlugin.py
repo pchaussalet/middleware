@@ -848,14 +848,23 @@ class ZfsDatasetMountTask(ZfsBaseTask):
         try:
             zfs = get_zfs()
             dataset = zfs.get_dataset(name)
+            desired_mountpoint = dataset.properties['mountpoint'].value
             if dataset.mountpoint:
                 logger.warning('{0} dataset already mounted at {1}'.format(name, dataset.mountpoint))
                 return
 
-            if recursive:
-                dataset.mount_recursive()
-            else:
-                dataset.mount()
+            def doit():
+                if recursive:
+                    dataset.mount_recursive()
+                else:
+                    dataset.mount()
+
+            self.dispatcher.exec_and_wait_for_event(
+                'system.fs.mounted',
+                lambda args: args['fstype'] == 'zfs' and args['path'] == desired_mountpoint,
+                lambda: doit(),
+                600
+            )
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
@@ -875,10 +884,19 @@ class ZfsDatasetUmountTask(ZfsBaseTask):
         try:
             zfs = get_zfs()
             dataset = zfs.get_dataset(name)
-            if recursive:
-                dataset.umount_recursive()
-            else:
-                dataset.umount()
+
+            def doit():
+                if recursive:
+                    dataset.umount_recursive()
+                else:
+                    dataset.umount()
+
+            self.dispatcher.exec_and_wait_for_event(
+                'system.fs.unmounted',
+                lambda args: args['fstype'] == 'zfs' and args['source'] == name,
+                lambda: doit(),
+                600
+            )
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
