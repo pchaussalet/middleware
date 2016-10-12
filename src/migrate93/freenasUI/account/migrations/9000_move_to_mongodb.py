@@ -64,15 +64,17 @@ class Migration(DataMigration):
             ds.insert('groups', {
                 'id': str(uuid.uuid4()),
                 'gid': g.bsdgrp_gid,
-                'name': g.bsdgrp_group,
                 'builtin': False,
                 'sudo': g.bsdgrp_sudo,
+                'name': g.bsdgrp_group
             })
 
         for u in orm['account.bsdUsers'].objects.all():
             groups = []
             for bgm in orm['account.bsdGroupMembership'].objects.filter(bsdgrpmember_user=u):
-                grp = ds.query('groups', ('gid', '=', bgm.bsdgrpmember_group.bsdgrp_gid))
+                grp = ds.query(
+                    'groups', ('gid', '=', bgm.bsdgrpmember_group.bsdgrp_gid), single=True
+                )
                 if not grp:
                     continue
 
@@ -81,26 +83,26 @@ class Migration(DataMigration):
             if u.bsdusr_builtin:
                 continue
 
-            grp = ds.query('groups', ('gid', '=', u.bsdusr_group.bsdgrp_gid))
+            grp = ds.query('groups', ('gid', '=', u.bsdusr_group.bsdgrp_gid), single=True)
             user = {
                 'id': str(uuid.uuid4()),
                 'uid': u.bsdusr_uid,
-                'username': u.bsdusr_username,
-                'unixhash': u.bsdusr_unixhash,
+                'password_disabled': u.bsdusr_password_disabled,
+                'email': u.bsdusr_email,
                 'group': grp['id'] if grp else NOGROUP_ID,
                 'home': u.bsdusr_home,
-                'shell': u.bsdusr_shell,
                 'full_name': u.bsdusr_full_name,
-                'builtin': False,
-                'email': u.bsdusr_email,
-                'password_disabled': u.bsdusr_password_disabled,
-                'locked': u.bsdusr_locked,
-                'sudo': u.bsdusr_sudo,
+                'username': u.bsdusr_username,
                 'sshpubkey': bsdusr_sshpubkey(u),
+                'shell': u.bsdusr_shell,
+                'locked': u.bsdusr_locked,
+                'unixhash': u.bsdusr_unixhash,
+                'sudo': u.bsdusr_sudo,
                 'groups': groups,
+                'builtin': False
             }
 
-            convert_smbhash(user,  u.bsdusr_smbhash)
+            convert_smbhash(user, u.bsdusr_smbhash)
             ds.insert('users', user)
 
         ds.collection_record_migration('groups', 'freenas9_migration')
@@ -108,6 +110,7 @@ class Migration(DataMigration):
 
     def backwards(self, orm):
         "Write your backwards methods here."
+        pass
 
     models = {
         u'account.bsdgroupmembership': {
