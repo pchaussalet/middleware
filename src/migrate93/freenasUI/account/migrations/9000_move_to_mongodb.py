@@ -101,6 +101,7 @@ class Migration(DataMigration):
                 'unixhash': u.bsdusr_unixhash,
                 'sudo': u.bsdusr_sudo,
                 'groups': groups,
+                'attributes': {},
                 'builtin': u.bsdusr_builtin
             }
 
