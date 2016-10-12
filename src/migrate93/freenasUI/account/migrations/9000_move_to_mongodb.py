@@ -64,7 +64,7 @@ class Migration(DataMigration):
                 'id': str(uuid.uuid4()),
                 'gid': g.bsdgrp_gid,
                 'name': g.bsdgrp_group,
-                'bultin': False,
+                'builtin': False,
                 'sudo': g.bsdgrp_sudo,
             })
 
