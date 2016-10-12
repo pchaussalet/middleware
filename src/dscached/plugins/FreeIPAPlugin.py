@@ -110,7 +110,7 @@ class FreeIPAPlugin(DirectoryServicePlugin):
         groups = []
         group = None
 
-        if 'gidNumber.0' in entry:
+        if contains(entry, 'gidNumber.0'):
             ret = self.search_one(
                 self.group_dn,
                 '(gidNumber={0})'.format(get(entry, 'gidNumber.0')),

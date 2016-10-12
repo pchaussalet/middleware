@@ -99,17 +99,19 @@ class LDAPPlugin(DirectoryServicePlugin):
 
         return str(uuid.uuid4())
 
+    def get_gecos(self, entry):
+        pass
+
     def convert_user(self, entry):
         entry = dict(entry['attributes'])
         pwd_change_time = get(entry, 'sambaPwdLastSet.0')
         groups = []
         group = None
 
-        if 'gidNumber.0' in entry:
+        if contains(entry, 'gidNumber.0'):
             ret = self.search_one(
                 self.group_dn,
-                '(gidNumber={0})'.format(get(entry, 'gidNumber.0')),
-                attributes='ipaUniqueID'
+                '(gidNumber={0})'.format(get(entry, 'gidNumber.0'))
             )
 
             if ret:
@@ -127,7 +129,7 @@ class LDAPPlugin(DirectoryServicePlugin):
             'nthash': get(entry, 'sambaNTPassword.0'),
             'lmhash': get(entry, 'sambaLMPassword.0'),
             'password_changed_at': datetime.utcfromtimestamp(int(pwd_change_time)) if pwd_change_time else None,
-            'group': self.get_id(entry) if group else None,
+            'group': self.get_id(group) if group else None,
             'groups': groups,
             'sudo': False
         }
@@ -155,7 +157,7 @@ class LDAPPlugin(DirectoryServicePlugin):
 
     def getpwuid(self, uid):
         logger.debug('getpwuid(uid={0})'.format(uid))
-        result = self.search_one(join_dn('uidNumber={0}'.format(uid), self.user_dn), '(objectclass=posixAccount)')
+        result = self.search_one(self.user_dn, '(&(objectclass=posixAccount)(uidNumber={0}))'.format(uid))
         return self.convert_user(result)
 
     def getgrent(self, filter=None, params=None):
@@ -170,8 +172,8 @@ class LDAPPlugin(DirectoryServicePlugin):
 
     def getgrgid(self, gid):
         logger.debug('getgrgid(gid={0})'.format(gid))
-        result = self.search_one(join_dn('gidNumber={0}'.format(gid), self.group_dn), '(objectclass=posixGroup)')
-        return self.convert_user(result)
+        result = self.search_one(self.group_dn, '(&(objectclass=posixGroup)(gidNumber={0}))'.format(gid))
+        return self.convert_group(result)
 
     def authenticate(self, user_name, password):
         with self.bind_lock:
