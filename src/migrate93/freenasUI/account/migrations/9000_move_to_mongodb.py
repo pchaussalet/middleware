@@ -62,16 +62,16 @@ class Migration(DataMigration):
         ds = get_datastore()
 
         # get all non-builtin groups plus `wheel`
-        for g in orm['account.bsdGroups'].objects.filter(bsdgrp_builtin=False, bsdgrp_group='wheel'):
+        for g in orm['account.bsdGroups'].objects.filter(bsdgrp_builtin=False, bsdgrp_gid=0):
             ds.upsert('groups', {
                 'id': str(uuid.uuid4()) if g.bsdgrp_gid else WHEEL_ID,
                 'gid': g.bsdgrp_gid,
-                'builtin': False,
+                'builtin': g.bsdgrp_builtin,
                 'sudo': g.bsdgrp_sudo,
                 'name': g.bsdgrp_group
             })
 
-        for u in orm['account.bsdUsers'].objects.all():
+        for u in orm['account.bsdUsers'].objects.filter(bsdusr_builtin=False, bsdusr_uid=0):
             groups = []
             for bgm in orm['account.bsdGroupMembership'].objects.filter(bsdgrpmember_user=u):
                 grp = ds.query(
@@ -101,7 +101,7 @@ class Migration(DataMigration):
                 'unixhash': u.bsdusr_unixhash,
                 'sudo': u.bsdusr_sudo,
                 'groups': groups,
-                'builtin': False
+                'builtin': u.bsdusr_builtin
             }
 
             convert_smbhash(user, u.bsdusr_smbhash)
