@@ -327,6 +327,7 @@ class TaskExecutor(object):
 class Task(object):
     def __init__(self, dispatcher, name=None):
         self.dispatcher = dispatcher
+        self.balancer = dispatcher.balancer
         self.created_at = None
         self.started_at = None
         self.finished_at = None
@@ -392,11 +393,11 @@ class Task(object):
 
     def start(self):
         try:
-            self.dispatcher.balancer.assign_executor(self)
+            self.balancer.assign_executor(self)
         except OverflowError:
             self.set_state(TaskState.FAILED, error='Out of executors')
             self.ended.set()
-            self.dispatcher.balancer.task_exited(self)
+            self.balancer.task_exited(self)
 
         # Start actual task
         gevent.spawn(self.executor.run, self)
