@@ -439,7 +439,12 @@ class Task(object):
             if progress and self.state not in (TaskState.FINISHED, TaskState.FAILED, TaskState.ABORTED):
                 self.progress = progress
                 self.__emit_progress()
-                self.balancer.task_list.remove(self)
+                
+                try:
+                    self.balancer.task_list.remove(self)
+                except ValueError:
+                    # a subtask
+                    pass
 
     def set_env(self, key, value):
         self.environment[key] = value
