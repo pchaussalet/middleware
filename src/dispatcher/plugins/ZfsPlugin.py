@@ -1107,7 +1107,7 @@ class ZfsRenameTask(ZfsBaseTask):
             zfs = get_zfs()
             dataset = zfs.get_object(name)
             self.dispatcher.exec_and_wait_for_event(
-                'fs.zfs.dataset.deleted',
+                'fs.zfs.dataset.renamed',
                 lambda args: args['ds'] == name,
                 lambda: dataset.rename(new_name),
                 600
