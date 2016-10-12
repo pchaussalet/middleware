@@ -59,7 +59,8 @@ class Migration(DataMigration):
 
         ds = get_datastore()
 
-        for g in orm['account.bsdGroups'].objects.filter(bsdgrp_builtin=False):
+        # get all non-builtin groups plus `wheel`
+        for g in orm['account.bsdGroups'].objects.filter(bsdgrp_builtin=False, bsdgrp_group='wheel'):
             ds.insert('groups', {
                 'id': str(uuid.uuid4()),
                 'gid': g.bsdgrp_gid,
