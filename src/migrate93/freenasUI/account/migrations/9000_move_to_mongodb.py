@@ -10,6 +10,8 @@ from datastore import get_datastore
 
 
 NOGROUP_ID = '8980c534-6a71-4bfb-bc72-54cbd5a186db'
+ROOT_ID = '4b6d36ad-93e2-4b4e-a1a3-93e8a698f1dc'
+WHEEL_ID = '0562d3be-679b-45e3-a220-f9d9a2e938a9'
 
 
 def bsdusr_sshpubkey(user):
@@ -62,7 +64,7 @@ class Migration(DataMigration):
         # get all non-builtin groups plus `wheel`
         for g in orm['account.bsdGroups'].objects.filter(bsdgrp_builtin=False, bsdgrp_group='wheel'):
             ds.insert('groups', {
-                'id': str(uuid.uuid4()),
+                'id': str(uuid.uuid4()) if g.bsdgrp_gid else WHEEL_ID,
                 'gid': g.bsdgrp_gid,
                 'builtin': False,
                 'sudo': g.bsdgrp_sudo,
@@ -85,7 +87,7 @@ class Migration(DataMigration):
 
             grp = ds.query('groups', ('gid', '=', u.bsdusr_group.bsdgrp_gid), single=True)
             user = {
-                'id': str(uuid.uuid4()),
+                'id': str(uuid.uuid4()) if u.bsdusr_uid else ROOT_ID,
                 'uid': u.bsdusr_uid,
                 'password_disabled': u.bsdusr_password_disabled,
                 'email': u.bsdusr_email,
