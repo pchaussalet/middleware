@@ -141,6 +141,7 @@ class Context(object):
         self.configstore = None
         self.conn = None
         self.instance = None
+        self.module_cache = {}
         self.running = Event()
 
     def put_status(self, state, result=None, exception=None):
@@ -221,9 +222,12 @@ class Context(object):
                     pydevd.settrace(host, port=port, stdoutToServer=True, stderrToServer=True)
 
                 name, _ = os.path.splitext(os.path.basename(task['filename']))
-                module = load_module_from_file(name, task['filename'])
-                setproctitle.setproctitle('task executor (tid {0})'.format(task['id']))
+                module = self.module_cache.get(task['filename'])
+                if not module:
+                    module = load_module_from_file(name, task['filename'])
+                    self.module_cache[task['filename']] = module
 
+                setproctitle.setproctitle('task executor (tid {0})'.format(task['id']))
                 fds = list(self.collect_fds(task['args']))
 
                 try:
