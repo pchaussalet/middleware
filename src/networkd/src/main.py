@@ -628,8 +628,8 @@ class ConfigurationService(RpcService):
                     old_ports = set(p[0] for p in iface.ports)
                     new_ports = set(lagg['ports'])
 
-                    if lagg.protocol != new_protocol:
-                        lagg.protocol = new_protocol
+                    if iface.protocol != new_protocol:
+                        iface.protocol = new_protocol
 
                     for port in old_ports - new_ports:
                         iface.delete_port(port)
