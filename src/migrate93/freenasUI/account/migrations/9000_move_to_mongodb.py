@@ -9,8 +9,6 @@ from datastore import get_datastore
 
 
 NOGROUP_ID = '8980c534-6a71-4bfb-bc72-54cbd5a186db'
-ROOT_ID = '4b6d36ad-93e2-4b4e-a1a3-93e8a698f1dc'
-WHEEL_ID = '0562d3be-679b-45e3-a220-f9d9a2e938a9'
 
 
 def bsdusr_sshpubkey(user):
@@ -64,7 +62,8 @@ class Migration(DataMigration):
         for g in orm['account.bsdGroups'].objects.filter(
             Q(bsdgrp_builtin=False) | Q(bsdgrp_gid=0)
         ):
-            group_uuid = str(uuid.uuid4()) if g.bsdgrp_gid else WHEEL_ID
+            group_uuid = ds.query('groups', ('gid', '=', g.bsdgrp_gid), single=True)
+            group_uuid = group_uuid['id'] if group_uuid else str(uuid.uuid4())
             ds.upsert('groups', group_uuid, {
                 'id': group_uuid,
                 'gid': g.bsdgrp_gid,
@@ -86,12 +85,11 @@ class Migration(DataMigration):
 
                 groups.append(grp['id'])
 
-            if u.bsdusr_builtin:
-                continue
-
             grp = ds.query('groups', ('gid', '=', u.bsdusr_group.bsdgrp_gid), single=True)
+            user_uuid = ds.query('users', ('uid', '=', u.bsdusr_uid), single=True)
+            user_uuid = user_uuid['id'] if user_uuid else str(uuid.uuid4())
             user = {
-                'id': str(uuid.uuid4()) if u.bsdusr_uid else ROOT_ID,
+                'id': user_uuid,
                 'uid': u.bsdusr_uid,
                 'password_disabled': u.bsdusr_password_disabled,
                 'email': u.bsdusr_email,
@@ -110,7 +108,7 @@ class Migration(DataMigration):
             }
 
             convert_smbhash(user, u.bsdusr_smbhash)
-            ds.upsert('users', user['id'], user)
+            ds.upsert('users', user_uuid, user)
 
         ds.collection_record_migration('groups', 'freenas9_migration')
         ds.collection_record_migration('users', 'freenas9_migration')
