@@ -39,17 +39,19 @@ ADDRESS = 'support-proxy.ixsystems.com'
 
 @description("Provides access support")
 class SupportProvider(Provider):
-
     @accepts(str, str)
     @returns(h.array(str))
     def categories(self, user, password):
-        sw_name = self.dispatcher.call_sync('system.info.version').split('-')[0].lower()
+        version = self.dispatcher.call_sync('system.info.version')
+        sw_name = version.split('-')[0].lower()
+        project_name = '-'.join(version.split('-')[:2]).lower()
         try:
             r = requests.post(
                 'https://%s/%s/api/v1.0/categories' % (ADDRESS, sw_name),
                 data=json.dumps({
                     'user': user,
                     'password': password,
+                    'project': project_name,
                 }),
                 headers={'Content-Type': 'application/json'},
                 timeout=10,
@@ -86,6 +88,7 @@ class SupportSubmitTask(Task):
         try:
             version = self.dispatcher.call_sync('system.info.version')
             sw_name = version.split('-')[0].lower()
+            project_name = '-'.join(version.split('-')[:2]).lower()
             data = {
                 'title': ticket['subject'],
                 'body': ticket['description'],
@@ -95,6 +98,7 @@ class SupportSubmitTask(Task):
                 'user': ticket['username'],
                 'password': ticket['password'],
                 'debug': ticket['debug'],
+                'project': project_name,
             }
 
             r = requests.post(
