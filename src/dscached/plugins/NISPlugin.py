@@ -134,7 +134,7 @@ class NISPlugin(DirectoryServicePlugin):
         except KeyError:
             self.server_name = None
 
-        netif.setdomainname(self.domain_name)
+        netif.set_domainname(self.domain_name)
         self.server = NIS(self.domain_name, self.server_name)
         if self.server:
             directory.put_state(DirectoryState.BOUND)
