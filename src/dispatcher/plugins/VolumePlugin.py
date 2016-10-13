@@ -2107,7 +2107,7 @@ class DatasetCreateTask(Task):
             props
         ))
 
-        if dataset['mounted']:
+        if dataset['mounted'] and dataset['type'] == 'FILESYSTEM':
             self.join_subtasks(self.run_subtask('zfs.mount', dataset['id']))
 
         if dataset['permissions_type'] == 'ACL':
@@ -2155,7 +2155,9 @@ class DatasetDeleteTask(Task):
             self.join_subtasks(self.run_subtask('zfs.destroy', i['id']))
 
         try:
-            self.join_subtasks(self.run_subtask('zfs.umount', id))
+            if ds['type'] == 'FILESYSTEM':
+                self.join_subtasks(self.run_subtask('zfs.umount', id))
+
             self.join_subtasks(self.run_subtask('zfs.destroy', id))
         except RpcException as err:
             if err.code == errno.EBUSY:
