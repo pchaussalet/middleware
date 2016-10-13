@@ -55,7 +55,7 @@ def parse_config(path):
     return config
 
 
-def get_datastore(filename=None, log=True, alt=False, database='freenas'):
+def get_datastore(filename=None, log=True, alt=False, tcp=False, database='freenas'):
     conf = parse_config(filename or DEFAULT_CONFIGFILE)
     driver = conf['datastore']['driver']
     mod = imp.load_source(driver, os.path.join(DRIVERS_LOCATION, driver, driver + '.py'))
@@ -66,7 +66,13 @@ def get_datastore(filename=None, log=True, alt=False, database='freenas'):
     if cls is None:
         raise DatastoreException('Datastore driver not found')
 
-    dsn_name = 'dsn-alt' if alt else 'dsn'
+    if alt:
+        dsn_name = 'dsn-alt'
+    elif tcp:
+        dsn_name = 'dsn-tcp'
+    else:
+        dsn_name = 'dsn'
+
     dsn = conf['datastore'][dsn_name]
     dsn_log = conf['datastore-log'][dsn_name]
 

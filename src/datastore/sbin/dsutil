@@ -53,11 +53,11 @@ def strtoint(v):
     return v
 
 
-def init_datastore(filename):
+def init_datastore(filename, tcp=False):
     global ds
 
     try:
-        ds = datastore.get_datastore(filename)
+        ds = datastore.get_datastore(filename, tcp=tcp)
     except datastore.DatastoreException as err:
         print("Cannot initialize datastore: {0}".format(str(err)), file=sys.stderr)
         sys.exit(1)
@@ -156,9 +156,10 @@ def update(name, pkey, fields):
 def main():
     parser = argh.ArghParser()
     parser.add_argument('-c', metavar='CONFIG', default=DEFAULT_CONFIGFILE, help='Config file name')
+    parser.add_argument('--tcp', action='store_true', default=False, help='Use TCP connection')
     parser.add_commands([create, list, get, query, update, config_list, config_get, config_set])
     args = parser.parse_args()
-    init_datastore(args.c)
+    init_datastore(args.c, tcp=args.tcp)
     parser.dispatch()
 
 
