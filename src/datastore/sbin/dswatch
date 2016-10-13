@@ -30,7 +30,6 @@ import os
 import sys
 import json
 import argparse
-import urllib.parse
 import subprocess
 import time
 import logging
@@ -149,7 +148,7 @@ def main():
         sys.exit(1)
 
     dbdir = dsconfig['dbdir']
-    url = urllib.parse.urlparse(dsconfig['dsn'])
+    port = dsconfig['port']
 
     setproctitle.setproctitle('dswatch: {0}'.format(args.name))
     logger.info('Datastore name: {0}'.format(args.name))
@@ -166,7 +165,7 @@ def main():
     while True:
         args = {
             'dbdir': dbdir,
-            'port': url.port
+            'port': port
         }
 
         if not os.path.isdir(dbdir):
