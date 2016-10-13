@@ -1589,16 +1589,19 @@ def _init(dispatcher, plugin):
                         pools.put(key, zfspool)
 
                 for key, i in datasets.itervalid():
-                    props = i['properties']
-                    ds = zfs.get_dataset(i['id'])
-                    changed = False
+                    def doit():
+                        props = i['properties']
+                        ds = zfs.get_dataset(i['id'])
+                        changed = False
 
-                    for prop in VOLATILE_ZFS_PROPERTIES:
-                        if props[prop]['rawvalue'] != ds.properties[prop].rawvalue:
-                            props[prop] = ds.properties[prop].__getstate__()
-                            changed = True
+                        for prop in VOLATILE_ZFS_PROPERTIES:
+                            if props[prop]['rawvalue'] != ds.properties[prop].rawvalue:
+                                props[prop] = ds.properties[prop].__getstate__()
+                                changed = True
 
-                    if changed:
+                        return changed
+
+                    if dispatcher.threaded(doit):
                         datasets.put(key, i)
 
     plugin.register_schema_definition('zfs-vdev', {
