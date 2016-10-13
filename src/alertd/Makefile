@@ -7,5 +7,7 @@ install:
 	install -d ${PREFIX}/lib/alertd
 	install -d ${PREFIX}/lib/alertd/src
 	install -d ${PREFIX}/lib/alertd/emitters
+	install -d ${PREFIX}/lib/alertd/templates
 	cp -a src/ ${PREFIX}/lib/alertd/src/
 	cp -a emitters/ ${PREFIX}/lib/alertd/emitters/
+	cp -a templates/ ${PREFIX}/lib/alertd/templates/

@@ -37,4 +37,9 @@ post-install:
 		| ${AWK} '{print length, $$0}' | ${SORT} -rn \
 		| ${AWK} '{print "lib/alertd/emitters/"$$2 }' >> ${TMPPLIST})
 
+	(cd ${STAGEDIR}${PREFIX}/lib/alertd/templates; ${FIND} . -type f -regex ".*.mako" \
+		| ${SED} -e 's,^\./,,g' \
+		| ${AWK} '{print length, $$0}' | ${SORT} -rn \
+		| ${AWK} '{print "lib/alertd/templates/"$$2 }' >> ${TMPPLIST})
+
 .include <bsd.port.mk>
