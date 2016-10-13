@@ -416,7 +416,7 @@ class AccountService(RpcService):
                     if single:
                         return
             except:
-                self.logger.error('Directory {0} exception during account iteration'.format(d.name), exc_info=True)
+                self.context.logger.error('Directory {0} exception during account iteration'.format(d.name), exc_info=True)
                 continue
 
     def getpwuid(self, uid):
@@ -425,8 +425,7 @@ class AccountService(RpcService):
         if item:
             return fix_passwords(item.annotated)
 
-        d = self.context.get_directory_for_id(uid=uid)
-        dirs = [d] if d else self.context.get_active_directories()
+        dirs = self.context.get_active_directories()
 
         for d in dirs:
             try:
@@ -559,7 +558,7 @@ class GroupService(RpcService):
                     if single:
                         return
             except:
-                self.logger.error('Directory {0} exception during group iteration'.format(d.name), exc_info=True)
+                self.context.logger.error('Directory {0} exception during group iteration'.format(d.name), exc_info=True)
                 continue
 
     def getgrnam(self, name):
@@ -595,8 +594,7 @@ class GroupService(RpcService):
         if item:
             return item.annotated
 
-        d = self.context.get_directory_for_id(gid=gid)
-        dirs = [d] if d else self.context.get_active_directories()
+        dirs = self.context.get_active_directories()
 
         for d in dirs:
             try:
