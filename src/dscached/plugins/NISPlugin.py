@@ -25,18 +25,12 @@
 #
 #####################################################################
 
-import os
-import shutil
 import logging
-import datetime
 import errno
-import select
-import threading
+import netif
 from binascii import crc32
 from utils import uuid2, parse_uuid2
 from bsd.nis import NIS
-from freenas.dispatcher.jsonenc import load, dump
-from freenas.utils import first_or_default, crypted_password, nt_password
 from freenas.utils.query import query
 from plugin import DirectoryServicePlugin, DirectoryState
 
@@ -46,6 +40,7 @@ logger = logging.getLogger(__name__)
 class NISPlugin(DirectoryServicePlugin):
     def __init__(self, context):
         self.context = context
+        self.server = None
         self.domain_name = None
         self.server_name = None
 
@@ -138,7 +133,8 @@ class NISPlugin(DirectoryServicePlugin):
             self.server_name = directory.parameters["server"]
         except KeyError:
             self.server_name = None
-            
+
+        netif.setdomainname(self.domain_name)
         self.server = NIS(self.domain_name, self.server_name)
         if self.server:
             directory.put_state(DirectoryState.BOUND)
