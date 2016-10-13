@@ -135,6 +135,7 @@ class NISPlugin(DirectoryServicePlugin):
             self.server_name = None
 
         netif.set_domainname(self.domain_name)
+        self.context.client.call_sync('service.ensure_started', 'ypbind')
         self.server = NIS(self.domain_name, self.server_name)
         if self.server:
             directory.put_state(DirectoryState.BOUND)
