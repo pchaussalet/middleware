@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
-from south.utils import datetime_utils as datetime
-from south.db import db
 from south.v2 import DataMigration
-from django.db import models
 
 from datastore import get_datastore
 
@@ -23,10 +20,17 @@ class Migration(DataMigration):
                 'id': vol.vol_name,
                 'guid': vol.vol_guid,
                 'type': 'zfs',
+                'key_encrypted': False,
+                'password_encrypted': False,
+                'encryption': {
+                    'key': None,
+                    'hashed_password': None,
+                    'salt': None,
+                    'slot': None
+                },
                 'mountpoint': '/mnt/{0}'.format(vol.vol_name),
                 'attributes': {},
             })
-
 
     def backwards(self, orm):
         pass
