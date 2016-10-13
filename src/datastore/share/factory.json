@@ -990,6 +990,13 @@
                 "get_config_rpc": "service.consul.get_config",
                 "etcd-group": "consul",
                 "name": "consul"
+            },
+            "98d512f6-9111-11e6-91a2-000c2924b2c6": {
+                "rcng": {
+                    "rc-scripts": "ypbind"
+                },
+                "builtin": true,
+                "name": "ypbind"
             }
         },
         "metadata": {
