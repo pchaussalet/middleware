@@ -47,7 +47,7 @@ def convert_smbhash(obj, smbhash):
     obj.update({
         'lmhash': lmhash,
         'nthash': nthash,
-        'password_changed_at': datetime.fromtimestamp(lct)
+        'password_changed_at': datetime.datetime.fromtimestamp(lct)
     })
     return obj
 
