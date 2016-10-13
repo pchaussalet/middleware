@@ -1053,8 +1053,8 @@ class DockerService(RpcService):
             for i in names:
                 if i[0] == '/':
                     yield i[1:]
-
-                yield i
+                else:
+                    yield i
 
         for host in self.context.iterate_docker_hosts():
             for container in host.connection.containers(all=True):
