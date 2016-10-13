@@ -64,8 +64,9 @@ class Migration(DataMigration):
         for g in orm['account.bsdGroups'].objects.filter(
             Q(bsdgrp_builtin=False) | Q(bsdgrp_gid=0)
         ):
-            ds.upsert('groups', {
-                'id': str(uuid.uuid4()) if g.bsdgrp_gid else WHEEL_ID,
+            group_uuid = str(uuid.uuid4()) if g.bsdgrp_gid else WHEEL_ID
+            ds.upsert('groups', group_uuid, {
+                'id': group_uuid,
                 'gid': g.bsdgrp_gid,
                 'builtin': g.bsdgrp_builtin,
                 'sudo': g.bsdgrp_sudo,
@@ -109,7 +110,7 @@ class Migration(DataMigration):
             }
 
             convert_smbhash(user, u.bsdusr_smbhash)
-            ds.upsert('users', user)
+            ds.upsert('users', user['id'], user)
 
         ds.collection_record_migration('groups', 'freenas9_migration')
         ds.collection_record_migration('users', 'freenas9_migration')
