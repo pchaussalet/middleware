@@ -1,9 +1,9 @@
 GRUB_TERMINAL_OUTPUT=console
 
-if [ "$(/usr/local/sbin/dsutil config-get system.serial.console)" = "true" ]; then
-        _tmp=$(/usr/local/sbin/dsutil config-get system.serial.port)
+if [ "$(/usr/local/sbin/dsutil --tcp config-get system.serial.console)" = "true" ]; then
+        _tmp=$(/usr/local/sbin/dsutil --tcp config-get system.serial.port)
         port=$(eval echo $_tmp)
-        speed=$(/usr/local/sbin/dsutil config-get system.serial.speed)
+        speed=$(/usr/local/sbin/dsutil --tcp config-get system.serial.speed)
         unit=$(/usr/sbin/devinfo -u |awk -v port=$port '$1 ~ port { print $2 }' |tr -dc 0-9)
         GRUB_SERIAL_COMMAND="serial --port=$port --speed=$speed --unit=$unit" 
         GRUB_TERMINAL_INPUT="console serial" 
