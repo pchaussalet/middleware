@@ -731,12 +731,20 @@ class DockerImagePullTask(DockerBaseTask):
                 lambda p, m, e=None: self.chunk_progress(0, 100, 'Looking for default Docker host:', p, m, e)
             )
 
-        self.check_host_state(hostid)
+        if ':' not in name:
+            name += ':latest'
 
-        for i in self.dispatcher.call_sync('containerd.docker.pull', name, hostid, timeout=3600):
-            if 'progressDetail' in i and 'current' in i['progressDetail'] and 'total' in i['progressDetail']:
-                percentage = i['progressDetail']['current'] / i['progressDetail']['total'] * 100
-                self.set_progress(percentage, '{0} layer {1}'.format(i.get('status', ''), i.get('id', '')))
+        hosts = self.dispatcher.call_sync('docker.image.query', [('names.0', '=', name)], {'select': 'hosts'})
+        hosts.append(hostid)
+        hosts = list(set(hosts))
+
+        for h in hosts:
+            self.check_host_state(h)
+
+            for i in self.dispatcher.call_sync('containerd.docker.pull', name, h, timeout=3600):
+                if 'progressDetail' in i and 'current' in i['progressDetail'] and 'total' in i['progressDetail']:
+                    percentage = i['progressDetail']['current'] / i['progressDetail']['total'] * 100
+                    self.set_progress(percentage, '{0} layer {1}'.format(i.get('status', ''), i.get('id', '')))
 
 
 @description('Removes previously cached container image from a Docker host')
