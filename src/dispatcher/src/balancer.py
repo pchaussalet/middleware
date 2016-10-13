@@ -438,6 +438,7 @@ class Task(object):
                 self.progress = progress
                 self.__emit_progress()
 
+            if self.state in (TaskState.FINISHED, TaskState.FAILED, TaskState.ABORTED):
                 try:
                     self.balancer.task_list.remove(self)
                 except ValueError:
