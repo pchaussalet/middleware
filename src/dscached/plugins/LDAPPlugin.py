@@ -25,7 +25,6 @@
 #
 #####################################################################
 
-import binascii
 import errno
 import uuid
 import ldap3
@@ -35,7 +34,7 @@ import threading
 import ssl
 from datetime import datetime
 from plugin import DirectoryServicePlugin, DirectoryState
-from utils import obtain_or_renew_ticket, join_dn, dn_to_domain, domain_to_dn, LdapQueryBuilder, uuid2, parse_uuid2
+from utils import LdapQueryBuilder, obtain_or_renew_ticket, join_dn, dn_to_domain, domain_to_dn, uuid2, parse_uuid2
 from utils import crc32
 from freenas.utils import first_or_default, normalize
 from freenas.utils.query import get, contains
@@ -160,6 +159,21 @@ class LDAPPlugin(DirectoryServicePlugin):
         result = self.search_one(self.user_dn, '(&(objectclass=posixAccount)(uidNumber={0}))'.format(uid))
         return self.convert_user(result)
 
+    def getpwuuid(self, id):
+        logger.debug('getpwuuid(uuid={0})'.format(id))
+
+        try:
+            checksum, uid = parse_uuid2(id)
+            if crc32(dn_to_domain(self.base_dn)) != checksum:
+                return None
+
+            q = '(uidNumber={0})'.format(uid)
+        except ValueError:
+            q = '(entryUUID={0})'.format(id)
+
+        user = self.search_one(self.user_dn, q)
+        return self.convert_user(user)
+
     def getgrent(self, filter=None, params=None):
         logger.debug('getgrent(filter={0}, params={0})'.format(filter, params))
         result = self.search(self.group_dn, '(objectclass=posixGroup)')
@@ -174,6 +188,21 @@ class LDAPPlugin(DirectoryServicePlugin):
         logger.debug('getgrgid(gid={0})'.format(gid))
         result = self.search_one(self.group_dn, '(&(objectclass=posixGroup)(gidNumber={0}))'.format(gid))
         return self.convert_group(result)
+
+    def getgruuid(self, id):
+        logger.debug('getgruuid(uuid={0})'.format(id))
+
+        try:
+            checksum, gid = parse_uuid2(id)
+            if crc32(dn_to_domain(self.base_dn)) != checksum:
+                return None
+
+            q = '(gidNumber={0})'.format(gid)
+        except ValueError:
+            q = '(entryUUID={0})'.format(id)
+
+        group = self.search_one(self.group_dn, q)
+        return self.convert_group(group)
 
     def authenticate(self, user_name, password):
         with self.bind_lock:
