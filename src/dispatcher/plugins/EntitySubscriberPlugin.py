@@ -25,10 +25,38 @@
 #
 #####################################################################
 
-
+import logging
 import re
 import gevent
+from freenas.utils.trace_logger import TRACE
 from event import EventSource, sync
+
+
+class ScheduledQueryUpdate(object):
+    def __init__(self, parent, service, keys):
+        self.parent = parent
+        self.dispatcher = parent.dispatcher
+        self.service = service
+        self.keys = keys
+        gevent.spawn_later(1, self.run)
+
+    def run(self):
+        logging.log(TRACE, 'Running update for {0}'.format(self.service))
+        try:
+            entities = list(self.dispatcher.call_sync('{0}.query'.format(self.service), [('id', 'in', self.keys)]))
+        except BaseException as e:
+            logging.warning('Cannot fetch changed entities from service {0}: {1}'.format(self.service, str(e)))
+            return
+
+        self.dispatcher.dispatch_event('entity-subscriber.{0}.changed'.format(self.service), {
+            'service': self.service,
+            'operation': 'update',
+            'ids': self.keys,
+            'entities': entities,
+            'nolog': True
+        })
+
+        del self.parent.scheduled_updates[self.service]
 
 
 class EntitySubscriberEventSource(EventSource):
@@ -36,6 +64,8 @@ class EntitySubscriberEventSource(EventSource):
         super(EntitySubscriberEventSource, self).__init__(dispatcher)
         self.handles = {}
         self.services = []
+        self.scheduled_updates = {}
+        self.logger = logging.getLogger(self.__class__.__name__)
         dispatcher.register_event_handler('server.event.added', self.event_added)
         dispatcher.register_event_handler('server.event.removed', self.event_removed)
 
@@ -73,20 +103,32 @@ class EntitySubscriberEventSource(EventSource):
             gevent.spawn(self.fetch if ids is not None else self.fetch_one, service, operation, ids)
 
     def fetch(self, service, operation, ids):
-        try:
-            keys = list(ids.keys()) if isinstance(ids, dict) else ids
-            entities = list(self.dispatcher.call_sync('{0}.query'.format(service), [('id', 'in', keys)]))
-        except BaseException as e:
-            self.logger.warn('Cannot fetch changed entities from service {0}: {1}'.format(service, str(e)))
-            return
+        keys = list(ids.keys()) if isinstance(ids, dict) else ids
 
-        self.dispatcher.dispatch_event('entity-subscriber.{0}.changed'.format(service), {
-            'service': service,
-            'operation': operation,
-            'ids': ids,
-            'entities': entities,
-            'nolog': True
-        })
+        if operation == 'update':
+            if service in self.scheduled_updates:
+                self.logger.log(TRACE, 'Update for {0} already scheduled'.format(service))
+                self.scheduled_updates[service].keys += keys
+                return
+            else:
+                self.logger.log(TRACE, 'Scheduling update for {0} in 1 second'.format(service))
+                update = ScheduledQueryUpdate(self, service, keys)
+                self.scheduled_updates[service] = update
+                return
+        else:
+            try:
+                entities = list(self.dispatcher.call_sync('{0}.query'.format(service), [('id', 'in', keys)]))
+            except BaseException as e:
+                self.logger.warn('Cannot fetch changed entities from service {0}: {1}'.format(service, str(e)))
+                return
+
+            self.dispatcher.dispatch_event('entity-subscriber.{0}.changed'.format(service), {
+                'service': service,
+                'operation': operation,
+                'ids': ids,
+                'entities': entities,
+                'nolog': True
+            })
 
     def fetch_one(self, service, operation, ids):
         assert operation == 'update'
