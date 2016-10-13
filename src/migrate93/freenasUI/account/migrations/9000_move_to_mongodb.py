@@ -2,9 +2,8 @@
 import os
 import uuid
 from south.utils import datetime_utils as datetime
-from south.db import db
 from south.v2 import DataMigration
-from django.db import models
+from django.db.models import Q
 
 from datastore import get_datastore
 
@@ -62,7 +61,9 @@ class Migration(DataMigration):
         ds = get_datastore()
 
         # get all non-builtin groups plus `wheel`
-        for g in orm['account.bsdGroups'].objects.filter(bsdgrp_builtin=False, bsdgrp_gid=0):
+        for g in orm['account.bsdGroups'].objects.filter(
+            Q(bsdgrp_builtin=False) | Q(bsdgrp_gid=0)
+        ):
             ds.upsert('groups', {
                 'id': str(uuid.uuid4()) if g.bsdgrp_gid else WHEEL_ID,
                 'gid': g.bsdgrp_gid,
@@ -71,7 +72,9 @@ class Migration(DataMigration):
                 'name': g.bsdgrp_group
             })
 
-        for u in orm['account.bsdUsers'].objects.filter(bsdusr_builtin=False, bsdusr_uid=0):
+        for u in orm['account.bsdUsers'].objects.filter(
+            Q(bsdusr_builtin=False) | Q(bsdusr_uid=0)
+        ):
             groups = []
             for bgm in orm['account.bsdGroupMembership'].objects.filter(bsdgrpmember_user=u):
                 grp = ds.query(
