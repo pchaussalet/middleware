@@ -345,7 +345,6 @@ class Task(object):
         self.warnings = []
         self.environment = {}
         self.hooks = {}
-        self.thread = None
         self.instance = None
         self.parent = None
         self.result = None
@@ -400,8 +399,7 @@ class Task(object):
             self.balancer.task_exited(self)
 
         # Start actual task
-        gevent.spawn(self.executor.run, self)
-        return self.thread
+        return gevent.spawn(self.executor.run, self)
 
     def join(self, timeout=None):
         self.ended.wait(timeout)
@@ -481,7 +479,6 @@ class Balancer(object):
         self.task_list = []
         self.task_queue = Queue()
         self.resource_graph = dispatcher.resource_graph
-        self.queues = {}
         self.threads = []
         self.executors = []
         self.logger = logging.getLogger('Balancer')
