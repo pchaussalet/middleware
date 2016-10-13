@@ -125,20 +125,16 @@ class NISPlugin(DirectoryServicePlugin):
 
     def configure(self, enable, directory):
         directory.put_state(DirectoryState.JOINING)
-        try:
-            self.domain_name = directory.parameters["domain"]
-        except KeyError:
-            self.domain_name = None
-        try:
-            self.server_name = directory.parameters["server"]
-        except KeyError:
-            self.server_name = None
+        self.domain_name = directory.parameters.get("domain")
+        self.server_name = directory.parameters.get("server")
 
         netif.set_domainname(self.domain_name)
         self.context.client.call_sync('service.ensure_started', 'ypbind')
         self.server = NIS(self.domain_name, self.server_name)
         if self.server:
             directory.put_state(DirectoryState.BOUND)
+
+        return self.domain_name
 
 
 def _init(context):
