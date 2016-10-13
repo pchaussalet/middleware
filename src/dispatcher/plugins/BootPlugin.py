@@ -268,8 +268,7 @@ def _init(dispatcher, plugin):
         }
     })
 
-    def convert_bootenv(ds):
-        boot_pool = dispatcher.call_sync('zfs.pool.get_boot_pool')
+    def convert_bootenv(boot_pool, ds):
         root_mount = bsd.statfs('/')
         path = ds['id'].split('/')
 
@@ -317,27 +316,31 @@ def _init(dispatcher, plugin):
                 bootenvs.put(new_be['id'], new_be)
 
     def on_dataset_change(args):
-        with dispatcher.get_lock('bootenvs'):
-            if args['operation'] == 'create':
-                bootenvs.propagate(args, convert_bootenv)
+        if args['operation'] == 'create':
+            with dispatcher.get_lock('bootenvs'):
+                boot_pool = dispatcher.call_sync('zfs.pool.get_boot_pool')
+                bootenvs.propagate(args, lambda x: convert_bootenv(boot_pool, x))
 
-            if args['operation'] == 'delete':
-                for i in args['ids']:
-                    pool, dataset = split_dataset(i)
-                    if pool != boot_pool_name:
-                        continue
+        if args['operation'] == 'delete':
+            for i in args['ids']:
+                pool, dataset = split_dataset(i)
+                if pool != boot_pool_name:
+                    continue
 
+                with dispatcher.get_lock('bootenvs'):
                     realname = dataset.split('/')[-1]
                     ds = bootenvs.query(('realname', '=', realname), single=True)
                     if ds:
                         bootenvs.remove(ds['id'])
 
-            if args['operation'] == 'update':
-                for i in args['entities']:
-                    pool, dataset = split_dataset(i['id'])
-                    if pool != boot_pool_name:
-                        continue
+        if args['operation'] == 'update':
+            boot_pool = None
+            for i in args['entities']:
+                pool, dataset = split_dataset(i['id'])
+                if pool != boot_pool_name:
+                    continue
 
+                with dispatcher.get_lock('bootenvs'):
                     realname = dataset.split('/')[-1]
                     ds = bootenvs.query(('realname', '=', realname), single=True)
                     if not ds:
@@ -347,7 +350,10 @@ def _init(dispatcher, plugin):
                     if nickname and nickname != ds['id']:
                         bootenvs.rename(ds['id'], nickname)
 
-                    bootenvs.put(nickname, convert_bootenv(i))
+                    if not boot_pool:
+                        boot_pool = dispatcher.call_sync('zfs.pool.get_boot_pool')
+
+                    bootenvs.put(nickname, convert_bootenv(boot_pool, i))
 
     plugin.register_provider('boot.pool', BootPoolProvider)
     plugin.register_provider('boot.environment', BootEnvironmentsProvider)
