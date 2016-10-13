@@ -3,32 +3,32 @@ from base import Resource, SingleItemBase
 
 class ApplyResource(Resource):
     name = 'apply'
-    post = 'task:update.apply'
+    post = 'atask:update.apply'
 
 
 class CheckResource(Resource):
     name = 'check'
-    post = 'task:update.check'
+    post = 'atask:update.check'
 
 
 class CheckFetchResource(Resource):
     name = 'checkfetch'
-    post = 'task:update.checkfetch'
+    post = 'atask:update.checkfetch'
 
 
 class DownloadResource(Resource):
     name = 'download'
-    post = 'task:update.download'
+    post = 'atask:update.download'
 
 
 class UpdateNowResource(Resource):
     name = 'updatenow'
-    post = 'task:update.updatenow'
+    post = 'atask:update.updatenow'
 
 
 class VerifyResource(Resource):
     name = 'verify'
-    post = 'task:update.verify'
+    post = 'atask:update.verify'
 
 
 class UpdateSingleItem(SingleItemBase):
