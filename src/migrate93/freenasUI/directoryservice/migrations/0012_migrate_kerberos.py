@@ -45,12 +45,12 @@ class Migration(DataMigration):
                 kt.keytab_principal = "host/%s" % ad.ad_domainname
                 kt.keytab_file = "/data/%s.keytab" % re.sub(
                     '[^a-zA-Z0-9]+', '_',
-                     kt.keytab_principal
+                    kt.keytab_principal
                 )
                 kt.save()
 
                 os.rename(ad.ad_keytab, kt.keytab_file)
-                os.chmod(kt.keytab_file, 0400)
+                os.chmod(kt.keytab_file, 0o400)
 
                 ad.ad_kerberos_keytab = kt
                 ad.save()
