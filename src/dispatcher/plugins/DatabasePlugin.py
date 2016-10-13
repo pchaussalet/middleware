@@ -73,7 +73,7 @@ class UploadDatabaseTask(ProgressTask):
 
     def run(self, fd):
         try:
-            with os.fdopen(fd.fd, 'r') as f:
+            with os.fdopen(fd.fd, 'r', closefd=False) as f:
                 dump = load(f)
         except IOError as err:
             raise TaskException(errno.ENOENT, "Cannot open input file: {0}".format(str(err)))
