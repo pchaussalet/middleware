@@ -371,9 +371,10 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('boot.pool.scrub', BootPoolScrubTask)
 
     with bootenvs.lock:
+        boot_pool = dispatcher.call_sync('zfs.pool.get_boot_pool')
         bootenvs.populate(
             dispatcher.call_sync('zfs.dataset.query'),
-            convert_bootenv
+            lambda x: convert_bootenv(boot_pool, x)
         )
 
         plugin.register_event_handler('entity-subscriber.zfs.dataset.changed', on_dataset_change)
