@@ -121,6 +121,14 @@ freenasrsync_datastore() {
 	ssh root@${1} 'cd /usr/local/sbin/ && /bin/chmod +x dsmigrate dsinit dsdump dspasswd dsprinttask dsrestore dsutil dswatch'
 }
 
+freenasrsync_migrate93() {
+	myrsync ${REPO_PARENT_PATH}/middleware/src/migrate93/ "root@${1}":/usr/local/lib/migrate93/ --exclude sbin
+	myrsyncnodel ${REPO_PARENT_PATH}/middleware/src/migrate93/sbin/ "root@${1}":/usr/local/sbin/
+
+	# Fix perms, set executable bits, and such
+	ssh root@${1} '/bin/chmod 555 /usr/local/sbin/migrate93'
+}
+
 freenasrsync() {
 	if [[ "${1}" == "" ]];
 	then
