@@ -81,7 +81,7 @@ class NISPlugin(DirectoryServicePlugin):
     def getpwent(self, filter=None, params=None):
         filter = filter or []
         filter.append(('uid', '!=', 0))
-        return query(self._convert_user(pw) for pw in self.server.getpwent(),
+        return query((self._convert_user(pw) for pw in self.server.getpwent()),
                      *filter, **(params or {}))
 
     def getpwnam(self, name):
@@ -104,7 +104,7 @@ class NISPlugin(DirectoryServicePlugin):
     def getgrent(self, filter=None, params=None):
         filter = filter or []
         filter.append(('gid', '!=', 0))
-        return query(self._convert_group(gr) for gr in self.server.getgrent(),
+        return query((self._convert_group(gr) for gr in self.server.getgrent()),
                      *filter, **(params or {}))
 
     def getgrnam(self, name):
