@@ -269,28 +269,30 @@ class EventCacheStore(CacheStore):
         return True
 
     def propagate(self, event, callback=None):
-        if event['operation'] == 'delete':
-            for i in event['ids']:
-                self.remove(i)
+        with self.lock:
+            if event['operation'] == 'delete':
+                for i in event['ids']:
+                    self.remove(i)
 
-            return
+                return
 
-        if event['operation'] == 'rename':
-            for o, i in event['ids']:
-                self.rename(o, i)
+            if event['operation'] == 'rename':
+                for o, i in event['ids']:
+                    self.rename(o, i)
 
-            return
+                return
 
-        if event['operation'] in ('create', 'update'):
-            for i in event['entities']:
-                obj = callback(i) if callback else i
-                if not obj:
-                    continue
+            if event['operation'] in ('create', 'update'):
+                for i in event['entities']:
+                    obj = callback(i) if callback else i
+                    if not obj:
+                        continue
 
-                self.put(obj['id'], obj)
+                    self.put(obj['id'], obj)
 
     def populate(self, collection, callback=None):
-        for i in collection:
-            obj = callback(i) if callback else i
-            if obj is not None:
-                self.put(obj['id'], obj)
+        with self.lock:
+            for i in collection:
+                obj = callback(i) if callback else i
+                if obj is not None:
+                    self.put(obj['id'], obj)
