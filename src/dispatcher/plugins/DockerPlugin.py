@@ -734,7 +734,7 @@ class DockerImagePullTask(DockerBaseTask):
         if ':' not in name:
             name += ':latest'
 
-        hosts = self.dispatcher.call_sync('docker.image.query', [('names.0', '=', name)], {'select': 'hosts'})
+        hosts = list(self.dispatcher.call_sync('docker.image.query', [('names.0', '=', name)], {'select': 'hosts'}))
         hosts.append(hostid)
         hosts = list(set(hosts))
 
