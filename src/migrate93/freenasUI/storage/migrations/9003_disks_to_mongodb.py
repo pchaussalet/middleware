@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
 import os
 import re
-from south.utils import datetime_utils as datetime
-from south.db import db
 from south.v2 import DataMigration
-from django.db import models
 from bsd import geom
 from lxml import etree
-
 from datastore import get_datastore
 from freenasUI.middleware.notifier import notifier
 
@@ -128,7 +124,7 @@ class Migration(DataMigration):
             'disk_description': ('django.db.models.fields.CharField', [], {'max_length': '120', 'blank': 'True'}),
             'disk_enabled': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'disk_hddstandby': ('django.db.models.fields.CharField', [], {'default': "'Always On'", 'max_length': '120'}),
-            'disk_identifier': ('django.db.models.fields.CharField', [], {'max_length': '42'}),
+            'disk_identifier': ('django.db.models.fields.CharField', [], {'max_length': '42', 'primary_key': 'True'}),
             'disk_multipath_member': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'disk_multipath_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'disk_name': ('django.db.models.fields.CharField', [], {'max_length': '120'}),
@@ -138,8 +134,7 @@ class Migration(DataMigration):
             'disk_smartoptions': ('django.db.models.fields.CharField', [], {'max_length': '120', 'blank': 'True'}),
             'disk_subsystem': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '10'}),
             'disk_togglesmart': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
-            'disk_transfermode': ('django.db.models.fields.CharField', [], {'default': "'Auto'", 'max_length': '120'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
+            'disk_transfermode': ('django.db.models.fields.CharField', [], {'default': "'Auto'", 'max_length': '120'})
         },
         u'storage.encrypteddisk': {
             'Meta': {'object_name': 'EncryptedDisk'},
@@ -147,13 +142,6 @@ class Migration(DataMigration):
             'encrypted_provider': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '120'}),
             'encrypted_volume': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['storage.Volume']"}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
-        },
-        u'storage.mountpoint': {
-            'Meta': {'object_name': 'MountPoint'},
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'mp_options': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True'}),
-            'mp_path': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '120'}),
-            'mp_volume': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['storage.Volume']"})
         },
         u'storage.replication': {
             'Meta': {'ordering': "['repl_filesystem']", 'object_name': 'Replication'},
@@ -163,10 +151,10 @@ class Migration(DataMigration):
             'repl_enabled': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'repl_end': ('django.db.models.fields.TimeField', [], {'default': 'datetime.time(23, 59)'}),
             'repl_filesystem': ('django.db.models.fields.CharField', [], {'max_length': '150', 'blank': 'True'}),
+            'repl_followdelete': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'repl_lastsnapshot': ('django.db.models.fields.CharField', [], {'max_length': '120', 'blank': 'True'}),
             'repl_limit': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'repl_remote': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['storage.ReplRemote']"}),
-            'repl_resetonce': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'repl_userepl': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'repl_zfs': ('django.db.models.fields.CharField', [], {'max_length': '120'})
         },
