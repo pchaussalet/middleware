@@ -32,7 +32,7 @@ def restore_collection(ds, dump):
     metadata = dump['metadata']
     data = dump['data']
     name = metadata['name']
-    integer = metadata['pkey-type'] == 'integer'
+    integer = metadata['pkey-type'] in ('integer', 'serial')
 
     ds.collection_delete(name)
     ds.collection_create(name, metadata['pkey-type'], metadata['attributes'])
