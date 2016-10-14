@@ -50,6 +50,7 @@ class Migration(DataMigration):
             'adv_consolemsg': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'adv_consolescreensaver': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'adv_debugkernel': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
+            'adv_graphite': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '120', 'blank': 'True'}),
             'adv_motd': ('django.db.models.fields.TextField', [], {'default': "'Welcome'", 'max_length': '1024'}),
             'adv_periodic_notifyuser': ('freenasUI.freeadmin.models.fields.UserField', [], {'default': "'root'", 'max_length': '120'}),
             'adv_powerdaemon': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
@@ -62,10 +63,12 @@ class Migration(DataMigration):
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
         },
         u'system.alert': {
-            'Meta': {'object_name': 'Alert'},
+            'Meta': {'unique_together': "(('node', 'message_id'),)", 'object_name': 'Alert'},
             'dismiss': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'message_id': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '100'})
+            'message_id': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'node': ('django.db.models.fields.CharField', [], {'default': "'A'", 'max_length': '100'}),
+            'timestamp': ('django.db.models.fields.IntegerField', [], {'default': '1473772176'})
         },
         u'system.backup': {
             'Meta': {'object_name': 'Backup'},
@@ -83,6 +86,7 @@ class Migration(DataMigration):
             'Meta': {'object_name': 'Certificate'},
             'cert_CSR': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
             'cert_certificate': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
+            'cert_chain': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'cert_city': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
             'cert_common': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
             'cert_country': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
@@ -96,13 +100,14 @@ class Migration(DataMigration):
             'cert_serial': ('django.db.models.fields.IntegerField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
             'cert_signedby': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['system.CertificateAuthority']", 'null': 'True', 'blank': 'True'}),
             'cert_state': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'cert_type': ('django.db.models.fields.CharField', [], {'max_length': '64'}),
-            'id': ('django.db.models.fields.CharField', [], {'max_length': '120', 'primary_key': 'True'})
+            'cert_type': ('django.db.models.fields.IntegerField', [], {}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
         },
         u'system.certificateauthority': {
             'Meta': {'object_name': 'CertificateAuthority'},
             'cert_CSR': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
             'cert_certificate': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
+            'cert_chain': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'cert_city': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
             'cert_common': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
             'cert_country': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
@@ -116,8 +121,15 @@ class Migration(DataMigration):
             'cert_serial': ('django.db.models.fields.IntegerField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
             'cert_signedby': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['system.CertificateAuthority']", 'null': 'True', 'blank': 'True'}),
             'cert_state': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'cert_type': ('django.db.models.fields.CharField', [], {'max_length': '64'}),
-            'id': ('django.db.models.fields.CharField', [], {'max_length': '120', 'primary_key': 'True'})
+            'cert_type': ('django.db.models.fields.IntegerField', [], {}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
+        },
+        u'system.cloudcredentials': {
+            'Meta': {'object_name': 'CloudCredentials'},
+            'attributes': ('freenasUI.freeadmin.models.fields.DictField', [], {}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'provider': ('django.db.models.fields.CharField', [], {'max_length': '50'})
         },
         u'system.email': {
             'Meta': {'object_name': 'Email'},
@@ -140,21 +152,6 @@ class Migration(DataMigration):
             'ntp_minpoll': ('django.db.models.fields.IntegerField', [], {'default': '6'}),
             'ntp_prefer': ('django.db.models.fields.BooleanField', [], {'default': 'False'})
         },
-        u'system.registration': {
-            'Meta': {'object_name': 'Registration'},
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'reg_address': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'reg_cellphone': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'reg_city': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'reg_company': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'reg_email': ('django.db.models.fields.CharField', [], {'max_length': '120'}),
-            'reg_firstname': ('django.db.models.fields.CharField', [], {'max_length': '120'}),
-            'reg_homephone': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'reg_lastname': ('django.db.models.fields.CharField', [], {'max_length': '120'}),
-            'reg_state': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'reg_workphone': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
-            'reg_zip': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'})
-        },
         u'system.settings': {
             'Meta': {'object_name': 'Settings'},
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
@@ -168,6 +165,7 @@ class Migration(DataMigration):
             'stg_kbdmap': ('django.db.models.fields.CharField', [], {'max_length': '120', 'blank': 'True'}),
             'stg_language': ('django.db.models.fields.CharField', [], {'default': "'en'", 'max_length': '120'}),
             'stg_pwenc_check': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'stg_sysloglevel': ('django.db.models.fields.CharField', [], {'default': "'f_info'", 'max_length': '120'}),
             'stg_syslogserver': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '120', 'blank': 'True'}),
             'stg_timezone': ('django.db.models.fields.CharField', [], {'default': "'America/Los_Angeles'", 'max_length': '120'}),
             'stg_wizardshown': ('django.db.models.fields.BooleanField', [], {'default': 'False'})
@@ -187,7 +185,7 @@ class Migration(DataMigration):
             'tun_comment': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'}),
             'tun_enabled': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'tun_type': ('django.db.models.fields.CharField', [], {'default': "'loader'", 'max_length': '20'}),
-            'tun_value': ('django.db.models.fields.CharField', [], {'max_length': '50'}),
+            'tun_value': ('django.db.models.fields.CharField', [], {'max_length': '512'}),
             'tun_var': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '50'})
         },
         u'system.update': {

@@ -140,6 +140,7 @@ class Migration(DataMigration):
             'bsdusr_group': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['account.bsdGroups']"}),
             'bsdusr_home': ('freenasUI.freeadmin.models.fields.PathField', [], {'default': "'/nonexistent'", 'max_length': '255'}),
             'bsdusr_locked': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
+            'bsdusr_microsoft_account': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'bsdusr_password_disabled': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'bsdusr_shell': ('django.db.models.fields.CharField', [], {'default': "'/bin/csh'", 'max_length': '120'}),
             'bsdusr_smbhash': ('django.db.models.fields.CharField', [], {'default': "'*'", 'max_length': '128', 'blank': 'True'}),

@@ -203,15 +203,19 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'Alias'},
             'alias_interface': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['network.Interfaces']"}),
             'alias_v4address': ('freenasUI.contrib.IPAddressField.IP4AddressField', [], {'default': "''", 'blank': 'True'}),
+            'alias_v4address_b': ('freenasUI.contrib.IPAddressField.IP4AddressField', [], {'default': "''", 'blank': 'True'}),
             'alias_v4netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '3', 'blank': 'True'}),
             'alias_v6address': ('freenasUI.contrib.IPAddressField.IP6AddressField', [], {'default': "''", 'blank': 'True'}),
+            'alias_v6address_b': ('freenasUI.contrib.IPAddressField.IP6AddressField', [], {'default': "''", 'blank': 'True'}),
             'alias_v6netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '3', 'blank': 'True'}),
+            'alias_vip': ('freenasUI.contrib.IPAddressField.IP4AddressField', [], {'default': "''", 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
         },
         u'network.globalconfiguration': {
             'Meta': {'object_name': 'GlobalConfiguration'},
             'gc_domain': ('django.db.models.fields.CharField', [], {'default': "'local'", 'max_length': '120'}),
             'gc_hostname': ('django.db.models.fields.CharField', [], {'default': "'nas'", 'max_length': '120'}),
+            'gc_hostname_b': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
             'gc_hosts': ('django.db.models.fields.TextField', [], {'default': "''", 'blank': 'True'}),
             'gc_httpproxy': ('django.db.models.fields.CharField', [], {'max_length': '255', 'blank': 'True'}),
             'gc_ipv4gateway': ('freenasUI.contrib.IPAddressField.IP4AddressField', [], {'default': "''", 'blank': 'True'}),
@@ -226,15 +230,21 @@ class Migration(SchemaMigration):
         u'network.interfaces': {
             'Meta': {'ordering': "['int_interface']", 'object_name': 'Interfaces'},
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'int_critical': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'int_dhcp': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
+            'int_group': ('django.db.models.fields.IntegerField', [], {'null': 'True', 'blank': 'True'}),
             'int_interface': ('django.db.models.fields.CharField', [], {'max_length': '300'}),
             'int_ipv4address': ('freenasUI.contrib.IPAddressField.IPAddressField', [], {'default': "''", 'blank': 'True'}),
+            'int_ipv4address_b': ('freenasUI.contrib.IPAddressField.IPAddressField', [], {'default': "''", 'blank': 'True'}),
             'int_ipv6address': ('freenasUI.contrib.IPAddressField.IPAddressField', [], {'default': "''", 'blank': 'True'}),
             'int_ipv6auto': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'int_name': ('django.db.models.fields.CharField', [], {'max_length': "'120'"}),
             'int_options': ('django.db.models.fields.CharField', [], {'max_length': '120', 'blank': 'True'}),
+            'int_pass': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'}),
             'int_v4netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '3', 'blank': 'True'}),
-            'int_v6netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '4', 'blank': 'True'})
+            'int_v6netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '4', 'blank': 'True'}),
+            'int_vhid': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'blank': 'True'}),
+            'int_vip': ('freenasUI.contrib.IPAddressField.IPAddressField', [], {'null': 'True', 'blank': 'True'})
         },
         u'network.lagginterface': {
             'Meta': {'ordering': "['lagg_interface']", 'object_name': 'LAGGInterface'},
