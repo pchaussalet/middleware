@@ -80,8 +80,8 @@ class IPMIProvider(Provider):
             raw = {k.strip(): v.strip() for k, v in RE_ATTRS.findall(out)}
             ret = {IPMI_ATTR_MAP[k]: v for k, v in list(raw.items()) if k in IPMI_ATTR_MAP}
             ret['id'] = channel
-            ret['vlan_id'] = None if ret['vlan_id'] == 'Disabled' else ret['vlan_id']
-            ret['dhcp'] = True if ret['dhcp'] == 'DHCP Address' else False
+            ret['vlan_id'] = None if ret.get('vlan_id') == 'Disabled' else ret.get('vlan_id')
+            ret['dhcp'] = True if ret.get('dhcp') == 'DHCP Address' else False
             result.append(ret)
 
         return q.query(result, *(filter or []), stream=True, **(params or {}))
