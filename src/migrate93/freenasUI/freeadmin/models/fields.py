@@ -53,7 +53,7 @@ class DictField(models.Field):
     def to_python(self, value):
         if not value:
             return {}
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             return json.loads(value)
         return value
 
@@ -170,7 +170,7 @@ class MultiSelectField(models.Field):
         return '' if value is None else ",".join(value)
 
     def get_db_prep_value(self, value, connection, prepared=False):
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             return value
         elif isinstance(value, list):
             return ','.join(value)
@@ -233,7 +233,7 @@ class ListField(MultiSelectField):
         return SelectMultipleField(**defaults)
 
     def get_db_prep_value(self, value, connection, prepared=False):
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             return [value]
         elif isinstance(value, list):
             return value
