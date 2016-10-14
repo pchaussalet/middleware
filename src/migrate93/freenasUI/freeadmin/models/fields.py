@@ -217,6 +217,49 @@ class MultiSelectField(models.Field):
         return self.get_db_prep_value(value)
 
 
+class ListField(MultiSelectField):
+
+    def formfield(self, **kwargs):
+        from freenasUI.freeadmin.forms import SelectMultipleField
+        defaults = {
+            'required': not self.blank,
+            'label': capfirst(self.verbose_name),
+            'help_text': self.help_text,
+            'choices': self.get_choices(include_blank=False),
+        }
+        if self.has_default():
+            defaults['initial'] = self.default or []
+        defaults.update(kwargs)
+        return SelectMultipleField(**defaults)
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        if isinstance(value, basestring):
+            return [value]
+        elif isinstance(value, list):
+            return value
+
+    def to_python(self, value):
+        if isinstance(value, list):
+            return value
+        if value in ('', None):
+            return []
+        return value.split(',')
+
+
+class RawCharField(models.CharField):
+    empty_strings_allowed = True
+    __metaclass__ = models.SubfieldBase
+
+    def get_internal_type(self):
+        return "RawCharField"
+
+    def to_python(self, value):
+        return value
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        return value
+
+
 class Network4Field(models.CharField):
 
     def __init__(self, *args, **kwargs):

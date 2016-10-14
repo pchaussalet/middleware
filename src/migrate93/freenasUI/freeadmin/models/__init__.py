@@ -31,8 +31,8 @@ from django.db.models.base import ModelBase
 
 #FIXME: Backward compatible
 from .fields import (
-    DictField,
-    UserField, GroupField, PathField, MACField, Network4Field, Network6Field
+    UserField, GroupField, PathField, MACField, Network4Field, Network6Field,
+    DictField, ListField
 )
 
 log = logging.getLogger('freeadmin.models')
