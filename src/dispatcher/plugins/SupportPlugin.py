@@ -72,7 +72,11 @@ class SupportProvider(Provider):
 
 
 @description("Submits a new support ticket")
-@accepts(h.ref('support-ticket'))
+@accepts(
+    h.all_of(
+        h.ref('support-ticket'),
+        h.required('title', 'body', 'category', 'type', 'user', 'password'))
+)
 class SupportSubmitTask(Task):
     @classmethod
     def early_describe(cls):
@@ -89,6 +93,7 @@ class SupportSubmitTask(Task):
             version = self.dispatcher.call_sync('system.info.version')
             sw_name = version.split('-')[0].lower()
             project_name = '-'.join(version.split('-')[:2]).lower()
+
             data = {
                 'title': ticket['subject'],
                 'body': ticket['description'],
@@ -97,7 +102,7 @@ class SupportSubmitTask(Task):
                 'type': ticket['type'],
                 'user': ticket['username'],
                 'password': ticket['password'],
-                'debug': ticket['debug'],
+                'debug': ticket['debug'] if ticket.get('debug') else False,
                 'project': project_name,
             }
 
