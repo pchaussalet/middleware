@@ -43,7 +43,7 @@ class ScheduledQueryUpdate(object):
     def run(self):
         logging.log(TRACE, 'Running update for {0}'.format(self.service))
         try:
-            entities = list(self.dispatcher.call_sync('{0}.query'.format(self.service), [('id', 'in', self.keys)]))
+            entities = list(self.dispatcher.call_sync('{0}.query'.format(self.service), [('id', 'in', list(self.keys))]))
         except BaseException as e:
             logging.warning('Cannot fetch changed entities from service {0}: {1}'.format(self.service, str(e)))
             return
@@ -117,7 +117,7 @@ class EntitySubscriberEventSource(EventSource):
                 return
         else:
             try:
-                entities = list(self.dispatcher.call_sync('{0}.query'.format(service), [('id', 'in', keys)]))
+                entities = list(self.dispatcher.call_sync('{0}.query'.format(service), [('id', 'in', list(keys))]))
             except BaseException as e:
                 self.logger.warn('Cannot fetch changed entities from service {0}: {1}'.format(service, str(e)))
                 return
