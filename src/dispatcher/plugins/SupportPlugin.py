@@ -152,7 +152,7 @@ def _init(dispatcher, plugin):
             'subject': {'type': 'string'},
             'description': {'type': 'string'},
             'category': {'type': 'string'},
-            'type': {'type': 'string'},
+            'type': {'type': 'string', 'enum': ['bug', 'feature']},
             'debug': {'type': 'boolean'},
             'attachments': {'type': 'array', 'items': {'type': 'string'}},
         },
