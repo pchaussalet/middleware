@@ -31,7 +31,6 @@ import socket
 from task import Task, ProgressTask, TaskException, TaskDescription
 from freenas.dispatcher.rpc import description
 from paramiko import transport, sftp_client, ssh_exception, rsakey, dsskey
-from freenas.utils import normalize
 
 
 @description('Lists information about a specific SSH backup')
