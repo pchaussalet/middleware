@@ -51,7 +51,7 @@ class ScheduledQueryUpdate(object):
         self.dispatcher.dispatch_event('entity-subscriber.{0}.changed'.format(self.service), {
             'service': self.service,
             'operation': 'update',
-            'ids': self.keys,
+            'ids': list(self.keys),
             'entities': entities,
             'nolog': True
         })
@@ -103,12 +103,12 @@ class EntitySubscriberEventSource(EventSource):
             gevent.spawn(self.fetch if ids is not None else self.fetch_one, service, operation, ids)
 
     def fetch(self, service, operation, ids):
-        keys = list(ids.keys()) if isinstance(ids, dict) else ids
+        keys = set(ids.keys() if isinstance(ids, dict) else ids)
 
         if operation == 'update':
             if service in self.scheduled_updates:
                 self.logger.log(TRACE, 'Update for {0} already scheduled'.format(service))
-                self.scheduled_updates[service].keys += keys
+                self.scheduled_updates[service].keys |= keys
                 return
             else:
                 self.logger.log(TRACE, 'Scheduling update for {0} in 1 second'.format(service))
