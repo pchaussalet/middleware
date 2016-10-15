@@ -464,6 +464,13 @@ class TaskService(RpcService):
             task = self.__balancer.get_task(t['id'])
             if task and task.progress:
                 t['progress'] = task.progress.__getstate__()
+                return t
+
+            t['progress'] = {
+                'percentage': 100 if t['state'] == 'FINISHED' else 0,
+                'message': t['state'].lower().capitalize(),
+                'extrs': None
+            }
 
             return t
 
