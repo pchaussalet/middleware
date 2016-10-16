@@ -440,7 +440,13 @@ class Task(object):
 
             if self.state in (TaskState.FINISHED, TaskState.FAILED, TaskState.ABORTED):
                 try:
-                    self.balancer.task_list.remove(self)
+                    # Remove all subtasks
+                    for i in filter(lambda t: t.parent is self, self.balancer.task_list):
+                        self.balancer.task_list.remove(i)
+
+                    # If top-level task, also remove self
+                    if self.parent is None:
+                        self.balancer.task_list.remove(self)
                 except ValueError:
                     # failed in verify stage
                     pass
