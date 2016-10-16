@@ -75,7 +75,7 @@ class SupportProvider(Provider):
 @accepts(
     h.all_of(
         h.ref('support-ticket'),
-        h.required('title', 'body', 'category', 'type', 'user', 'password'))
+        h.required('subject', 'description', 'category', 'type', 'username', 'password'))
 )
 class SupportSubmitTask(Task):
     @classmethod
