@@ -208,6 +208,51 @@ class CreateInterfaceTask(Task):
                 'members': []
             })
 
+        if iface.get('dhcp'):
+            # Check for DHCP inconsistencies
+            # 1. Check whether DHCP is enabled on other interfaces
+            # 2. Check whether DHCP configures default route and/or DNS server addresses
+            dhcp_used = self.datastore.exists('network.interfaces', ('dhcp', '=', True), ('id', '!=', iface['id']))
+            dhcp_gateway = self.configstore.get('network.dhcp.assign_gateway')
+            dhcp_dns = self.configstore.get('network.dhcp.assign_dns')
+
+            if dhcp_used and (dhcp_gateway or dhcp_dns):
+                raise TaskException(
+                    errno.ENXIO,
+                    'DHCP gateway or DNS assignment is already enabled on another interface'
+                )
+
+            if dhcp_gateway:
+                self.configstore.set('network.gateway.ipv4', None)
+
+            if dhcp_dns:
+                self.configstore.set('network.dns.search', [])
+                self.configstore.set('network.dns.addresses', [])
+
+        if iface['aliases']:
+            # Forbid setting any aliases on interface with DHCP
+            if iface['dhcp'] and len(iface['aliases']) > 0:
+                raise TaskException(errno.EINVAL, 'Cannot set aliases when using DHCP')
+
+            # Check for aliases inconsistencies
+            ips = [x['address'] for x in iface['aliases']]
+            if any(ips.count(x) > 1 for x in ips):
+                raise TaskException(errno.ENXIO, 'Duplicated IP alias')
+
+            # Add missing broadcast addresses and address family
+            for i in iface['aliases']:
+                normalize(i, {
+                    'type': 'INET'
+                })
+
+                if not i.get('broadcast') and i['type'] == 'INET':
+                    i['broadcast'] = str(calculate_broadcast(i['address'], i['netmask']))
+
+        if iface.get('vlan'):
+            vlan = iface['vlan']
+            if (not vlan['parent'] and vlan['tag']) or (vlan['parent'] and not vlan['tag']):
+                raise TaskException(errno.EINVAL, 'Can only set VLAN parent interface and tag at the same time')
+
         self.datastore.insert('network.interfaces', iface)
 
         try:
