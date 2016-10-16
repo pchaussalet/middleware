@@ -280,7 +280,7 @@ class DiskGPTFormatTask(Task):
 
             self.dispatcher.call_sync('disk.update_disk_cache', disk['path'], timeout=120)
         except SubprocessException as err:
-            raise TaskException(errno.EFAULT, 'Cannot format disk: {0}'.format(err.err))
+            raise TaskException(errno.EFAULT, 'Cannot format disk {0}: {1}'.format(disk['path'], err.err))
 
 
 @description('Formats given disk to be bootable and capable to be included in the Boot Pool')
