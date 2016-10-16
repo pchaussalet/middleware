@@ -214,8 +214,8 @@ class FreeNASPeerCreateTask(Task):
         remote_peer_name = hostname
         credentials = peer['credentials']
         remote = credentials.get('address')
-        username = credentials.get('username')
         port = credentials.get('port', 22)
+        username = initial_credentials.get('username')
         password = initial_credentials.get('password')
         auth_code = initial_credentials.get('auth_code')
         key_auth = initial_credentials.get('key_auth')
