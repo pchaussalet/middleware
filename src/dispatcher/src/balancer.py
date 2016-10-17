@@ -632,6 +632,7 @@ class Balancer(object):
         if parent:
             task.environment = copy.deepcopy(parent.environment)
             task.environment['parent'] = parent.id
+            task.user = parent.user
 
         if env:
             if not isinstance(env, dict):
