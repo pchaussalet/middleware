@@ -203,7 +203,7 @@ class SystemTimeProvider(Provider):
         return {
             'system_time': datetime.now(tz=tz.tzlocal()),
             'boot_time': boot_time,
-            'uptime': (datetime.now() - boot_time).total_seconds(),
+            'uptime': (datetime.utcnow() - boot_time).total_seconds(),
             'timezone': time.tzname[time.daylight],
         }
 
