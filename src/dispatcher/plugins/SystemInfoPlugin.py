@@ -199,11 +199,11 @@ class SystemTimeProvider(Provider):
     @accepts()
     @returns(h.ref('system-time'))
     def get_config(self):
-        boot_time = datetime.fromtimestamp(psutil.boot_time(), tz=tz.tzlocal())
+        boot_time = datetime.utcfromtimestamp(psutil.boot_time())
         return {
             'system_time': datetime.now(tz=tz.tzlocal()),
             'boot_time': boot_time,
-            'uptime': (datetime.now(tz=tz.tzlocal()) - boot_time).total_seconds(),
+            'uptime': (datetime.now() - boot_time).total_seconds(),
             'timezone': time.tzname[time.daylight],
         }
 
