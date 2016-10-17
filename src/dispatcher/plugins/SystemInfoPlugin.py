@@ -201,8 +201,8 @@ class SystemTimeProvider(Provider):
     def get_config(self):
         boot_time = datetime.fromtimestamp(psutil.boot_time(), tz=tz.tzlocal())
         return {
-            'system_time': datetime.now(tz=tz.tzlocal()).isoformat(),
-            'boot_time': boot_time.isoformat(),
+            'system_time': datetime.now(tz=tz.tzlocal()),
+            'boot_time': boot_time,
             'uptime': (datetime.now(tz=tz.tzlocal()) - boot_time).total_seconds(),
             'timezone': time.tzname[time.daylight],
         }
@@ -705,9 +705,9 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            'system_time': {'type': 'string'},
-            'boot_time': {'type': 'string'},
-            'uptime': {'type': 'string'},
+            'system_time': {'type': 'datetime'},
+            'boot_time': {'type': 'datetime'},
+            'uptime': {'type': 'number'},
             'timezone': {'type': 'string'}
         }
     })
