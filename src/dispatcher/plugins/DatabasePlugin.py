@@ -55,7 +55,7 @@ class DownloadDatabaseTask(Task):
         for i in self.datastore.collection_list():
             result.append(dump_collection(self.datastore, i))
 
-        with os.fdopen(fd.fd, mode='w') as f:
+        with os.fdopen(fd.fd, mode='w', closefd=False) as f:
             dump(result, f)
 
 
