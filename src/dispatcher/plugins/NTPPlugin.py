@@ -185,6 +185,7 @@ def _init(dispatcher, plugin):
             'prefer': {'type': 'boolean'},
             'minpoll': {'type': 'integer'},
             'maxpoll': {'type': 'integer'},
+            'pool' : {'type': 'boolean'},
         },
         'additionalProperties': False,
     })

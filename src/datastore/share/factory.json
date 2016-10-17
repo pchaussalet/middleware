@@ -1081,7 +1081,8 @@
                 "minpoll": 6,
                 "burst": false,
                 "iburst": true,
-                "maxpoll": 10
+                "maxpoll": 10,
+                "pool": true
             },
             "5b5a6699-c88a-4e72-9af8-6c6a1376200b": {
                 "prefer": false,
@@ -1089,7 +1090,8 @@
                 "minpoll": 6,
                 "burst": false,
                 "iburst": true,
-                "maxpoll": 10
+                "maxpoll": 10,
+                "pool": true
             },
             "c436daf5-a884-4689-bf85-009fb8cfd9d8": {
                 "prefer": false,
@@ -1097,7 +1099,8 @@
                 "minpoll": 6,
                 "burst": false,
                 "iburst": true,
-                "maxpoll": 10
+                "maxpoll": 10,
+                "pool": true
             }
         },
         "metadata": {

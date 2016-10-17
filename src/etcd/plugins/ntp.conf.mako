@@ -1,5 +1,10 @@
 % for ntp in dispatcher.call_sync('ntp_server.query'):
-server ${ntp['address']}\
+% if ntp.get('pool'):
+pool\
+% else:
+server\
+% endif
+ ${ntp['address']}\
 % if ntp.get('burst'):
  burst\
 % endif
