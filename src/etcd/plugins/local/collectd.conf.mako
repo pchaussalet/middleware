@@ -17,6 +17,7 @@ LoadPlugin processes
 LoadPlugin swap
 LoadPlugin uptime
 LoadPlugin syslog
+LoadPlugin geom_stat
 LoadPlugin zfs_arc
 LoadPlugin zfs_arc_v2
 LoadPlugin unixsock
@@ -48,6 +49,10 @@ LoadPlugin write_graphite
     Disk "/^md/"
     Disk "/^pass/"
     IgnoreSelected true
+</Plugin>
+
+<Plugin "geom_stat">
+    Filter "^([a]?da|ciss|md|mfi|md|xbd|vtbd|multipath/mpath)[0123456789]+(\.eli)?$"
 </Plugin>
 
 <Plugin "zfs_arc">
