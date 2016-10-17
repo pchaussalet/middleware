@@ -1070,18 +1070,63 @@ def get_multipath_name():
 
 
 def attach_to_multipath(dispatcher, disk, ds_disk, path):
-    with dispatcher.get_lock('multipath'):
-        if not disk and ds_disk:
-            logger.info("Device node %s <%s> is marked as multipath, creating single-node multipath", path, ds_disk['serial'])
-            nodename = os.path.basename(ds_disk['path'])
-            logger.info('Reusing %s path', nodename)
+    if not disk and ds_disk:
+        logger.info("Device node %s <%s> is marked as multipath, creating single-node multipath", path, ds_disk['serial'])
+        nodename = os.path.basename(ds_disk['path'])
+        logger.info('Reusing %s path', nodename)
 
-            # Degenerated single-disk multipath
+        # Degenerated single-disk multipath
+        try:
+            dispatcher.exec_and_wait_for_event(
+                'system.device.attached',
+                lambda args: args['path'] == '/dev/multipath/{0}'.format(nodename),
+                lambda: system('/sbin/gmultipath', 'create', nodename, path)
+            )
+        except SubprocessException as e:
+            logger.warning('Cannot create multipath: {0}'.format(e.err))
+            return
+
+        ret = {
+            'is_multipath': True,
+            'path': os.path.join('/dev/multipath', nodename),
+        }
+    elif disk:
+        logger.info("Device node %s is another path to disk <%s> (%s)", path, disk['id'], disk['description'])
+        if disk['is_multipath']:
+            if path in q.get(disk, 'multipath.members'):
+                # Already added
+                return
+
+            # Attach new disk
+            try:
+                system('/sbin/gmultipath', 'add', q.get(disk, 'multipath.node'), path)
+            except SubprocessException as e:
+                logger.warning('Cannot attach {0} to multipath: {0}'.format(path, e.err))
+                return
+
+            nodename = q.get(disk, 'multipath.node')
+            ret = {
+                'is_multipath': True,
+                'path': os.path.join('/dev/multipath', q.get(disk, 'multipath.node')),
+            }
+        else:
+            # Create new multipath
+            logger.info('Creating new multipath device')
+
+            # If disk was previously tied to specific cdev path (/dev/multipath[0-9]+)
+            # reuse that path. Otherwise pick up first multipath device name available
+            if ds_disk and ds_disk['is_multipath']:
+                nodename = os.path.basename(ds_disk['path'])
+                logger.info('Reusing %s path', nodename)
+            else:
+                nodename = get_multipath_name()
+                logger.info('Using new %s path', nodename)
+
             try:
                 dispatcher.exec_and_wait_for_event(
                     'system.device.attached',
                     lambda args: args['path'] == '/dev/multipath/{0}'.format(nodename),
-                    lambda: system('/sbin/gmultipath', 'create', nodename, path)
+                    lambda: system('/sbin/gmultipath', 'create', nodename, disk['path'], path)
                 )
             except SubprocessException as e:
                 logger.warning('Cannot create multipath: {0}'.format(e.err))
@@ -1091,61 +1136,15 @@ def attach_to_multipath(dispatcher, disk, ds_disk, path):
                 'is_multipath': True,
                 'path': os.path.join('/dev/multipath', nodename),
             }
-        elif disk:
-            logger.info("Device node %s is another path to disk <%s> (%s)", path, disk['id'], disk['description'])
-            if disk['is_multipath']:
-                if path in q.get(disk, 'multipath.members'):
-                    # Already added
-                    return
 
-                # Attach new disk
-                try:
-                    system('/sbin/gmultipath', 'add', q.get(disk, 'multipath.node'), path)
-                except SubprocessException as e:
-                    logger.warning('Cannot attach {0} to multipath: {0}'.format(path, e.err))
-                    return
+    # Force re-taste
+    with open(os.path.join('/dev/multipath', nodename), 'rb+') as f:
+        pass
 
-                nodename = q.get(disk, 'multipath.node')
-                ret = {
-                    'is_multipath': True,
-                    'path': os.path.join('/dev/multipath', q.get(disk, 'multipath.node')),
-                }
-            else:
-                # Create new multipath
-                logger.info('Creating new multipath device')
-
-                # If disk was previously tied to specific cdev path (/dev/multipath[0-9]+)
-                # reuse that path. Otherwise pick up first multipath device name available
-                if ds_disk and ds_disk['is_multipath']:
-                    nodename = os.path.basename(ds_disk['path'])
-                    logger.info('Reusing %s path', nodename)
-                else:
-                    nodename = get_multipath_name()
-                    logger.info('Using new %s path', nodename)
-
-                try:
-                    dispatcher.exec_and_wait_for_event(
-                        'system.device.attached',
-                        lambda args: args['path'] == '/dev/multipath/{0}'.format(nodename),
-                        lambda: system('/sbin/gmultipath', 'create', nodename, disk['path'], path)
-                    )
-                except SubprocessException as e:
-                    logger.warning('Cannot create multipath: {0}'.format(e.err))
-                    return
-
-                ret = {
-                    'is_multipath': True,
-                    'path': os.path.join('/dev/multipath', nodename),
-                }
-
-        # Force re-taste
-        with open(os.path.join('/dev/multipath', nodename), 'rb+') as f:
-            pass
-
-        dispatcher.threaded(geom.scan)
-        gmultipath = geom.geom_by_name('MULTIPATH', nodename)
-        ret['multipath'] = generate_multipath_info(gmultipath)
-        return ret
+    dispatcher.threaded(geom.scan)
+    gmultipath = geom.geom_by_name('MULTIPATH', nodename)
+    ret['multipath'] = generate_multipath_info(gmultipath)
+    return ret
 
 
 def disk_by_id(dispatcher, id):
@@ -1317,15 +1316,6 @@ def generate_disk_cache(dispatcher, path):
 
     identifier = device_to_identifier(name, serial)
     ds_disk = dispatcher.datastore.get_by_id('disks', identifier)
-
-    # Path repesents disk device (not multipath device) and has NAA ID attached
-    lunid = gdisk.provider.config.get('lunid')
-    if lunid:
-        # Check if device could be part of multipath configuration
-        d = get_disk_by_lunid(lunid)
-        if (d and d['path'] != path) or (ds_disk and ds_disk['is_multipath']):
-            multipath_info = attach_to_multipath(dispatcher, d, ds_disk, path)
-
     provider = gdisk.provider
 
     try:
@@ -1338,23 +1328,33 @@ def generate_disk_cache(dispatcher, path):
     except:
         max_rotation = 0
 
-    disk = {
-        'path': path,
-        'is_multipath': False,
-        'description': provider.config['descr'],
-        'serial': serial,
-        'max_rotation': max_rotation,
-        'is_ssd': False if max_rotation else True,
-        'lunid': provider.config.get('lunid'),
-        'id': identifier,
-        'controller': camdev.__getstate__() if camdev else None,
-    }
+    with dispatcher.get_lock('multipath'):
+        # Path repesents disk device (not multipath device) and has NAA ID attached
+        lunid = gdisk.provider.config.get('lunid')
+        if lunid:
+            # Check if device could be part of multipath configuration
+            d = get_disk_by_lunid(lunid)
+            if (d and d['path'] != path) or (ds_disk and ds_disk['is_multipath']):
+                multipath_info = attach_to_multipath(dispatcher, d, ds_disk, path)
 
-    if multipath_info:
-        disk.update(multipath_info)
-        path = multipath_info['path']
+        disk = {
+            'path': path,
+            'is_multipath': False,
+            'description': provider.config['descr'],
+            'serial': serial,
+            'max_rotation': max_rotation,
+            'is_ssd': False if max_rotation else True,
+            'lunid': provider.config.get('lunid'),
+            'id': identifier,
+            'controller': camdev.__getstate__() if camdev else None,
+        }
 
-    diskinfo_cache.put(identifier, disk)
+        if multipath_info:
+            disk.update(multipath_info)
+            path = multipath_info['path']
+
+        diskinfo_cache.put(identifier, disk)
+
     update_disk_cache(dispatcher, path)
     configure_disk(dispatcher.datastore, identifier)
 
