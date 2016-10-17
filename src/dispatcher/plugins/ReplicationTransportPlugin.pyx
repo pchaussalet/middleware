@@ -267,6 +267,7 @@ class TransportSendTask(Task):
         cdef int wr_fd
         cdef int header_wr = -1
 
+        conn_fd = None
         try:
             buffer_size = transport.get('buffer_size', 1024*1024)
             client_address = transport.get('client_address')
@@ -432,7 +433,7 @@ class TransportSendTask(Task):
                     logger.debug('Written {0} bytes -> TCP socket ({1}:{2})'.format(ret, *self.addr))
 
         finally:
-            if header_wr != conn_fd:
+            if conn_fd and header_wr != conn_fd:
                 close_fds(header_wr)
 
             if not self.aborted:
