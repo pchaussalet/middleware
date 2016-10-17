@@ -80,8 +80,11 @@ class UploadDatabaseTask(ProgressTask):
         except ValueError as err:
             raise TaskException(errno.EINVAL, "Cannot parse input file: {0}".format(str(err)))
 
+        def progress(name):
+            self.set_progress(50, 'Restored collection {0}'.format(name))
+
         try:
-            restore_db(self.datastore, dump)
+            restore_db(self.datastore, dump, progress_callback=progress)
         except DatastoreException as err:
             raise TaskException(errno.EFAULT, 'Cannot restore factory database: {0}'.format(str(err)))
 
