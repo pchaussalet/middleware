@@ -24,8 +24,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 #####################################################################
+
 import os
 import shutil
+
 
 ZONEINFO_DIR = "/usr/share/zoneinfo"
 
@@ -35,12 +37,16 @@ def run(context):
     if not timezone:
         return
 
-    timezone = os.path.join(ZONEINFO_DIR, timezone)
-    if not os.path.exists(timezone):
+    tzpath = os.path.join(ZONEINFO_DIR, timezone)
+    if not os.path.exists(tzpath):
         return
 
-    shutil.copy(timezone, '/etc/localtime')
+    shutil.copy(tzpath, '/etc/localtime')
 
     context.emit_event('etcd.file_generated', {
         'filename': '/etc/localtime'
+    })
+
+    context.emit_event('system.timezone.change', {
+        'timezone': timezone
     })

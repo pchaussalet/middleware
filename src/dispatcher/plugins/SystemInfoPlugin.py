@@ -268,7 +268,7 @@ class SystemGeneralConfigureTask(Task):
 
         if 'timezone' in props:
             self.configstore.set('system.timezone', props['timezone'])
-            os.putenv('TZ', props['timezone'])
+            os.environ['TZ'] = props['timezone']
 
         if 'console_keymap' in props:
             self.configstore.set(
@@ -623,6 +623,11 @@ def _init(dispatcher, plugin):
             'operation': 'update',
         })
 
+    def on_system_timezone_change(args):
+        logger.warning('Setting time zone to {0}'.format(args.get('timezone')))
+        os.environ['TZ'] = args.get('timezone')
+        time.tzset()
+
     # Register schemas
     plugin.register_schema_definition('system-advanced', {
         'type': 'object',
@@ -720,8 +725,9 @@ def _init(dispatcher, plugin):
         'enum': ['SHUTDOWN', 'REBOOT']
     })
 
-    # Register event handler
+    # Register event handlers
     plugin.register_event_handler('system.hostname.change', on_hostname_change)
+    plugin.register_event_handler('system.timezone.change', on_system_timezone_change)
 
     # Register Event Types
     plugin.register_event_type('system.general.changed')
