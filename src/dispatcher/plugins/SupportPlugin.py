@@ -24,6 +24,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 #####################################################################
+import os
 import errno
 import json
 import logging
@@ -93,6 +94,9 @@ class SupportSubmitTask(Task):
             version = self.dispatcher.call_sync('system.info.version')
             sw_name = version.split('-')[0].lower()
             project_name = '-'.join(version.split('-')[:2]).lower()
+            for attachment in ticket.get('attachments', []):
+                if not os.path.exists(attachment):
+                    raise TaskException(errno.ENOENT, 'File {} does not exists.'.format(attachment))
 
             data = {
                 'title': ticket['subject'],
