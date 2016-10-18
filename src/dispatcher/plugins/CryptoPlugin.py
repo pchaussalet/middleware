@@ -339,7 +339,7 @@ class CertificateCreateTask(Task):
 
 @accepts(h.all_of(
     h.ref('crypto-certificate'),
-    h.required('name', 'type', 'certificate_path', 'privatekey_path'),
+    h.required('name', 'type'),
 ))
 @description('Imports a certificate')
 class CertificateImportTask(Task):
@@ -362,19 +362,31 @@ class CertificateImportTask(Task):
                 )
             )
 
-        if certificate['certificate_path'] and not Path(certificate['certificate_path']).is_file():
+        if all(k in certificate for k in ('certificate', 'certificate_path')):
+            raise VerifyException(
+                errno.EINVAL,
+                'Both "certificate" and "certificate_path" arguments specified at the same time.'
+            )
+
+        if all(k in certificate for k in ('privatekey', 'privatekey_path')):
+            raise VerifyException(
+                errno.EINVAL,
+                'Both "privatekey" and "privatekey_path" arguments specified at the same time.'
+            )
+
+        if certificate.get('certificate_path') and not Path(certificate['certificate_path']).is_file():
             raise VerifyException(
                 errno.ENOENT,
                 'Certificate file {0} does not exist'.format(certificate['certificate_path'])
             )
 
-        if certificate['privatekey_path'] and not Path(certificate['privatekey_path']).is_file():
+        if certificate.get('privatekey_path') and not Path(certificate['privatekey_path']).is_file():
             raise VerifyException(
                 errno.ENOENT,
                 "Certificate's privatekey file {0} does not exist".format(certificate['privatekey_path'])
             )
 
-        if certificate['certificate_path']:
+        if certificate.get('certificate_path'):
             try:
                 crypto.load_certificate(crypto.FILETYPE_PEM, get_file_contents(
                     certificate['certificate_path']).encode('utf-8'))
@@ -384,7 +396,13 @@ class CertificateImportTask(Task):
                     "Invalid certificate file contents: '{0}'".format(certificate['certificate_path'])
                 )
 
-        if certificate['privatekey_path']:
+        if certificate.get('certificate'):
+            try:
+                crypto.load_certificate(crypto.FILETYPE_PEM, certificate['certificate'].encode('utf-8'))
+            except Exception:
+                raise VerifyException(errno.EINVAL, "Invalid certificate provided")
+
+        if certificate.get('privatekey_path'):
             try:
                 crypto.load_privatekey(crypto.FILETYPE_PEM, get_file_contents(certificate['privatekey_path']))
             except Exception:
@@ -393,12 +411,11 @@ class CertificateImportTask(Task):
                     "Invalid privatekey file contents: '{0}'".format(certificate['privatekey_path'])
                 )
 
-        """
-        try:
-            load_privatekey(certificate['privatekey'], certificate.get('passphrase', None))
-        except Exception:
-            raise VerifyException(errno.EINVAL, 'Invalid passphrase or privatekey')
-        """
+        if certificate.get('privatekey'):
+            try:
+                crypto.load_privatekey(crypto.FILETYPE_PEM, certificate['privatekey'])
+            except Exception:
+                raise VerifyException(errno.EINVAL, "Invalid privatekey provided")
 
         return ['system']
 
@@ -409,9 +426,16 @@ class CertificateImportTask(Task):
         new_cert_db_entry = {}
         new_cert_db_entry['name'] = certificate['name']
         new_cert_db_entry['type'] = certificate['type']
-        if certificate['certificate_path']:
+
+        if certificate.get('certificate_path'):
             imported_cert = crypto.load_certificate(
                 crypto.FILETYPE_PEM, get_file_contents(certificate['certificate_path']).encode('utf-8'))
+        elif certificate.get('certificate'):
+            imported_cert = crypto.load_certificate(crypto.FILETYPE_PEM, certificate['certificate'].encode('utf-8'))
+        else:
+            imported_cert = False
+
+        if imported_cert:
             new_cert_db_entry['certificate'] = crypto.dump_certificate(
                 crypto.FILETYPE_PEM, imported_cert).decode('utf-8')
             new_cert_db_entry.update(get_cert_info(imported_cert))
@@ -425,9 +449,15 @@ class CertificateImportTask(Task):
         else:
             new_cert_db_entry['certificate'] = ""
 
-        if certificate['privatekey_path']:
+        if certificate.get('privatekey_path'):
             imported_privkey = crypto.load_privatekey(
                 crypto.FILETYPE_PEM, get_file_contents(certificate['privatekey_path']))
+        elif certificate.get('privatekey'):
+            imported_privkey = crypto.load_privatekey(crypto.FILETYPE_PEM, certificate['privatekey'])
+        else:
+            imported_privkey = False
+
+        if imported_privkey:
             new_cert_db_entry['privatekey'] = crypto.dump_privatekey(
                 crypto.FILETYPE_PEM, imported_privkey).decode('utf-8')
             new_cert_db_entry['key_length'] = imported_privkey.bits()
