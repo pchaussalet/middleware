@@ -332,7 +332,14 @@ class TransportSendTask(Task):
             )
 
             self.conn, addr = self.sock.accept()
-            if addr[0] != client_address:
+
+            for addr_info in socket.getaddrinfo(client_address, addr[1], socket.AF_UNSPEC, socket.SOCK_STREAM):
+                _, _, _, _, desired_address = addr_info
+
+                if addr[0] == desired_address[0]:
+                    break
+
+            else:
                 raise TaskException(
                     EINVAL,
                     'Connection from an unexpected address {0} - desired {1}'.format(
@@ -340,6 +347,7 @@ class TransportSendTask(Task):
                         client_address
                     )
                 )
+
             logger.debug('New connection from {0}:{1} to {2}:{3}'.format(*(addr + sock_addr)))
 
             self.conn.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, buffer_size)
