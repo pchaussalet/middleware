@@ -25,10 +25,8 @@
 #
 #####################################################################
 
-import os
 import re
 import json
-import copy
 import errno
 import gevent
 import dockerfile_parse
