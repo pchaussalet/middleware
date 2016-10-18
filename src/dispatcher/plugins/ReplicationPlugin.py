@@ -1254,7 +1254,7 @@ class ReplicateDatasetTask(ProgressTask):
         remote_client = get_freenas_peer_client(self, remote)
 
         def is_replicated(snapshot):
-            if q.get(snapshot, 'properties.org\\.freenas:replicate.value') != 'yes':
+            if q.get(snapshot, 'properties.org\\.freenas:replicable.value') != 'yes':
                 # Snapshot is not subject to replication
                 return False
 
