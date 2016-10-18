@@ -105,7 +105,7 @@ class RestoreFactoryConfigTask(ProgressTask):
 
     def run(self):
         with open(FACTORY_DB, 'r') as fd:
-            self.join_subtasks(self.run_subtask('database.restore', FileDescriptor(fd.fileno())))
+            self.join_subtasks(self.run_subtask('database.restore', FileDescriptor(fd.fileno(), close=False)))
 
 
 def _init(dispatcher, plugin):
