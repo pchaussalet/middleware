@@ -1639,7 +1639,7 @@ def _init(dispatcher, plugin):
             'estimated_size': {'type': 'integer'},
             'transport_plugins': {
                 'type': ['array', 'null'],
-                'items': {'oneOf': [{'$ref': 'replication-transport-plugin'}, {'$ref': 'replication-transport-option'}]}
+                'items': {'anyOf': [{'$ref': 'replication-transport-plugin'}, {'$ref': 'replication-transport-option'}]}
             },
             'receive_properties':{
                 'name': {'type': 'string'},
