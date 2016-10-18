@@ -582,17 +582,17 @@ class DockerImagePullTask(DockerBaseTask):
                     self.set_progress(percentage, '{0} layer {1}'.format(i.get('status', ''), i.get('id', '')))
 
 
-@description('Removes previously cached container image from a Docker host')
+@description('Removes previously cached container image from a Docker host/s')
 @accepts(str, h.one_of(str, None))
 class DockerImageDeleteTask(DockerBaseTask):
     @classmethod
     def early_describe(cls):
         return 'Deleting docker image'
 
-    def describe(self, name, hostid):
+    def describe(self, name, hostid=None):
         return TaskDescription('Deleting docker image {name}'.format(name=name))
 
-    def verify(self, name, hostid):
+    def verify(self, name, hostid=None):
         host = self.datastore.get_by_id('vms', hostid) or {}
         hostname = host.get('name')
 
@@ -601,38 +601,20 @@ class DockerImageDeleteTask(DockerBaseTask):
         else:
             return ['docker']
 
-    def run(self, name, hostid):
-        self.check_host_state(hostid)
-        try:
-            self.dispatcher.call_sync('containerd.docker.delete_image', name, hostid)
-        except RpcException as err:
-            raise TaskException(errno.EACCES, 'Failed to remove image {0}: {1}'.format(name, err))
+    def run(self, name, hostid=None):
+        if hostid:
+            hosts = [hostid]
+        else:
+            hosts = self.dispatcher.call_sync(
+                'docker.image.query',
+                [('names.0', '=', name)],
+                {'select': 'hosts', 'single': True}
+            )
 
-
-@description('Removes previously cached container image from all Docker hosts')
-@accepts(str)
-class DockerImageRecursiveDeleteTask(DockerBaseTask):
-    @classmethod
-    def early_describe(cls):
-        return 'Deleting docker image'
-
-    def describe(self, name):
-        return TaskDescription('Deleting docker image {name}'.format(name=name))
-
-    def verify(self, name):
-        return ['docker']
-
-    def run(self, name):
-        hosts = self.dispatcher.call_sync(
-            'docker.image.query',
-            [('names.0', '=', name)],
-            {'select': 'hosts', 'single': True}
-        )
-
-        for hostid in hosts:
-            self.check_host_state(hostid)
+        for id in hosts:
+            self.check_host_state(id)
             try:
-                self.dispatcher.call_sync('containerd.docker.delete_image', name, hostid)
+                self.dispatcher.call_sync('containerd.docker.delete_image', name, id)
             except RpcException as err:
                 raise TaskException(errno.EACCES, 'Failed to remove image {0}: {1}'.format(name, err))
 
@@ -822,7 +804,6 @@ def _init(dispatcher, plugin):
 
     plugin.register_task_handler('docker.container.create', DockerContainerCreateTask)
     plugin.register_task_handler('docker.container.delete', DockerContainerDeleteTask)
-    plugin.register_task_handler('docker.container.recursive_delete', DockerImageRecursiveDeleteTask)
     plugin.register_task_handler('docker.container.start', DockerContainerStartTask)
     plugin.register_task_handler('docker.container.stop', DockerContainerStopTask)
 
