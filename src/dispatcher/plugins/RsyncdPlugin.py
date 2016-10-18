@@ -532,11 +532,11 @@ def _init(dispatcher, plugin):
 
     # Register providers
     plugin.register_provider("service.rsyncd", RsyncdProvider)
-    plugin.register_provider("service.rsyncd.module", RsyncdModuleProvider)
+    plugin.register_provider("rsyncd.module", RsyncdModuleProvider)
 
     # Register tasks
     plugin.register_task_handler("service.rsyncd.update", RsyncdConfigureTask)
-    plugin.register_task_handler("service.rsyncd.module.create", RsyncdModuleCreateTask)
-    plugin.register_task_handler("service.rsyncd.module.update", RsyncdModuleUpdateTask)
-    plugin.register_task_handler("service.rsyncd.module.delete", RsyncdModuleDeleteTask)
+    plugin.register_task_handler("rsyncd.module.create", RsyncdModuleCreateTask)
+    plugin.register_task_handler("rsyncd.module.update", RsyncdModuleUpdateTask)
+    plugin.register_task_handler("rsyncd.module.delete", RsyncdModuleDeleteTask)
     plugin.register_task_handler("rsync.copy", RsyncCopyTask)
