@@ -448,7 +448,7 @@ class VMBaseTask(ProgressTask):
             }))
 
             normalize(res['properties'], {
-                'type': 'AHCI'
+                'mode': 'AHCI'
             })
 
             if res['properties'].get('source'):
