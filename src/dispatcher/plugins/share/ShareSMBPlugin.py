@@ -31,7 +31,7 @@ import datetime
 import logging
 import smbconf
 from task import Task, Provider, TaskException, TaskDescription
-from freenas.dispatcher.rpc import description, accepts, private
+from freenas.dispatcher.rpc import RpcException, description, accepts, private
 from freenas.dispatcher.rpc import SchemaHelper as h
 from freenas.utils import normalize
 
@@ -83,6 +83,7 @@ class CreateSMBShareTask(Task):
             'browseable': True,
             'recyclebin': False,
             'show_hidden_files': False,
+            'previous_versions': True,
             'vfs_objects': [],
             'hosts_allow': None,
             'hosts_deny': None,
@@ -95,7 +96,7 @@ class CreateSMBShareTask(Task):
         try:
             smb_conf = smbconf.SambaConfig('registry')
             smb_share = smbconf.SambaShare()
-            convert_share(smb_share, path, share['enabled'], share['properties'])
+            convert_share(self.dispatcher, smb_share, path, share['enabled'], share['properties'])
             smb_conf.shares[share['name']] = smb_share
             reload_samba()
         except smbconf.SambaConfigException:
@@ -140,7 +141,7 @@ class UpdateSMBShareTask(Task):
                 smb_conf.shares[newname] = smb_share
 
             smb_share = smb_conf.shares[newname]
-            convert_share(smb_share, path, share['enabled'], share['properties'])
+            convert_share(self.dispatcher, smb_share, path, share['enabled'], share['properties'])
             smb_share.save()
             reload_samba()
         except smbconf.SambaConfigException:
@@ -244,7 +245,7 @@ def drop_share_connections(share):
         logger.info('Cannot reload samba config: {0}'.format(str(err)))
 
 
-def convert_share(ret, path, enabled, share):
+def convert_share(dispatcher, ret, path, enabled, share):
     vfs_objects = ['zfsacl', 'zfs_space'] + share.get('vfs_objects', []) + ['aio_pthread']
     ret.clear()
     ret['path'] = path
@@ -273,6 +274,15 @@ def convert_share(ret, path, enabled, share):
         ret['recycle:touch'] = 'yes'
         ret['recycle:directory_mode'] = '0777'
         ret['recycle:subdir_mode'] = '0700'
+
+    if share.get('previous_versions'):
+        try:
+            volume, dataset, _ = dispatcher.call_sync('volume.decode_path', path)
+            vfs_objects.insert(0, 'shadow_copy_zfs')
+            ret['shadow:dataset'] = dataset
+            ret['shadow:sort'] = 'desc'
+        except RpcException as err:
+            logger.warning('Failed to determine dataset for path {0}: {1}'.format(path, str(err)))
 
     ret['vfs objects'] = ' '.join(vfs_objects)
 
@@ -306,6 +316,7 @@ def _init(dispatcher, plugin):
             'browseable': {'type': 'boolean'},
             'recyclebin': {'type': 'boolean'},
             'show_hidden_files': {'type': 'boolean'},
+            'previous_versions': {'type': 'boolean'},
             'vfs_objects': {
                 'type': 'array',
                 'items': {'type': 'string'}
@@ -340,5 +351,5 @@ def _init(dispatcher, plugin):
     for s in dispatcher.datastore.query('shares', ('type', '=', 'smb')):
         smb_share = smbconf.SambaShare()
         path = dispatcher.call_sync('share.translate_path', s['id'])
-        convert_share(smb_share, path, s['enabled'], s.get('properties', {}))
+        convert_share(dispatcher, smb_share, path, s['enabled'], s.get('properties', {}))
         smb_conf.shares[s['name']] = smb_share
