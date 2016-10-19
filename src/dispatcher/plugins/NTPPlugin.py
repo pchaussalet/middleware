@@ -60,6 +60,9 @@ class NTPServerCreateTask(Task):
         return ['system']
 
     def run(self, ntp, force=False):
+        if self.datastore.exists('ntpservers', ('address', '=', ntp['address'])):
+            raise TaskException(errno.ENXIO, 'NTP Server with given address already exists')
+
         try:
             system('ntpdate', '-q', ntp['address'])
         except SubprocessException:
@@ -95,11 +98,11 @@ class NTPServerCreateTask(Task):
 class NTPServerUpdateTask(Task):
     @classmethod
     def early_describe(cls):
-        return "Creating NTP Server"
+        return "Updating NTP Server"
 
     def describe(self, id, updated_fields, force=False):
         ntp = self.datastore.get_by_id('ntpservers', id)
-        return TaskDescription("Creating NTP Server {name}", name=ntp.get('address', '') or '')
+        return TaskDescription("Updating NTP Server {name}", name=ntp.get('address', '') or '')
 
     def verify(self, id, updated_fields, force=False):
         return ['system']
@@ -109,15 +112,18 @@ class NTPServerUpdateTask(Task):
         if ntp is None:
             raise TaskException(errno.ENOENT, 'NTP Server with given ID does not exist')
 
-        try:
-            if 'address' in updated_fields:
-                system('ntpdate', '-q', updated_fields['address'])
-        except SubprocessException:
-            if not force:
-                raise TaskException(
-                    errno.EINVAL,
-                    'Server could not be reached. Check "Force" to continue regardless.'
-                )
+        if 'address' in updated_fields:
+            if updated_fields['address'] != ntp['address'] and self.datastore.exists('ntpservers', ('address', '=', updated_fields['address'])):
+                raise TaskException(errno.ENXIO, 'NTP Server with given address already exists')
+            else:
+                try:
+                    system('ntpdate', '-q', updated_fields['address'])
+                except SubprocessException:
+                    if not force:
+                        raise TaskException(
+                            errno.EINVAL,
+                            'Server could not be reached. Check "Force" to continue regardless.'
+                        )
 
         minpoll = updated_fields.get('minpoll', ntp.get('minpoll'))
         maxpoll = updated_fields.get('maxpoll', ntp.get('maxpoll'))

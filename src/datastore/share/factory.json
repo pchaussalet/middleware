@@ -1105,7 +1105,10 @@
         },
         "metadata": {
             "attributes": {
-                "type": "persistent"
+                "type": "config",
+                "unique_indexes": [
+                    ["address"]
+                ] 
             },
             "migration": "keep",
             "pkey-type": "uuid",
