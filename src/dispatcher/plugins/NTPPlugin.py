@@ -167,11 +167,11 @@ class NTPServerUpdateTask(Task):
 class NTPServerDeleteTask(Task):
     @classmethod
     def early_describe(cls):
-        return "Creating NTP Server"
+        return "Deleting NTP Server"
 
     def describe(self, id):
         ntp = self.datastore.get_by_id('ntpservers', id)
-        return TaskDescription("Creating NTP Server {name}", name=ntp.get('address', '') or '')
+        return TaskDescription("Deleting NTP Server {name}", name=ntp.get('address', '') or '')
 
     def verify(self, id):
         return ['system']
