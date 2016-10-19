@@ -87,7 +87,6 @@ class RsyncdConfigureTask(Task):
             node.update(rsyncd)
             self.dispatcher.call_sync('etcd.generation.generate_group', 'services')
             self.dispatcher.call_sync('etcd.generation.generate_group', 'rsyncd')
-            self.dispatcher.call_sync('service.apply_state', 'rsyncd', True)
             self.dispatcher.dispatch_event('service.rsyncd.changed', {
                 'operation': 'updated',
                 'ids': None,
