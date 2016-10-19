@@ -98,6 +98,7 @@ class TaskExecutor(object):
         self.key = str(uuid.uuid4())
         self.result = AsyncResult()
         self.exiting = False
+        self.killed = False
         self.thread = gevent.spawn(self.executor)
         self.cv = Condition()
         self.status_lock = RLock()
@@ -258,6 +259,7 @@ class TaskExecutor(object):
         except RpcException as err:
             self.balancer.logger.warning("Failed to abort task #{0} gracefully: {1}".format(self.task.id, str(err)))
             self.balancer.logger.warning("Killing process {0}".format(self.pid))
+            self.killed = True
             self.terminate()
 
             # Now kill all the subtasks
@@ -315,7 +317,10 @@ class TaskExecutor(object):
                     self.proc.returncode)
                 )
 
-            self.result.set_exception(TaskException(errno.EFAULT, 'Task executor died'))
+            if self.killed:
+                self.result.set_exception(TaskException(errno.EFAULT, 'Task killed'))
+            else:
+                self.result.set_exception(TaskException(errno.EFAULT, 'Task executor died'))
             gevent.sleep(1)
 
     def die(self):
