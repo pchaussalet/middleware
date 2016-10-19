@@ -1,6 +1,6 @@
 <%
     config = dispatcher.call_sync('service.rsyncd.get_config')
-    modules = dispatcher.call_sync('service.rsyncd.module.query')
+    modules = dispatcher.call_sync('rsyncd.module.query')
 %>\
 use chroot = yes
 max connections = 4
