@@ -130,6 +130,7 @@ class BackupS3PutTask(ProgressTask):
                     idx = 1
                     size = 0
                     mp = client.create_multipart_upload(
+                        ACL='authenticated-read',
                         Bucket=backup['bucket'],
                         Key=key
                     )
