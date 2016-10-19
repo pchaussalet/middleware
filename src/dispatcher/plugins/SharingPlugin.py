@@ -329,7 +329,7 @@ class UpdateShareTask(Task):
                 path,
                 '{0}-{1}'.format(share['type'], share['name'])
             )
-        except OSError:
+        except (OSError, ValueError):
             pass
 
         if 'type' in updated_fields:
