@@ -119,7 +119,6 @@ class BackupS3PutTask(ProgressTask):
     def run(self, backup, name, fd):
         client = open_client(self.dispatcher, backup)
         folder = backup['folder'] or ''
-        parts = []
         index = 0
         end = False
 
@@ -127,6 +126,7 @@ class BackupS3PutTask(ProgressTask):
             with os.fdopen(fd.fd, 'rb') as f:
                 while True:
                     key = os.path.join(folder, suffix(name, index))
+                    parts = []
                     idx = 1
                     size = 0
                     mp = client.create_multipart_upload(
@@ -141,9 +141,6 @@ class BackupS3PutTask(ProgressTask):
 
                         if chunk == b'':
                             end = True
-                            break
-
-                        if size >= MAX_OBJECT_SIZE:
                             break
 
                         resp = client.upload_part(
@@ -161,6 +158,7 @@ class BackupS3PutTask(ProgressTask):
                         })
 
                         idx += 1
+
 
                     client.complete_multipart_upload(
                         Bucket=backup['bucket'],
