@@ -236,6 +236,7 @@ class DockerImagesProvider(Provider):
             'web_ui_path': labels.get('org.freenas.web-ui-path'),
             'ports': [],
             'volumes': [],
+            'static_volumes': [],
             'settings': []
         }
 
@@ -266,6 +267,18 @@ class DockerImagesProvider(Provider):
                         'container_path': vol['name'],
                         'readonly': vol.get('readonly', False)
                     })
+
+        if 'org.freenas.static_volumes' in labels:
+            try:
+                j = json.loads(labels['org.freenas.static_volumes'])
+            except ValueError:
+                pass
+            else:
+                for vol in j:
+                    if any(v not in vol for v in ('container_path', 'host_path', 'readonly')):
+                        continue
+
+                    result['volumes'].append(vol)
 
         if 'org.freenas.settings' in labels:
             try:
