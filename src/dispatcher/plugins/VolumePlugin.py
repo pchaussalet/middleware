@@ -1091,18 +1091,17 @@ class VolumeUpdateTask(ProgressTask):
 
 
 @description("Imports previously exported volume")
-@accepts(str, str, h.object(), h.ref('volume-import-params'), h.one_of(str, None))
+@accepts(str, h.one_of(str, None), h.object(), h.ref('volume-import-params'), h.one_of(str, None))
 class VolumeImportTask(Task):
     @classmethod
     def early_describe(cls):
         return "Importing a volume"
 
-    def describe(self, id, new_name, params=None, enc_params=None, password=None):
-        return TaskDescription("Importing the volume {name}", name=new_name)
+    def describe(self, id, new_name=None, params=None, enc_params=None, password=None):
+        return TaskDescription("Importing the volume {name}", name=new_name or id)
 
-    def verify(self, id, new_name, params=None, enc_params=None, password=None):
-        if enc_params is None:
-            enc_params = {}
+    def verify(self, id, new_name=None, params=None, enc_params=None, password=None):
+        enc_params = enc_params or {}
 
         if enc_params.get('key') or password:
             disks = enc_params.get('disks', None)
@@ -1114,9 +1113,9 @@ class VolumeImportTask(Task):
                     disks = [disks]
                 return ['disk:{0}'.format(i) for i in disks]
         else:
-            return self.verify_subtask('zfs.pool.import', id)
+            return self.verify_subtask('zfs.pool.import', id, new_name)
 
-    def run(self, id, new_name, params=None, enc_params=None, password=None):
+    def run(self, id, new_name=None, params=None, enc_params=None, password=None):
         if self.datastore.exists('volumes', ('id', '=', id)):
             raise TaskException(
                 errno.ENOENT,
