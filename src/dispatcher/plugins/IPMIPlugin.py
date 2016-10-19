@@ -30,6 +30,7 @@ import re
 import errno
 import ipaddress
 import logging
+import contextlib
 from freenas.dispatcher.rpc import RpcException, description, accepts, returns, generator
 from freenas.dispatcher.rpc import SchemaHelper as h
 from task import Provider, Task, TaskException, query, TaskDescription
@@ -131,8 +132,12 @@ class ConfigureIPMITask(Task):
             system('/usr/local/bin/ipmitool', 'lan', 'set', channel, 'auth', 'OPERATOR', 'MD2,MD5')
             system('/usr/local/bin/ipmitool', 'lan', 'set', channel, 'auth', 'ADMIN', 'MD2,MD5')
             system('/usr/local/bin/ipmitool', 'lan', 'set', channel, 'auth', 'CALLBACK', 'MD2,MD5')
-            system('/usr/local/bin/ipmitool', 'lan', 'set', channel, 'arp', 'respond', 'on')
-            system('/usr/local/bin/ipmitool', 'lan', 'set', channel, 'arp', 'generate', 'on')
+
+            with contextlib.suppress(SubprocessException):
+                system('/usr/local/bin/ipmitool', 'lan', 'set', channel, 'arp', 'respond', 'on')
+
+            with contextlib.suppress(SubprocessException):
+                system('/usr/local/bin/ipmitool', 'lan', 'set', channel, 'arp', 'generate', 'on')
 
             if 'password' in updated_params:
                 system('/usr/local/bin/ipmitool', 'user', 'set', 'password', '2', updated_params['password'])
