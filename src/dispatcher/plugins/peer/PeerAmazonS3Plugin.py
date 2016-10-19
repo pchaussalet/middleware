@@ -81,9 +81,6 @@ class AmazonS3PeerCreateTask(Task):
         if self.datastore.exists('peers', ('name', '=', peer['name'])):
             raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
 
-        if peer['type'] != peer['credentials']['type']:
-            raise TaskException(errno.EINVAL, 'Peer type and credentials type must match')
-
         return self.datastore.insert('peers', peer)
 
 
