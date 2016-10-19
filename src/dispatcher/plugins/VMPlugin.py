@@ -585,6 +585,10 @@ class VMBaseTask(ProgressTask):
 ))
 @description('Creates a VM')
 class VMCreateTask(VMBaseTask):
+    def __init__(self, dispatcher, datastore):
+        super(VMCreateTask, self).__init__(dispatcher, datastore)
+        self.id = None
+
     @classmethod
     def early_describe(cls):
         return 'Creating VM'
@@ -684,13 +688,13 @@ class VMCreateTask(VMBaseTask):
 
         self.init_files(vm, lambda p, m, e=None: self.chunk_progress(60, 90, 'Initializing VM files:', p, m, e))
 
-        id = self.datastore.insert('vms', vm)
+        self.id = self.datastore.insert('vms', vm)
         self.dispatcher.dispatch_event('vm.changed', {
             'operation': 'create',
-            'ids': [id]
+            'ids': [self.id]
         })
 
-        vm = self.datastore.get_by_id('vms', id)
+        vm = self.datastore.get_by_id('vms', self.id)
         self.set_progress(90, 'Saving VM configuration')
         save_config(
             self.dispatcher.call_sync(
@@ -703,7 +707,22 @@ class VMCreateTask(VMBaseTask):
         )
         self.set_progress(100, 'Finished')
 
-        return id
+        return self.id
+
+    def rollback(self, vm):
+        vm_ds = os.path.join(vm['target'], 'vm', vm['name'])
+
+        if self.dispatcher.call_sync('volume.dataset.query', [('id', '=', vm_ds)], {'single': True}):
+            self.join_subtasks(self.run_subtask('volume.dataset.delete', vm_ds))
+
+        if self.id:
+            with self.dispatcher.get_lock('vms'):
+                self.dispatcher.run_hook('vm.pre_destroy', {'name': self.id})
+                self.datastore.delete('vms', self.id)
+                self.dispatcher.dispatch_event('vm.changed', {
+                    'operation': 'delete',
+                    'ids': [self.id]
+                })
 
 
 @accepts(str, str)
