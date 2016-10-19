@@ -516,14 +516,12 @@
             },
             "1399a99f-e63f-491d-b342-86d713c34013": {
                 "dependencies": [
-                    "group:services",
                     "file:local/inadyn-mt.conf"
                 ],
                 "name": "dyndns"
             },
             "8e8e0b87-9f86-4144-a5a3-aa3a6ae3748e": {
                 "dependencies": [
-                    "group:services",
                     "file:local/rsyncd.conf"
                 ],
                 "name": "rsyncd"

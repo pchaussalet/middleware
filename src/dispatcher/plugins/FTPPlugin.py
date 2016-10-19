@@ -101,7 +101,6 @@ class FTPConfigureTask(Task):
             ftp['filemask'] = get_integer(ftp['filemask'])
             ftp['dirmask'] = get_integer(ftp['dirmask'])
             node.update(ftp)
-            self.dispatcher.call_sync('etcd.generation.generate_group', 'services')
             self.dispatcher.call_sync('etcd.generation.generate_group', 'ftp')
             self.dispatcher.dispatch_event('service.ftp.changed', {
                 'operation': 'updated',

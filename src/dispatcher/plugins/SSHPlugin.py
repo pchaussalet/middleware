@@ -62,7 +62,6 @@ class SSHConfigureTask(Task):
         try:
             node = ConfigNode('service.sshd', self.configstore)
             node.update(ssh)
-            self.dispatcher.call_sync('etcd.generation.generate_group', 'services')
             self.dispatcher.call_sync('etcd.generation.generate_group', 'sshd')
             self.dispatcher.dispatch_event('service.sshd.changed', {
                 'operation': 'updated',
