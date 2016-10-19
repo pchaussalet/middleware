@@ -30,6 +30,7 @@ from datastore import DatastoreException
 from task import Task, Provider, TaskException, query, TaskDescription
 from freenas.dispatcher.rpc import RpcException, accepts, description, generator
 from freenas.dispatcher.rpc import SchemaHelper as h
+from freenas.utils import normalize
 from lib.system import system, SubprocessException
 
 logger = logging.getLogger('NTPPlugin')
@@ -72,11 +73,19 @@ class NTPServerCreateTask(Task):
                     'Server could not be reached. Check "Force" to continue regardless.'
                 )
 
-        minpoll = ntp.get('minpoll', 6)
-        maxpoll = ntp.get('maxpoll', 10)
+        normalize(ntp, {'minpoll': 6, 'maxpoll': 10}) 
+
+        minpoll = ntp.get('minpoll')
+        maxpoll = ntp.get('maxpoll')
 
         if not maxpoll > minpoll:
             raise TaskException(errno.EINVAL, 'Max Poll should be higher than Min Poll')
+
+        if minpoll > 17 or minpoll < 4:
+            raise TaskException(errno.EINVAL, 'Min Poll range should be between 4 and 17')
+
+        if maxpoll > 17 or maxpoll < 4:
+            raise TaskException(errno.EINVAL, 'Max Poll range should be between 4 and 17')
 
         try:
             pkey = self.datastore.insert('ntpservers', ntp)
@@ -130,6 +139,12 @@ class NTPServerUpdateTask(Task):
 
         if minpoll is not None and maxpoll is not None and not maxpoll > minpoll:
             raise TaskException(errno.EINVAL, 'Max Poll should be higher than Min Poll')
+
+        if minpoll > 17 or minpoll < 4:
+            raise TaskException(errno.EINVAL, 'Min Poll range should be between 4 and 17')
+
+        if maxpoll > 17 or maxpoll < 4:
+            raise TaskException(errno.EINVAL, 'Max Poll range should be between 4 and 17')
 
         try:
             ntp.update(updated_fields)
