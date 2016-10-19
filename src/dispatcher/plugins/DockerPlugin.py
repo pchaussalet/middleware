@@ -575,7 +575,11 @@ class DockerImagePullTask(DockerBaseTask):
         if '/' not in name:
             name = 'library/' + name
 
-        hosts = list(self.dispatcher.call_sync('docker.image.query', [('names.0', '=', name)], {'select': 'hosts'}))
+        hosts = list(self.dispatcher.call_sync(
+            'docker.image.query',
+            [('names.0', '=', name)],
+            {'select': 'hosts', 'single': True}
+        ))
         hosts.append(hostid)
         hosts = list(set(hosts))
 
