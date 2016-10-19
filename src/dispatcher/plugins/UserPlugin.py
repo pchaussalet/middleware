@@ -87,14 +87,20 @@ class UserProvider(Provider):
         if filter and len(filter) == 1 and params and params.get('single'):
             key, op, value = filter[0]
             if op == '=':
-                if key == 'id':
-                    return self.dispatcher.call_sync('dscached.account.getpwuuid', value)
+                try:
+                    if key == 'id':
+                        return self.dispatcher.call_sync('dscached.account.getpwuuid', value)
 
-                if key == 'uid':
-                    return self.dispatcher.call_sync('dscached.account.getpwuid', value)
+                    if key == 'uid':
+                        return self.dispatcher.call_sync('dscached.account.getpwuid', value)
 
-                if key == 'username':
-                    return self.dispatcher.call_sync('dscached.account.getpwnam', value)
+                    if key == 'username':
+                        return self.dispatcher.call_sync('dscached.account.getpwnam', value)
+                except RpcException as err:
+                    if err.code == errno.ENOENT:
+                        return None
+
+                    raise
 
         return q.query(
             self.dispatcher.call_sync('dscached.account.query', filter, params),
