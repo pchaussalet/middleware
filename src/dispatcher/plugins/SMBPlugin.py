@@ -167,11 +167,11 @@ def configure_params(smb, ad=False):
 
     if 'filemask' in smb:
         if smb['filemask'] is not None:
-            conf['create mode'] = perm_to_oct_string(get_unix_permissions(smb['filemask'])).zfill(4)
+            conf['create mode'] = perm_to_oct_string(smb['filemask']).zfill(4)
 
     if 'dirmask' in smb:
         if smb['dirmask'] is not None:
-            conf['directory mode'] = perm_to_oct_string(get_unix_permissions(smb['dirmask'])).zfill(4)
+            conf['directory mode'] = perm_to_oct_string(smb['dirmask']).zfill(4)
 
     conf['load printers'] = 'no'
     conf['printing'] = 'bsd'
