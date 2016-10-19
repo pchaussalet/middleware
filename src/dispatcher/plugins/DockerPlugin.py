@@ -26,6 +26,7 @@
 #####################################################################
 
 import re
+import copy
 import json
 import errno
 import gevent
@@ -33,11 +34,13 @@ import dockerfile_parse
 import dockerhub
 import socket
 import logging
+import requests
 from resources import Resource
 from task import Provider, Task, ProgressTask, TaskDescription, TaskException, query, TaskWarning, VerifyException
 from cache import EventCacheStore
 from datastore.config import ConfigNode
 from freenas.utils import normalize, query as q, first_or_default
+from freenas.utils.decorators import throttle
 from freenas.dispatcher.rpc import generator, accepts, returns, SchemaHelper as h, RpcException, description
 
 
@@ -563,23 +566,64 @@ class DockerImagePullTask(DockerBaseTask):
     def run(self, name, hostid):
         if not hostid:
             hostid = self.get_default_host(
-                lambda p, m, e=None: self.chunk_progress(0, 100, 'Looking for default Docker host:', p, m, e)
+                lambda p, m, e=None: self.chunk_progress(0, 10, 'Looking for default Docker host:', p, m, e)
             )
 
         if ':' not in name:
             name += ':latest'
 
+        if '/' not in name:
+            name = 'library/' + name
+
         hosts = list(self.dispatcher.call_sync('docker.image.query', [('names.0', '=', name)], {'select': 'hosts'}))
         hosts.append(hostid)
         hosts = list(set(hosts))
+
+        hosts_progress = {}
+        token_rsp = requests.get(
+            'https://auth.docker.io/token?service=registry.docker.io&scope=repository:{0}:pull'.format(
+                name.split(':')[0]
+            )
+        )
+        if token_rsp.ok:
+            manifest = requests.get(
+                'https://registry-1.docker.io/v2/{0}/manifests/{1}'.format(*name.split(':', 1)),
+                headers={'Authorization': 'Bearer {}'.format(token_rsp.json()['token'])}
+            )
+            if manifest.ok:
+                layers = manifest.json()['fsLayers']
+                layers_len = len(layers)
+                weight = 1 / (layers_len * len(hosts))
+                layers_progress = {l['blobSum'].split(':', 1)[1]: {'Downloading': 0, 'Extracting': 0} for l in layers}
+                hosts_progress = {h: copy.deepcopy(layers_progress) for h in hosts}
+
+        @throttle(seconds=1)
+        def report_progress(message):
+            nonlocal weight
+            nonlocal hosts_progress
+            progress = 0
+            for h in hosts_progress.values():
+                for l in h.values():
+                    progress += (l['Downloading'] * 0.6 + l['Extracting'] * 0.4) * weight
+
+            progress = 10 + progress * 0.9
+            self.set_progress(progress, message)
 
         for h in hosts:
             self.check_host_state(h)
 
             for i in self.dispatcher.call_sync('containerd.docker.pull', name, h, timeout=3600):
                 if 'progressDetail' in i and 'current' in i['progressDetail'] and 'total' in i['progressDetail']:
-                    percentage = i['progressDetail']['current'] / i['progressDetail']['total'] * 100
-                    self.set_progress(percentage, '{0} layer {1}'.format(i.get('status', ''), i.get('id', '')))
+                    if token_rsp.ok and manifest.ok:
+                        id = i.get('id', '')
+                        status = i.get('status')
+                        _, layer = first_or_default(lambda o: o[0].startswith(id), hosts_progress[h].items())
+                        if status in ('Downloading', 'Extracting'):
+                            layer[status] = i['progressDetail']['current'] / i['progressDetail']['total'] * 100
+
+                        report_progress('{0} layer {1}'.format(i.get('status', ''), i.get('id', '')))
+                    else:
+                        self.set_progress(None, '{0} layer {1}'.format(i.get('status', ''), i.get('id', '')))
 
 
 @description('Removes previously cached container image from a Docker host/s')
