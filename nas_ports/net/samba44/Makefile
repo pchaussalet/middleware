@@ -255,7 +255,7 @@ WANT_EXP_MODULES=	auth_samba4 auth_script auth_skel auth_unix auth_wbc \
 			vfs_fake_acls vfs_fake_perms vfs_full_audit vfs_media_harmony \
 			vfs_netatalk vfs_posix_eadb vfs_preopen vfs_readahead \
 			vfs_readonly vfs_recycle vfs_shadow_copy vfs_shadow_copy2 \
-			vfs_shadow_copy_test vfs_shell_snap vfs_skel_opaque \
+			vfs_shadow_copy_test vfs_shadow_copy_zfs vfs_shell_snap vfs_skel_opaque \
 			vfs_skel_transparent vfs_streams_depot vfs_streams_xattr \
 			vfs_syncops vfs_time_audit vfs_unityed_media vfs_xattr_tdb \
 			vfs_zfsacl vfs_zfs_space
@@ -429,7 +429,7 @@ CONFIGURE_ARGS+=	--with-shared-modules="${SAMBA4_MODULES:Q:C|(\\\\ )+|,|g:S|\\||
 		nss_info_template pdb_ldap pdb_samba_dsdb pdb_smbpasswd pdb_tdbsam \
 		pdb_test pdb_freenas pdb_wbc_sam perfcount_test vfs_aio_posix vfs_aio_pthread \
 		vfs_cacheprime vfs_dfs_samba4 vfs_fake_acls \
-		vfs_shadow_copy_test vfs_skel_opaque vfs_skel_transparent
+		vfs_shadow_copy_test vfs_shadow_copy_zfs vfs_skel_opaque vfs_skel_transparent
 .	if !empty(SAMBA4_MODULES) && ${SAMBA4_MODULES:M${module}}
 PLIST_SUB+=		MODULE_${module:tu}=""
 .	else
