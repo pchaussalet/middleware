@@ -159,6 +159,8 @@ class BackupS3PutTask(ProgressTask):
 
                         idx += 1
 
+                        if size + CHUNK_SIZE >= MAX_OBJECT_SIZE:
+                            break
 
                     client.complete_multipart_upload(
                         Bucket=backup['bucket'],
