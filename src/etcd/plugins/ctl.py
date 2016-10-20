@@ -25,8 +25,8 @@
 #
 #####################################################################
 
-import os
 import json
+from freenas.utils import create_with_mode
 
 
 def convert_rpm(rpm):
@@ -210,10 +210,10 @@ def run(context):
         'isns-server': context.configstore.get('service.iscsi.isns_servers')
     }
 
-    with open('/etc/ctl.conf', 'w') as f:
+    with create_with_mode('/etc/ctl.conf', 0o600) as f:
         json.dump(config, f, indent=4)
 
-    with open('/etc/ctl.conf.shadow', 'w') as f:
+    with create_with_mode('/etc/ctl.conf.shadow', 0o600) as f:
         json.dump(redact(config), f, indent=4)
 
     context.emit_event('etcd.file_generated', {
