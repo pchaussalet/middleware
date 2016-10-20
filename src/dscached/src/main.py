@@ -45,7 +45,7 @@ from datetime import datetime, timedelta
 from datastore.config import ConfigStore
 from freenas.dispatcher.client import Client, ClientError
 from freenas.dispatcher.server import Server
-from freenas.dispatcher.rpc import RpcContext, RpcService, RpcException, generator, get_sender
+from freenas.dispatcher.rpc import RpcContext, RpcService, RpcException, generator, get_sender, accepts, returns
 from freenas.utils import first_or_default, configure_logging, extend, load_module_from_file
 from freenas.utils.debug import DebugService
 from freenas.utils.query import query, get, set, delete
@@ -419,6 +419,7 @@ class AccountService(RpcService):
                 self.context.logger.error('Directory {0} exception during account iteration'.format(d.name), exc_info=True)
                 continue
 
+    @accepts(int)
     def getpwuid(self, uid):
         # Try the cache first
         item = self.context.users_cache.get(id=uid)
@@ -442,6 +443,7 @@ class AccountService(RpcService):
 
         raise RpcException(errno.ENOENT, 'UID {0} not found'.format(uid))
 
+    @accepts(str)
     def getpwnam(self, user_name):
         # Try the cache first
         item = self.context.users_cache.get(name=user_name)
@@ -470,6 +472,7 @@ class AccountService(RpcService):
 
         raise RpcException(errno.ENOENT, 'User {0} not found'.format(user_name))
 
+    @accepts(str)
     def getpwuuid(self, uuid):
         # Try the cache first
         item = self.context.users_cache.get(uuid=uuid)
@@ -491,6 +494,7 @@ class AccountService(RpcService):
 
         raise RpcException(errno.ENOENT, 'UUID {0} not found'.format(uuid))
 
+    @accepts(str)
     def getgroupmembership(self, user_name):
         result = []
         user = self.getpwnam(user_name)
@@ -511,6 +515,7 @@ class AccountService(RpcService):
 
         return result
 
+    @accepts(str, str)
     def authenticate(self, user_name, password):
         user = self.getpwnam(user_name)
         if not user:
@@ -523,6 +528,7 @@ class AccountService(RpcService):
         entry = self.context.users_cache.get(name=user_name)
         return entry.directory.instance.authenticate(user['username'], password)
 
+    @accepts(str, str)
     def change_password(self, user_name, password):
         self.logger.debug('Change password request for user {0}'.format(user_name))
         if not self.getpwnam(user_name):
@@ -561,6 +567,7 @@ class GroupService(RpcService):
                 self.context.logger.error('Directory {0} exception during group iteration'.format(d.name), exc_info=True)
                 continue
 
+    @accepts(str)
     def getgrnam(self, name):
         # Try the cache first
         item = self.context.groups_cache.get(name=name)
@@ -587,7 +594,8 @@ class GroupService(RpcService):
                 return item.annotated
 
         raise RpcException(errno.ENOENT, 'Group {0} not found'.format(name))
-    
+
+    @accepts(int)
     def getgrgid(self, gid):
         # Try the cache first
         item = self.context.groups_cache.get(id=gid)
@@ -610,6 +618,7 @@ class GroupService(RpcService):
 
         raise RpcException(errno.ENOENT, 'GID {0} not found'.format(gid))
 
+    @accepts(str)
     def getgruuid(self, uuid):
         # Try the cache first
         item = self.context.groups_cache.get(uuid=uuid)
