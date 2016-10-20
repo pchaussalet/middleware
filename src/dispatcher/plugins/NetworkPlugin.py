@@ -208,7 +208,7 @@ class CreateInterfaceTask(Task):
                 'members': []
             })
 
-        if iface.get('dhcp'):
+        if iface['dhcp']:
             # Check for DHCP inconsistencies
             # 1. Check whether DHCP is enabled on other interfaces
             # 2. Check whether DHCP configures default route and/or DNS server addresses
@@ -316,7 +316,7 @@ class ConfigureInterfaceTask(Task):
 
     def describe(self, id, updated_fields):
         iface = self.datastore.get_by_id('network.interfaces', id)
-        return TaskDescription("Updating configuration of network interface {name}", name=iface.get('name', ''))
+        return TaskDescription("Updating configuration of network interface {name}", name=iface.get('id', ''))
 
     def verify(self, id, updated_fields):
         return ['system']
