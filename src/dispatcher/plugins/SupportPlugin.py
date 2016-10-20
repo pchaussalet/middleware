@@ -124,17 +124,17 @@ class SupportSubmitTask(Task):
             ticketid = data.get('ticketnum')
 
             for attachment in ticket.get('attachments', []):
-                r = requests.post(
-                    'https://%s/%s/api/v1.0/ticket/attachment' % (ADDRESS, sw_name),
-                    data={
-                        'user': ticket['username'],
-                        'password': ticket['password'],
-                        'ticketnum': ticketid,
-                    },
-                    timeout=10,
-                    files={'file': open(attachment, 'rb')},
-                )
-
+                with open(attachment, 'rb') as fd:
+                    r = requests.post(
+                        'https://%s/%s/api/v1.0/ticket/attachment' % (ADDRESS, sw_name),
+                        data={
+                            'user': ticket['username'],
+                            'password': ticket['password'],
+                            'ticketnum': ticketid,
+                        },
+                        timeout=10,
+                        files={'file': (attachment, fd)},
+                    )
         except simplejson.JSONDecodeError as e:
             logger.debug("Failed to decode ticket attachment response: %s", r.text)
             raise TaskException(errno.EINVAL, 'Failed to decode ticket response')
@@ -177,3 +177,4 @@ def _init(dispatcher, plugin):
 
     # Register tasks
     plugin.register_task_handler('support.submit', SupportSubmitTask)
+
