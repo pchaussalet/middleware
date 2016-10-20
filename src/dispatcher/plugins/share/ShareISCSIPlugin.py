@@ -546,6 +546,7 @@ def _init(dispatcher, plugin):
             'block_size': {'$ref': 'share-iscsi-blocksize'},
             'physical_block_size': {'type': 'boolean'},
             'available_space_threshold': {'type': 'integer'},
+            'read_only': {'type': 'boolean'},
             'tpc': {'type': 'boolean'},
             'vendor_id': {'type': ['string', 'null']},
             'device_id': {'type': ['string', 'null']},
