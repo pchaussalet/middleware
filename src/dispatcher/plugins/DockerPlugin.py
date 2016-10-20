@@ -275,7 +275,7 @@ class DockerImagesProvider(Provider):
                 pass
             else:
                 for vol in j:
-                    if any(v not in vol for v in ('container_path', 'host_path', 'readonly')):
+                    if any(v not in vol for v in ('container_path', 'host_path')):
                         continue
 
                     result['volumes'].append(vol)
