@@ -138,7 +138,9 @@ class CreateISCSIShareTask(Task):
             'tpc': False,
             'vendor_id': None,
             'device_id': None,
-            'rpm': 'SSD'
+            'rpm': 'SSD',
+            'read_only': False,
+            'xen_compat': False
         })
 
         props['naa'] = self.dispatcher.call_sync('share.iscsi.generate_naa')
@@ -547,6 +549,7 @@ def _init(dispatcher, plugin):
             'physical_block_size': {'type': 'boolean'},
             'available_space_threshold': {'type': 'integer'},
             'read_only': {'type': 'boolean'},
+            'xen_compat': {'type': 'boolean'},
             'tpc': {'type': 'boolean'},
             'vendor_id': {'type': ['string', 'null']},
             'device_id': {'type': ['string', 'null']},

@@ -33,4 +33,3 @@ def probe(obj, ds):
 def apply(obj, ds):
     obj['properties']['previous_versions'] = True
     return obj
-

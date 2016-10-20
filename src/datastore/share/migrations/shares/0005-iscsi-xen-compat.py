@@ -27,9 +27,9 @@
 
 
 def probe(obj, ds):
-    return obj['type'] == 'iscsi' and 'read_only' not in obj['properties']
+    return obj['type'] == 'iscsi' and 'xen_compat' not in obj['properties']
 
 
 def apply(obj, ds):
-    obj['properties']['read_only'] = False
+    obj['properties']['xen_compat'] = False
     return obj
