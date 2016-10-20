@@ -87,6 +87,9 @@ class UserProvider(Provider):
         if filter and len(filter) == 1 and params and params.get('single'):
             key, op, value = filter[0]
             if op == '=':
+                if value is None:
+                    return None
+
                 try:
                     if key == 'id':
                         return self.dispatcher.call_sync('dscached.account.getpwuuid', value)
