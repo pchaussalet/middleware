@@ -524,7 +524,7 @@ def convert_share_target(target):
 
 
 def collect_debug(dispatcher):
-    yield AttachFile('ctl.conf', '/etc/ctl.conf')
+    yield AttachFile('ctl.conf', '/etc/ctl.conf.shadow')
 
 
 def _metadata():
