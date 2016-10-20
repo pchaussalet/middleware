@@ -80,7 +80,7 @@ def generate_luns(context):
                 'product': 'iSCSI Disk',
                 'revision': '0123',
                 'naa': props['naa'],
-                'readonly': props['read_only'],
+                'readonly': 'on' if props['read_only'] else 'off',
                 'rpm': convert_rpm(props['rpm'])
             }
         }
