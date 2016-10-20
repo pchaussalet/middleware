@@ -898,6 +898,8 @@ class Main(object):
 
             return ret is not None
 
+        return True
+
     def deconfigure_dhcp(self, interface):
         client = self.dhcp_clients[interface]
         client.release()
