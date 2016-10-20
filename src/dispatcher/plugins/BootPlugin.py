@@ -38,9 +38,7 @@ from freenas.dispatcher.rpc import accepts, returns, description, SchemaHelper a
 from freenas.utils import first_or_default, query as q
 
 sys.path.append('/usr/local/lib')
-from freenasOS.Update import (
-    ListClones, FindClone, RenameClone, ActivateClone, DeleteClone, CreateClone
-)
+from freenasOS.Update import ListClones, FindClone, RenameClone, ActivateClone, DeleteClone, CreateClone, CloneSetAttr
 
 
 logger = logging.getLogger(__name__)
@@ -125,6 +123,10 @@ class BootEnvironmentUpdate(Task):
         if 'id' in updated_params:
             if not RenameClone(id, updated_params['id']):
                 raise TaskException(errno.EIO, 'Cannot rename the {0} boot evironment'.format(id))
+
+        if 'keep' in updated_params:
+            if not CloneSetAttr(be, keep=updated_params['keep']):
+                raise TaskException(errno.EIO, 'Cannot set keep flag on boot environment {0}'.format(id))
 
         if updated_params.get('active'):
             if not ActivateClone(id):
@@ -261,6 +263,7 @@ def _init(dispatcher, plugin):
             'id': {'type': 'string'},
             'realname': {'type': 'string', 'readOnly': True},
             'active': {'type': 'boolean'},
+            'keep': {'type': 'boolean'},
             'on_reboot': {'type': 'boolean', 'readOnly': True},
             'mountpoint': {'type': ['string', 'null'], 'readOnly': True},
             'space': {'type': 'integer', 'readOnly': True},
@@ -280,9 +283,10 @@ def _init(dispatcher, plugin):
 
         return {
             'active': root_mount.source == ds['id'],
+            'keep': q.get(ds, 'properties.beadm:keep.value') in ('yes', 'True', 'true', 'on'),
             'on_reboot': q.get(boot_pool, 'properties.bootfs.value') == ds['id'],
             'id': q.get(ds, 'properties.beadm:nickname.value', path[-1]),
-            'space': int(q.get(ds, 'properties.used.rawvalue')),
+            'space': q.get(ds, 'properties.used.parsed'),
             'realname': path[-1],
             'mountpoint': ds.get('mountpoint'),
             'created': datetime.fromtimestamp(int(q.get(ds, 'properties.creation.rawvalue')))
