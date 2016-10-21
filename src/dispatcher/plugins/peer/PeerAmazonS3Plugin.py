@@ -49,9 +49,9 @@ class PeerAmazonS3Provider(Provider):
 
     @private
     @accepts(str)
-    @returns(h.tuple(str, h.ref('peer-status')))
+    @returns(h.ref('peer-status'))
     def get_status(self, id):
-        return id, {'state': 'NOT_SUPPORTED', 'rtt': None}
+        return {'state': 'NOT_SUPPORTED', 'rtt': None}
 
 
 @private
