@@ -107,6 +107,9 @@ class SharesProvider(Provider):
     @private
     def translate_path(self, share_id):
         share = self.datastore.get_by_id('shares', share_id)
+        if not share:
+            raise RpcException(errno.ENOENT, 'Share {0} not found'.format(share_id))
+
         return self.dispatcher.call_sync('share.expand_path', share['target_path'], share['target_type'])
 
     @private
