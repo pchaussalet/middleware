@@ -144,6 +144,9 @@ class UpdateSMBShareTask(Task):
             convert_share(self.dispatcher, smb_share, path, share['enabled'], share['properties'])
             smb_share.save()
             reload_samba()
+
+            if not share['enabled']:
+                drop_share_connections(share['name'])
         except smbconf.SambaConfigException:
             raise TaskException(errno.EFAULT, 'Cannot access samba registry')
 
