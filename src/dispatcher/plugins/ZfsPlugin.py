@@ -751,9 +751,11 @@ class ZpoolImportTask(Task):
             raise TaskException(errno.ENOENT, 'Pool with GUID {0} not found'.format(guid))
 
         opts = properties or {}
+        name = name or pool.name
         try:
             pool = first_or_default(lambda p: str(p.guid) == guid, zfs.find_import())
             zfs.import_pool(pool, name, opts)
+            return name
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
