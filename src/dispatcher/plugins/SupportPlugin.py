@@ -25,6 +25,7 @@
 #
 #####################################################################
 import os
+import time
 import errno
 import json
 import logging
@@ -36,6 +37,7 @@ from freenas.dispatcher.rpc import SchemaHelper as h
 
 logger = logging.getLogger('SupportPlugin')
 ADDRESS = 'support-proxy.ixsystems.com'
+DEFAULT_DEBUG_DUMP_DIR = '/tmp'
 
 
 @description("Provides access support")
@@ -116,12 +118,19 @@ class SupportSubmitTask(Task):
                 headers={'Content-Type': 'application/json'},
                 timeout=10,
             )
-            data = r.json()
+            proxy_response = r.json()
             if r.status_code != 200:
                 logger.debug('Support Ticket failed (%d): %s', r.status_code, r.text)
                 raise TaskException(errno.EINVAL, 'ticket failed (0}: {1}'.format(r.status_code, r.text))
 
-            ticketid = data.get('ticketnum')
+            ticketid = proxy_response.get('ticketnum')
+            debug_file_name = os.path.join(DEFAULT_DEBUG_DUMP_DIR, project_name + time.strftime('%Y%m%d%H%M%S'))
+            if data['debug']:
+                self.join_subtasks(self.run_subtask('debug.save_to_file', debug_file_name))
+                if ticket.get('attachments'):
+                    ticket['attachments'].append(debug_file_name)
+                else:
+                    ticket['attachments'] = [debug_file_name]
 
             for attachment in ticket.get('attachments', []):
                 with open(attachment, 'rb') as fd:
@@ -133,7 +142,7 @@ class SupportSubmitTask(Task):
                             'ticketnum': ticketid,
                         },
                         timeout=10,
-                        files={'file': (attachment, fd)},
+                        files={'file': (fd.name.split('/')[-1], fd)},
                     )
         except simplejson.JSONDecodeError as e:
             logger.debug("Failed to decode ticket attachment response: %s", r.text)
@@ -145,7 +154,7 @@ class SupportSubmitTask(Task):
         except RpcException as e:
             raise TaskException(errno.ENXIO, 'Cannot submit support ticket: {0}'.format(str(e)))
 
-        return ticketid, data.get('message')
+        return ticketid, proxy_response.get('message')
 
 
 def _depends():
