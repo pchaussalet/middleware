@@ -2867,8 +2867,10 @@ def _init(dispatcher, plugin):
             for i in args['ids']:
                 with dispatcher.get_lock('volumes'):
                     volume = dispatcher.call_sync('volume.query', [('id', '=', i)], {'single': True})
-                    encrypted = volume.get('key_encrypted') or volume.get('password_encrypted')
-                    if volume and not encrypted:
+                    if volume:
+                        if volume.get('key_encrypted') or volume.get('password_encrypted'):
+                            continue
+
                         logger.info('Volume {0} is going away'.format(volume['id']))
                         dispatcher.datastore.delete('volumes', volume['id'])
                         dispatcher.dispatch_event('volume.changed', {
