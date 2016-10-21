@@ -149,14 +149,20 @@ class GroupProvider(Provider):
                 if value is None:
                     return None
 
-                if key == 'id':
-                    return self.dispatcher.call_sync('dscached.group.getgruuid', value)
+                try:
+                    if key == 'id':
+                        return self.dispatcher.call_sync('dscached.group.getgruuid', value)
 
-                if key == 'gid':
-                    return self.dispatcher.call_sync('dscached.group.getgruid', value)
+                    if key == 'gid':
+                        return self.dispatcher.call_sync('dscached.group.getgruid', value)
 
-                if key == 'name':
-                    return self.dispatcher.call_sync('dscached.group.getgrnam', value)
+                    if key == 'name':
+                        return self.dispatcher.call_sync('dscached.group.getgrnam', value)
+                except RpcException as err:
+                    if err.code == errno.ENOENT:
+                        return None
+
+                    raise
 
         return q.query(
             self.dispatcher.call_sync('dscached.group.query', filter, params),
