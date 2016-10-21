@@ -1178,7 +1178,9 @@ class VolumeImportTask(Task):
                 'operation': 'create',
                 'ids': [new_id]
             })
+
         self.dispatcher.run_hook('volume.post_attach', {'name': new_name})
+        return new_name
 
 
 @description("Imports non-ZFS disk contents into existing volume")
