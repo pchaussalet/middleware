@@ -1150,8 +1150,8 @@ class VolumeImportTask(Task):
                     disk_id = self.dispatcher.call_sync('disk.path_to_id', dname)
                     self.join_subtasks(self.run_subtask('disk.geli.attach', disk_id, attach_params))
 
-            mountpoint = os.path.join(VOLUMES_ROOT, new_name)
             new_name, = self.join_subtasks(self.run_subtask('zfs.pool.import', id, new_name, params))
+            mountpoint = os.path.join(VOLUMES_ROOT, new_name)
             self.join_subtasks(self.run_subtask(
                 'zfs.update',
                 new_name,
