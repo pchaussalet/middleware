@@ -97,6 +97,7 @@ class SupportSubmitTask(Task):
             sw_name = version.split('-')[0].lower()
             project_name = '-'.join(version.split('-')[:2]).lower()
             for attachment in ticket.get('attachments', []):
+                attachment = os.path.normpath(attachment)
                 if not os.path.exists(attachment):
                     raise TaskException(errno.ENOENT, 'File {} does not exists.'.format(attachment))
 
@@ -133,6 +134,7 @@ class SupportSubmitTask(Task):
                     ticket['attachments'] = [debug_file_name]
 
             for attachment in ticket.get('attachments', []):
+                attachment = os.path.normpath(attachment)
                 with open(attachment, 'rb') as fd:
                     r = requests.post(
                         'https://%s/%s/api/v1.0/ticket/attachment' % (ADDRESS, sw_name),
