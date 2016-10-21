@@ -110,13 +110,8 @@ class SMBConfigureTask(Task):
 
         try:
             action = 'NONE'
-            node = ConfigNode('service.smb', self.configstore)
-            if smb.get('filemask'):
-                smb['filemask'] = get_integer(smb['filemask'])
-            if smb.get('dirmask'):
-                smb['dirmask'] = get_integer(smb['dirmask'])
             node.update(smb)
-            configure_params(node.__getstate__(), self.dispatcher.call_sync('service.smb.ad_enabled'))
+            configure_params(node, self.dispatcher.call_sync('service.smb.ad_enabled'))
 
             try:
                 rpc = smbconf.SambaMessagingContext()
