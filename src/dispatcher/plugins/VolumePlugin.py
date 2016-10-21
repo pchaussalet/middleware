@@ -1284,9 +1284,13 @@ class VolumeDetachTask(Task):
         self.datastore.delete('volumes', vol['id'])
 
         if encryption['key']:
-            return encryption['key']
-        else:
-            return None
+            self.add_warning(TaskWarning(
+                errno.EPERM,
+                'Detached volume {0} was encrypted! Save key {1} to be able to import that volume.'.format(
+                    id,
+                    encryption['key']
+                )
+            ))
 
 
 @description("Upgrades volume to newest ZFS version")
