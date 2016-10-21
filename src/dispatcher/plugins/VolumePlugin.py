@@ -1092,6 +1092,7 @@ class VolumeUpdateTask(ProgressTask):
 
 @description("Imports previously exported volume")
 @accepts(str, h.one_of(str, None), h.object(), h.ref('volume-import-params'), h.one_of(str, None))
+@returns(str)
 class VolumeImportTask(Task):
     @classmethod
     def early_describe(cls):
