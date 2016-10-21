@@ -685,7 +685,7 @@ def _init(dispatcher, plugin):
             [('name', '=', name)],
             {'single': True, 'select': 'properties'}
         )
-        if pool_properties.get('readonly', 'off') == 'off':
+        if not q.get(pool_properties, 'readonly.parsed'):
             path = dispatcher.call_sync('volume.resolve_path', name, '')
             dispatcher.call_task_sync('share.update_related', path, {'enabled': enabled})
             dispatcher.call_task_sync('share.update_related', os.path.join('/dev/zvol', name), {'enabled': enabled})
