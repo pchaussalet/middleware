@@ -1165,7 +1165,7 @@ class VolumeImportTask(Task):
                 'guid': id,
                 'type': 'zfs',
                 'encryption': {
-                    'key': key ,
+                    'key': key,
                     'hashed_password': digest,
                     'salt': salt,
                     'slot': 0 if key or password else None},
