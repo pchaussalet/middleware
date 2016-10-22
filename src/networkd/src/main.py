@@ -698,7 +698,7 @@ class ConfigurationService(RpcService):
                 iface.nd6_flags = iface.nd6_flags - {netif.NeighborDiscoveryFlags.IFDISABLED}
                 iface.nd6_flags = iface.nd6_flags | {netif.NeighborDiscoveryFlags.AUTO_LINKLOCAL}
 
-            if entity.get('mtu'):
+            if entity.get('mtu') and not isinstance(iface, netif.LaggInterface):
                 try:
                     iface.mtu = entity['mtu']
                 except OSError as err:
