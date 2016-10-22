@@ -2103,24 +2103,32 @@ def _init(dispatcher, plugin):
         return True
 
     def on_snapshot_change(args):
-        with dispatcher.get_lock('vm_snapshots'):
-            if args['operation'] == 'delete':
-                vm_snapshots = dispatcher.call_sync('vm.snapshot.query')
-                logger.debug('ZFS snapshots {0} deleted. Cleaning VM snapshots'.format(args['ids']))
-                for i in vm_snapshots:
-                    datasets = dispatcher.call_sync('vm.snapshot.get_dependent_datasets', i['id'])
-                    for d in datasets:
-                        ds_snapshot = dispatcher.call_sync(
-                            'zfs.snapshot.query',
-                            [
-                                ('id', '~', '^({0}@)'.format(d)),
-                                ('properties.org\.freenas:vm_snapshot.rawvalue', '=', i['id'])
-                            ]
-                        )
-                        if not ds_snapshot:
-                            dispatcher.call_task_sync('vm.snapshot.delete', i['id'])
-                            logger.debug('Removed {0} VM snapshot'.format(i['name']))
-                            break
+        if args['operation'] == 'delete':
+            snaps = []
+            for id in args['ids']:
+                dataset, snapname = id.split('@', 1)
+                if 'vm' not in dataset:
+                    continue
+                snaps.append(snapname)
+
+            if snaps:
+                vm_snapshots = dispatcher.call_sync('vm.snapshot.query', [('name', 'in', snaps)])
+                with dispatcher.get_lock('vm_snapshots'):
+                    logger.debug('ZFS snapshots deleted. Cleaning VM snapshots {0}'.format(snaps))
+                    for i in vm_snapshots:
+                        datasets = dispatcher.call_sync('vm.snapshot.get_dependent_datasets', i['id'])
+                        for d in datasets:
+                            ds_snapshot = dispatcher.call_sync(
+                                'zfs.snapshot.query',
+                                [
+                                    ('id', '~', '^({0}@)'.format(d)),
+                                    ('properties.org\.freenas:vm_snapshot.rawvalue', '=', i['id'])
+                                ]
+                            )
+                            if not ds_snapshot:
+                                dispatcher.call_task_sync('vm.snapshot.delete', i['id'])
+                                logger.debug('Removed {0} VM snapshot'.format(i['name']))
+                                break
 
     plugin.register_provider('vm', VMProvider)
     plugin.register_provider('vm.config', VMConfigProvider)
