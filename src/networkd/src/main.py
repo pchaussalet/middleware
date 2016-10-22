@@ -441,7 +441,7 @@ class ConfigurationService(RpcService):
             yield errno.ENOENT, 'Failed to configure any network interface'
             return
 
-        for i in self.datastore.query('network.interfaces'):
+        for i in self.datastore.query('network.interfaces', sort='cloned'):
             self.logger.info('Configuring interface {0}...'.format(i['id']))
             try:
                 yield from self.configure_interface(i['id'], False)
