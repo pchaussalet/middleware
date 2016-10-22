@@ -208,6 +208,12 @@ class CreateInterfaceTask(Task):
                 'members': []
             })
 
+        if iface['mtu'] and iface['type'] == 'LAGG':
+            raise TaskException(
+                errno.EINVAL,
+                'MTU cannot be configured for lagg interfaces - MTU of first member port is used'
+            )
+
         if iface['dhcp']:
             # Check for DHCP inconsistencies
             # 1. Check whether DHCP is enabled on other interfaces
@@ -326,6 +332,12 @@ class ConfigureInterfaceTask(Task):
             raise TaskException(errno.ENOENT, 'Interface {0} does not exist'.format(id))
 
         entity = self.datastore.get_by_id('network.interfaces', id)
+
+        if updated_fields.get('mtu') and entity['type'] == 'LAGG':
+            raise TaskException(
+                errno.EINVAL,
+                'MTU cannot be configured for lagg interfaces - MTU of first member port is used'
+            )
 
         if updated_fields.get('dhcp'):
             # Check for DHCP inconsistencies
