@@ -41,9 +41,9 @@ from task import (
 from freenas.dispatcher.rpc import RpcException, accepts, returns, description, private, generator
 from freenas.dispatcher.rpc import SchemaHelper as h
 from freenas.dispatcher.jsonenc import dumps
-from balancer import TaskState
 from resources import Resource
 from debug import AttachData, AttachCommandOutput
+from freenas.utils.trace_logger import TRACE
 from freenas.utils import first_or_default, query as q
 from utils import is_child
 
@@ -1508,7 +1508,7 @@ def _init(dispatcher, plugin):
     def on_dataset_setprop(args):
         with dispatcher.get_lock('zfs-cache'):
             if args['action'] == 'set':
-                logger.info('{0} {1} property {2} set to: {3}'.format(
+                logger.log(TRACE, '{0} {1} property {2} set to: {3}'.format(
                     'Snapshot' if '@' in args['ds'] else 'Dataset',
                     args['ds'],
                     args['prop_name'],
@@ -1516,7 +1516,7 @@ def _init(dispatcher, plugin):
                 ))
 
             if args['action'] == 'inherit':
-                logger.info('{0} {1} property {2} inherited from parent'.format(
+                logger.log(TRACE, '{0} {1} property {2} inherited from parent'.format(
                     'Snapshot' if '@' in args['ds'] else 'Dataset',
                     args['ds'],
                     args['prop_name'],
