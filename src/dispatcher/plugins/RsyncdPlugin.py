@@ -455,7 +455,7 @@ def _init(dispatcher, plugin):
                 'type': 'integer',
                 'minimum': 1,
                 'maximum': 65535
-                },
+            },
             'auxiliary': {'type': 'string'},
         },
         'additionalProperties': False,
@@ -464,6 +464,7 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('rsyncd-module', {
         'type': 'object',
         'properties': {
+            'id': {'type': 'string'},
             'name': {'type': 'string'},
             'description': {'type': ['string', 'null']},
             'path': {'type': 'string'},
