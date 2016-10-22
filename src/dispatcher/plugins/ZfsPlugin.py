@@ -59,6 +59,7 @@ logger = logging.getLogger('ZfsPlugin')
 pools = None
 datasets = None
 snapshots = None
+zfs = None
 
 
 @description("Provides information about ZFS pools")
@@ -1434,7 +1435,11 @@ def zfs_error_to_errno(code):
 
 
 def get_zfs():
-    return libzfs.ZFS(history=True, history_prefix="[DISPATCHER TASK]")
+    global zfs
+    if not zfs:
+        zfs = libzfs.ZFS(history=True, history_prefix="<dispatcher>")
+
+    return zfs
 
 
 def collect_debug(dispatcher):
