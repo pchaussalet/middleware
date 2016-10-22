@@ -622,6 +622,9 @@ class VolumeAutoCreateTask(Task):
         return TaskDescription("Creating the volume {name}", name=name)
 
     def verify(self, name, type, layout, disks, cache_disks=None, log_disks=None, key_encryption=False, password=None, auto_unlock=None):
+        if not disks:
+            raise VerifyException('No disks provided')
+
         if isinstance(disks, str) and disks == 'auto':
             return ['disk:{0}'.format(disk) for disk in self.dispatcher.call_sync('disk.query', {'select': 'path'})]
         else:
