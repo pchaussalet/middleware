@@ -94,7 +94,14 @@ class CollectDebugTask(ProgressTask):
                     recursive=cmd.get('recursive')
                 )
             except OSError as err:
-                self.add_warning(TaskWarning(err.errno, 'Cannot file {0}: {1}'.format(cmd['path'], err.strerror)))
+                self.add_warning(TaskWarning(
+                    err.errno,
+                    '{0}: Cannot file {1}, Error: {2}'.format(plugin, cmd['path'], err.strerror)
+                ))
+                logger.error(
+                    "Error occured when adding {0} to the tarfile for plugin: {1}".format(cmd['path'], plugin),
+                    exc_info=True
+                )
 
     def run(self, fd):
         try:
