@@ -183,8 +183,9 @@ class VirtualMachine(object):
         self.vnc_socket = None
         self.vnc_port = None
         self.active_vnc_ports = []
-        self.vmtools_socket = None
         self.vmtools_client = None
+        self.vmtools_ready = False
+        self.vmtools_thread = None
         self.thread = None
         self.exiting = False
         self.docker_host = None
@@ -198,6 +199,10 @@ class VirtualMachine(object):
     @property
     def nat_lease(self):
         return self.context.mgmt.allocations.get(self.get_link_address('NAT'))
+
+    @property
+    def vmtools_socket(self):
+        return '/var/run/containerd/{0}.vmtools.sock'.format(self.id)
 
     def get_link_address(self, mode):
         nic = first_or_default(
@@ -283,8 +288,6 @@ class VirtualMachine(object):
             args += ['-s', '{0}:0,xhci,{1}'.format(index, ','.join(xhci_devices.keys()))]
             index += 1
 
-        self.init_vmtools()
-
         args += ['-s', '30,virtio-console,org.freenas.vm-tools={0}'.format(self.vmtools_socket)]
         args += ['-s', '31,lpc', '-l', 'com1,{0}'.format(self.nmdm[0])]
 
@@ -306,13 +309,30 @@ class VirtualMachine(object):
             self.context.proxy_server.add_proxy(vnc_port, self.vnc_socket)
             self.active_vnc_ports.append(vnc_port)
 
-    def init_vmtools(self):
-        self.vmtools_socket = '/var/run/containerd/{0}.vmtools.sock'.format(self.id)
+    def vmtools_worker(self):
+        def vmtools_ready(args):
+            self.logger.info('freenas-vm-tools on VM {0} initialized'.format(self.name))
+            self.vmtools_ready = True
+            self.changed()
+
+        self.vmtools_client = Client()
+        self.vmtools_client.connect('unix://{0}'.format(self.vmtools_socket))
+        self.vmtools_client.register_event_handler('vmtools.ready', vmtools_ready)
+
+        while True:
+            time.sleep(60)
+
+            if not self.vmtools_ready:
+                continue
+
+            try:
+                self.vmtools_client.call_sync('system.ping')
+            except RpcException as err:
+                self.logger.warning('Ping VM {0} failed: {1}'.format(self.name, str(err)))
 
     def call_vmtools(self, method, *args, timeout=None):
-        if not self.vmtools_client:
-            self.vmtools_client = Client()
-            self.vmtools_client.connect('unix://{0}'.format(self.vmtools_socket))
+        if not self.vmtools_ready:
+            raise RuntimeError('freenas-vm-tools service not ready or not present')
 
         return self.vmtools_client.call_sync(method, *args, timeout=timeout)
 
@@ -511,6 +531,9 @@ class VirtualMachine(object):
 
             self.set_state(VirtualMachineState.RUNNING)
             self.bhyve_process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+
+            # Now it's time to start vmtools worker, because bhyve should be running now
+            self.vmtools_thread = gevent.spawn(self.vmtools_worker)
 
             for line in self.bhyve_process.stdout:
                 self.logger.debug('bhyve: {0}'.format(line.decode('utf-8', 'ignore').strip()))
@@ -922,6 +945,7 @@ class ManagementService(RpcService):
 
         return {
             'state': vm.state.name,
+            'vm_tools_available': vm.vmtools_ready,
             'management_lease': mgmt_lease.lease if mgmt_lease else None,
             'nat_lease': nat_lease.lease if nat_lease else None
         }
