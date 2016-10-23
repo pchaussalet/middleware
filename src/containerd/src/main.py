@@ -180,8 +180,8 @@ class VirtualMachine(object):
         self.console_thread = None
         self.tap_interfaces = {}
         self.vnc_socket = None
-        self.vmtools_socket = '/var/run/containerd/{0}.vmtools.sock'.format(self.id)
         self.vnc_port = None
+        self.vmtools_socket = None
         self.active_vnc_ports = []
         self.thread = None
         self.exiting = False
@@ -281,6 +281,8 @@ class VirtualMachine(object):
             args += ['-s', '{0}:0,xhci,{1}'.format(index, ','.join(xhci_devices.keys()))]
             index += 1
 
+        self.init_vmtools()
+
         args += ['-s', '30,virtio-console,org.freenas.vm-tools={0}'.format(self.vmtools_socket)]
         args += ['-s', '31,lpc', '-l', 'com1,{0}'.format(self.nmdm[0])]
 
@@ -301,6 +303,9 @@ class VirtualMachine(object):
         if vnc_enabled:
             self.context.proxy_server.add_proxy(vnc_port, self.vnc_socket)
             self.active_vnc_ports.append(vnc_port)
+
+    def init_vmtools(self):
+        self.vmtools_socket = '/var/run/containerd/{0}.vmtools.sock'.format(self.id)
 
     def cleanup_vnc(self, vnc_port=None):
         if vnc_port:
