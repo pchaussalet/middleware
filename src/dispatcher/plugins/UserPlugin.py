@@ -402,24 +402,24 @@ class UserCreateTask(Task):
 
 
 @description("Deletes an user from the system")
-@accepts(str)
+@accepts(str, bool, bool)
 class UserDeleteTask(Task):
     @classmethod
     def early_describe(cls):
         return "Deleting user"
 
-    def describe(self, id):
+    def describe(self, id, delete_homedir=False, delete_own_group=False):
         user = self.datastore.get_by_id('users', id)
         return TaskDescription("Deleting user {name}", name=user['username'] if user else id)
 
-    def verify(self, id):
+    def verify(self, id, delete_homedir=False, delete_own_group=False):
         user = self.datastore.get_by_id('users', id)
         if user and user['builtin']:
             raise VerifyException(errno.EPERM, 'Cannot delete builtin user {0}'.format(user['username']))
 
         return ['system']
 
-    def run(self, id):
+    def run(self, id, delete_homedir=False, delete_own_group=False):
         try:
             user = self.datastore.get_by_id('users', id)
             if user is None:
@@ -427,10 +427,13 @@ class UserDeleteTask(Task):
 
             group = self.datastore.get_by_id('groups', user['group'])
             if group and user['uid'] == group['gid']:
-                self.add_warning(TaskWarning(
-                    errno.EBUSY,
-                    'Group {0} ({1}) left behind, you need to delete it separately'.format(group['name'], group['gid']))
-                )
+                if not delete_own_group:
+                    self.add_warning(TaskWarning(
+                        errno.EBUSY,
+                        'Group {0} ({1}) left behind, you need to delete it separately'.format(group['name'], group['gid']))
+                    )
+                else:
+                    self.join_subtasks(self.run_subtask('group.delete', user['group']))
 
             if user.get('smbhash'):
                 try:
