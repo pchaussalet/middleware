@@ -182,8 +182,9 @@ class VirtualMachine(object):
         self.tap_interfaces = {}
         self.vnc_socket = None
         self.vnc_port = None
-        self.vmtools_socket = None
         self.active_vnc_ports = []
+        self.vmtools_socket = None
+        self.vmtools_client = None
         self.thread = None
         self.exiting = False
         self.docker_host = None
@@ -307,6 +308,13 @@ class VirtualMachine(object):
 
     def init_vmtools(self):
         self.vmtools_socket = '/var/run/containerd/{0}.vmtools.sock'.format(self.id)
+
+    def call_vmtools(self, method, *args, timeout=None):
+        if not self.vmtools_client:
+            self.vmtools_client = Client()
+            self.vmtools_client.connect('unix://{0}'.format(self.vmtools_socket))
+
+        return self.vmtools_client.call_sync(method, *args, timeout=timeout)
 
     def cleanup_vnc(self, vnc_port=None):
         if vnc_port:
@@ -500,8 +508,8 @@ class VirtualMachine(object):
 
             self.logger.debug('Starting bhyve...')
             args = self.build_args()
-            self.set_state(VirtualMachineState.RUNNING)
 
+            self.set_state(VirtualMachineState.RUNNING)
             self.bhyve_process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
 
             for line in self.bhyve_process.stdout:
@@ -1002,6 +1010,14 @@ class ManagementService(RpcService):
     @private
     def get_mgmt_allocations(self):
         return [i.__getstate__() for i in self.context.mgmt.allocations.values()]
+
+    @private
+    def call_vmtools(self, id, fn, *args):
+        vm = self.context.vms.get(id)
+        if not vm:
+            raise RpcException(errno.ENOENT, 'VM {0} not found'.format(id))
+
+        return vm.call_vmtools(fn, *args)
 
 
 class ConsoleService(RpcService):
