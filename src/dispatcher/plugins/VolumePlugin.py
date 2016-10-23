@@ -2394,19 +2394,20 @@ class SnapshotDeleteTask(Task):
     def early_describe(cls):
         return "Deleting a snapshot"
 
-    def describe(self, id):
+    def describe(self, id, recursive=False):
         return TaskDescription("Deleting the snapshot {name}", name=id)
 
-    def verify(self, id):
+    def verify(self, id, recursive=False):
         pool, ds, snap = split_snapshot_name(id)
         return ['zfs:{0}'.format(ds)]
 
-    def run(self, id):
+    def run(self, id, recursive=False):
         pool, ds, snap = split_snapshot_name(id)
         self.join_subtasks(self.run_subtask(
             'zfs.delete_snapshot',
             ds,
-            snap
+            snap,
+            recursive
         ))
 
 
