@@ -1833,6 +1833,7 @@ def _init(dispatcher, plugin):
         'readOnly': True,
         'properties': {
             'state': {'$ref': 'vm-status-state'},
+            'vm_tools_available': {'type': 'boolean'},
             'nat_lease': {'oneOf': [
                 {'$ref': 'vm-status-lease'},
                 {'type': 'null'}
@@ -2087,6 +2088,22 @@ def _init(dispatcher, plugin):
                     'nat': {'type': 'string'}
                 }
             }
+        }
+    })
+
+    plugin.register_schema_definition('vm-guest-info', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'vm_tools_version': {'type': 'string'},
+            'load_avg': {
+                'type': 'array',
+                'items': {'type': 'number'},
+                'minItems': 3,
+                'maxItems': 4
+            },
+            'interfaces': {'type': 'object'},
+            'time': {'type': 'datetime'}
         }
     })
 
