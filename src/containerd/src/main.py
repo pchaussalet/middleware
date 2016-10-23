@@ -54,6 +54,7 @@ import ipaddress
 import pf
 import urllib.parse
 import requests
+import contextlib
 from docker.errors import NotFound, DockerException
 from datetime import datetime
 from bsd import kld, sysctl
@@ -507,6 +508,9 @@ class VirtualMachine(object):
                 self.logger.debug('bhyve: {0}'.format(line.decode('utf-8', 'ignore').strip()))
 
             self.bhyve_process.wait()
+
+            with contextlib.suppress(OSError):
+                os.unlink(self.vmtools_socket)
 
             subprocess.call(['/usr/sbin/bhyvectl', '--destroy', '--vm={0}'.format(self.name)])
             if self.bhyve_process.returncode == 0:
