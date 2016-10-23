@@ -2388,7 +2388,7 @@ class SnapshotCreateTask(Task):
 
 
 @description("Deletes the specified snapshot")
-@accepts(str)
+@accepts(str, bool)
 class SnapshotDeleteTask(Task):
     @classmethod
     def early_describe(cls):
