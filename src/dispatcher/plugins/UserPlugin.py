@@ -420,10 +420,25 @@ class UserDeleteTask(Task):
         return ['system']
 
     def run(self, id, delete_homedir=False, delete_own_group=False):
+        subtasks = []
         try:
             user = self.datastore.get_by_id('users', id)
             if user is None:
                 raise TaskException(errno.ENOENT, 'User with UID {0} does not exist'.format(id))
+
+            if delete_homedir:
+                homedir_dataset = self.dispatcher.call_sync(
+                    'volume.dataset.query',
+                    [('mountpoint', '=', user['home'])],
+                    {'single': True}
+                )
+                if homedir_dataset:
+                    subtasks.append(self.run_subtask('volume.dataset.delete', homedir_dataset['id']))
+            else:
+                self.add_warning(TaskWarning(
+                    errno.EBUSY,
+                    'Home directory {} left behind, you need to delete it separately'.format(user['home']))
+                )
 
             group = self.datastore.get_by_id('groups', user['group'])
             if group and user['uid'] == group['gid']:
@@ -433,7 +448,9 @@ class UserDeleteTask(Task):
                         'Group {0} ({1}) left behind, you need to delete it separately'.format(group['name'], group['gid']))
                     )
                 else:
-                    self.join_subtasks(self.run_subtask('group.delete', user['group']))
+                    subtasks.append(self.run_subtask('group.delete', user['group']))
+
+            self.join_subtasks(*subtasks)
 
             if user.get('smbhash'):
                 try:
