@@ -536,6 +536,9 @@ def _init(dispatcher, plugin):
         'enum': ['MODULE', 'SSH']
     })
 
+    # Register events
+    plugin.register_event_type('rsyncd.module.changed')
+
     # Register providers
     plugin.register_provider("service.rsyncd", RsyncdProvider)
     plugin.register_provider("rsyncd.module", RsyncdModuleProvider)
