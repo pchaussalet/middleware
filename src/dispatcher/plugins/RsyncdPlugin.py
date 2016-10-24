@@ -130,7 +130,7 @@ class RsyncdModuleCreateTask(Task):
             raise TaskException(errno.EBADMSG, 'Cannot add rsync module: {0}'.format(str(e)))
         except RpcException as e:
             raise TaskException(errno.ENXIO, 'Cannot regenerate rsyncd {0}'.format(str(e)))
-        self.dispatcher.dispatch_event('service.rsyncd.module.changed', {
+        self.dispatcher.dispatch_event('rsyncd.module.changed', {
             'operation': 'create',
             'ids': [uuid]
         })
@@ -174,7 +174,7 @@ class RsyncdModuleUpdateTask(Task):
         except RpcException as e:
             raise TaskException(errno.ENXIO, 'Cannot regenerate rsyncd {0}'.format(str(e)))
 
-        self.dispatcher.dispatch_event('service.rsyncd.module.changed', {
+        self.dispatcher.dispatch_event('rsyncd.module.changed', {
             'operation': 'update',
             'ids': [uuid]
         })
@@ -208,7 +208,7 @@ class RsyncdModuleDeleteTask(Task):
         except RpcException as e:
             raise TaskException(errno.ENXIO, 'Cannot regenerate rsyncd {0}'.format(str(e)))
 
-        self.dispatcher.dispatch_event('service.rsyncd.module.changed', {
+        self.dispatcher.dispatch_event('rsyncd.module.changed', {
             'operation': 'delete',
             'ids': [uuid]
         })
