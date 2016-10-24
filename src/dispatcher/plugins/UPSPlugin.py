@@ -59,7 +59,7 @@ class UPSProvider(Provider):
         with open(driver_list, 'rb') as f:
             d = f.read()
         r = io.StringIO()
-        for line in re.sub(r'[ \t]+', ' ', d, flags=re.M).split('\n'):
+        for line in re.sub(r'[ \t]+', ' ', d.decode('utf-8'), flags=re.M).split('\n'):
             r.write(line.strip() + '\n')
         r.seek(0)
         reader = csv.reader(r, delimiter=' ', quotechar='"')
