@@ -95,7 +95,8 @@ class UpdateCalendarTask(Task):
         return "Updating calendar task"
 
     def describe(self, id, updated_params):
-        return TaskDescription("Updating calendar task {name}", name=id)
+        name = self.dispatcher.call_sync('calendar_task.query', [('id', '=', id)], {'select': 'name', 'single': True})
+        return TaskDescription("Updating calendar task {name}", name=name or id)
 
     def verify(self, id, updated_params):
         return ['system']
@@ -120,7 +121,8 @@ class DeleteCalendarTask(Task):
         return "Deleting calendar task"
 
     def describe(self, id):
-        return TaskDescription("Deleting calendar task {name}", name=id)
+        name = self.dispatcher.call_sync('calendar_task.query', [('id', '=', id)], {'select': 'name', 'single': True})
+        return TaskDescription("Deleting calendar task {name}", name=name or id)
 
     def verify(self, id):
         return ['system']
@@ -145,7 +147,8 @@ class RunCalendarTask(Task):
         return "Starting calendar task"
 
     def describe(self, id):
-        return TaskDescription("Starting calendar task {name}", name=id)
+        name = self.dispatcher.call_sync('calendar_task.query', [('id', '=', id)], {'select': 'name', 'single': True})
+        return TaskDescription("Starting calendar task {name}", name=name or id)
 
     def verify(self, id):
         return ['system']
