@@ -200,6 +200,17 @@ class VMProvider(Provider):
         return dependent_datasets
 
     @accepts(str)
+    @returns(h.ref('vm-guest-info'))
+    def get_guest_info(self, id):
+        interfaces = self.dispatcher.call_sync('containerd.management.call_vmtools', id, 'network.interfaces')
+        loadavg = self.dispatcher.call_sync('containerd.management.call_vmtools', id, 'system.loadavg')
+
+        return {
+            'interfaces': interfaces,
+            'load_avg': list(loadavg)
+        }
+
+    @accepts(str)
     @returns(str)
     def request_serial_console(self, id):
         return self.dispatcher.call_sync('containerd.console.request_console', id)
