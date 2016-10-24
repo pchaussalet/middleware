@@ -36,10 +36,10 @@ ${config['auxiliary']}
 	read only = false
 % endif
 % if module.get('hosts_allow'):
-	hosts allow = ${module.get('hosts_allow')}
+	hosts allow = ${' '.join(module.get('hosts_allow'))}
 % endif
 % if module.get('hosts_deny'):
-	hosts deny = ${module.get('hosts_deny')}
+	hosts deny = ${' '.join(module.get('hosts_deny'))}
 % endif
 % if module.get('auxiliary'):
 ${module.get('auxiliary')}

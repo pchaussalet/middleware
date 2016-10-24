@@ -472,8 +472,14 @@ def _init(dispatcher, plugin):
             'max_connections': {'type': ['integer', 'null']},
             'user': {'type': 'string'},
             'group': {'type': 'string'},
-            'hosts_allow': {'type': ['string', 'null']},
-            'hosts_deny': {'type': ['string', 'null']},
+            'hosts_allow': {
+                'type': ['array', 'null'],
+                'items': {'type': 'string'}
+            },
+            'hosts_deny': {
+                'type': ['array', 'null'],
+                'items': {'type': 'string'}
+            },
             'auxiliary': {'type': ['string', 'null']},
         },
         'additionalProperties': False,
