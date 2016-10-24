@@ -426,7 +426,7 @@ class UserDeleteTask(Task):
             if user is None:
                 raise TaskException(errno.ENOENT, 'User with UID {0} does not exist'.format(id))
 
-            if delete_homedir:
+            if delete_homedir and user['home'] not in (None, '/nonexistent'):
                 homedir_dataset = self.dispatcher.call_sync(
                     'volume.dataset.query',
                     [('mountpoint', '=', user['home'])],
@@ -434,7 +434,7 @@ class UserDeleteTask(Task):
                 )
                 if homedir_dataset:
                     subtasks.append(self.run_subtask('volume.dataset.delete', homedir_dataset['id']))
-            else:
+            elif user['home'] not in (None, '/nonexistent'):
                 self.add_warning(TaskWarning(
                     errno.EBUSY,
                     'Home directory {} left behind, you need to delete it separately'.format(user['home']))
