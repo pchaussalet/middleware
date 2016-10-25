@@ -2127,6 +2127,7 @@ class DatasetCreateTask(Task):
             path = os.path.join(VOLUMES_ROOT, dataset['id'])
             self.join_subtasks(self.run_subtask('file.set_permissions', path, dataset['permissions']))
 
+        wait_for_cache(self.dispatcher, 'volume.dataset', 'create', dataset['id'])
         return dataset['id']
 
 
@@ -2384,6 +2385,7 @@ class SnapshotCreateTask(Task):
             }
         ))
 
+        wait_for_cache(self.dispatcher, 'volume.snapshot', 'create', snapshot['id'])
         return snapshot['id']
 
 
@@ -2587,6 +2589,15 @@ def fernet_decrypt(password, in_data):
     digest = get_digest(password, '')[1]
     f = Fernet(digest)
     return f.decrypt(in_data)
+
+
+def wait_for_cache(dispatcher, type, op, id):
+    dispatcher.test_or_wait_for_event(
+        '{0}.changed'.format(type),
+        lambda args: args['operation'] == op and id in args['ids'],
+        lambda: dispatcher.call_sync('{0}.query'.format(type), [('id', '=', id)], {'single': True}),
+        300
+    )
 
 
 def register_property_schemas(plugin):
