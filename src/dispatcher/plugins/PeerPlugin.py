@@ -219,8 +219,7 @@ def _init(dispatcher, plugin):
     def health_worker():
         interval = dispatcher.configstore.get('peer.ping_interval')
         while True:
-            peer_types = dispatcher.call_sync('peer.peer_types')
-            for p in dispatcher.call_sync('peer.query', [('type', 'in', peer_types)]):
+            for p in dispatcher.call_sync('peer.query'):
                 update_peer_health(p)
 
             gevent.sleep(interval)
