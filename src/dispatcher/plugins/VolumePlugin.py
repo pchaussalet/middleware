@@ -646,11 +646,16 @@ class VolumeAutoCreateTask(Task):
                 'disk.query',
                 [('path', 'in', self.dispatcher.call_sync('volume.get_available_disks'))]
             )
+
+            if not available_disks:
+                raise TaskException(errno.EBUSY, 'No free disks found')
+
             available_disks = sorted(
                 available_disks,
                 key=lambda item: (not item['status']['is_ssd'], item['mediasize'], item['status']['max_rotation']),
                 reverse=True
             )
+
             disks = q.query(
                 available_disks,
                 ('status.is_ssd', '=', available_disks[0]['status']['is_ssd']),
