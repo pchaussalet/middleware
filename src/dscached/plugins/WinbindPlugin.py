@@ -124,7 +124,7 @@ class WinbindPlugin(DirectoryServicePlugin):
     @staticmethod
     def normalize_parameters(parameters):
         return normalize(parameters, {
-            'type': 'winbind-directory-params',
+            '%type': 'winbind-directory-params',
             'realm': '',
             'username': 'Administrator',
             'password': None,

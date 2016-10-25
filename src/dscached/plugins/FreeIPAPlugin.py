@@ -95,7 +95,7 @@ class FreeIPAPlugin(DirectoryServicePlugin):
     @staticmethod
     def normalize_parameters(parameters):
         return normalize(parameters, {
-            'type': 'freeipa-directory-params',
+            '%type': 'freeipa-directory-params',
             'realm': '',
             'server': None,
             'kdc': None,

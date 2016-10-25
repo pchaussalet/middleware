@@ -31,6 +31,7 @@ import netif
 from binascii import crc32
 from utils import uuid2, parse_uuid2
 from bsd.nis import NIS
+from freenas.utils import normalize
 from freenas.utils.query import query
 from plugin import DirectoryServicePlugin, DirectoryState
 
@@ -43,6 +44,13 @@ class NISPlugin(DirectoryServicePlugin):
         self.server = None
         self.domain_name = None
         self.server_name = None
+
+    @staticmethod
+    def normalize_parameters(parameters):
+        return normalize(parameters, {
+            '%type': 'nis-directory-params',
+            'server': None
+        })
 
     def _convert_user(self, entry):
         tmp = (self.domain_name or "").encode('utf-8')
@@ -145,7 +153,7 @@ def _init(context):
         'additionalProperties': False,
         'properties': {
             '%type': {'enum': ['nis-directory-params']},
-            'server': {'type': 'string'},
+            'server': {'type': ['string', 'null']},
             'domain': {'type': 'string'}
         }
     })

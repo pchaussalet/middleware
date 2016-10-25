@@ -63,6 +63,7 @@ class LDAPPlugin(DirectoryServicePlugin):
     @classmethod
     def normalize_parameters(cls, parameters):
         return normalize(parameters, {
+            '%type': 'ldap-directory-params',
             'user_suffix': 'ou=users',
             'group_suffix': 'ou=groups',
             'krb_realm': None,
