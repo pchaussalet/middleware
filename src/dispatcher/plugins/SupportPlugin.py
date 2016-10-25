@@ -73,6 +73,32 @@ class SupportProvider(Provider):
 
         return data
 
+    @returns(h.array(str))
+    def categories_no_auth(self):
+        version = self.dispatcher.call_sync('system.info.version')
+        sw_name = version.split('-')[0].lower()
+        project_name = '-'.join(version.split('-')[:2]).lower()
+        try:
+            r = requests.post(
+                'https://%s/%s/api/v1.0/categoriesnoauth' % (ADDRESS, sw_name),
+                data=json.dumps({'project': project_name}),
+                headers={'Content-Type': 'application/json'},
+                timeout=10,
+            )
+            data = r.json()
+        except simplejson.JSONDecodeError as e:
+            logger.debug('Failed to decode ticket attachment response: %s', r.text)
+            raise RpcException(errno.EINVAL, 'Failed to decode ticket response')
+        except requests.ConnectionError as e:
+            raise RpcException(errno.ENOTCONN, 'Connection failed: {0}'.format(str(e)))
+        except requests.Timeout as e:
+            raise RpcException(errno.ETIMEDOUT, 'Connection timed out: {0}'.format(str(e)))
+
+        if 'error' in data:
+            raise RpcException(errno.EINVAL, data['message'])
+
+        return data
+
 
 @description("Submits a new support ticket")
 @accepts(
