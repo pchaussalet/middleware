@@ -40,7 +40,7 @@ from datastore import get_datastore, DatastoreException
 from datastore.config import ConfigStore
 from freenas.dispatcher.rpc import RpcService, RpcException, private, generator
 from freenas.dispatcher.client import Client, ClientError
-from freenas.utils import exclude, configure_logging
+from freenas.utils import configure_logging
 from freenas.utils.query import query
 from freenas.utils.debug import DebugService
 
