@@ -114,6 +114,18 @@ class UpdateCalendarTask(Task):
         return ['system']
 
     def run(self, id, updated_params):
+        if 'schedule' not in updated_params and updated_params.get('enabled'):
+            schedule = self.dispatcher.call_sync(
+                'scheduler.management.query',
+                [('id', '=', id)],
+                {'select': 'schedule', 'single': True})
+            if is_empty_schedule(schedule):
+                raise TaskException(errno.EINVAL, 'Task with empty schedule cannot be enabled')
+
+        if 'schedule' in updated_params:
+            if is_empty_schedule(updated_params['schedule']):
+                updated_params['enabled'] = False
+
         try:
             self.dispatcher.call_sync('scheduler.management.update', id, updated_params)
         except RpcException:
