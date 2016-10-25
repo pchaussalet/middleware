@@ -157,8 +157,8 @@ class UPSConfigureTask(Task):
         node = ConfigNode('service.ups', self.configstore).__getstate__()
         node.update(ups)
 
-        if node['mode'] == 'MASTER' and not node['driver_port']:
-            raise TaskException(errno.EINVAL, 'This field is required')
+        if node['mode'] == 'MASTER' and (not node['driver_port'] or not node['driver']):
+            raise TaskException(errno.EINVAL, 'Please provide a valid port and driver for monitored UPS device')
 
         if node['mode'] == 'SLAVE' and not node['remote_host']:
             raise TaskException(errno.EINVAL, 'This field is required')
