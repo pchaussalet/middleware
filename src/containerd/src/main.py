@@ -1199,14 +1199,18 @@ class DockerService(RpcService):
         if container.get('expose_ports'):
             labels.append('org.freenas.expose_ports_at_host')
 
+        port_bindings = {
+            str(i['container_port']) + '/' + i.get('protocol', 'tcp').lower(): i['host_port'] for i in container['ports']
+        }
+
         create_args = {
             'name': container['name'],
             'image': container['image'],
-            'ports': [i['container_port'] for i in container['ports']],
+            'ports': [(str(i['container_port']), i.get('protocol', 'tcp').lower()) for i in container['ports']],
             'volumes': [i['container_path'] for i in container['volumes']],
             'labels': labels,
             'host_config': host.connection.create_host_config(
-                port_bindings={i['container_port']: i['host_port'] for i in container['ports']},
+                port_bindings=port_bindings,
                 binds={
                     i['host_path'].replace('/mnt', '/host'): {
                         'bind': i['container_path'],
