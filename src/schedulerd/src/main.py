@@ -143,34 +143,42 @@ class ManagementService(RpcService):
 
     @private
     def update(self, job_id, updated_params):
-        job = self.context.scheduler.get_job(job_id)
+        currjob = self.context.scheduler.get_job(job_id)
         self.context.logger.info('Updating job with ID {0}'.format(job_id))
 
         if 'name' in updated_params:
             self.context.scheduler.modify_job(job_id, name=updated_params['name'])
 
         if 'task' in updated_params or 'args' in updated_params:
-            task = updated_params.get('task', job.args[0])
-            args = updated_params.get('args', job.args[1:])
+            task = updated_params.get('task', currjob.args[0])
+            args = updated_params.get('args', currjob.args[1:])
             self.context.scheduler.modify_job(job_id, args=[task] + args)
 
-        if 'enabled' in updated_params:
-            if updated_params['enabled']:
-                self.context.scheduler.resume_job(job_id)
-            else:
-                self.context.scheduler.pause_job(job_id)
-
         if 'schedule' in updated_params:
-            if 'coalesce' in updated_params['schedule']:
-                self.context.scheduler.modify_job(
-                    job_id,
-                    coalesce=updated_params['schedule']['coalesce'])
+            currjob = self.context.scheduler.get_job(job_id)
 
-            self.context.scheduler.reschedule_job(
-                job_id,
+            if 'enabled' in updated_params:
+                if not updated_params['enabled']:
+                    updated_params['schedule']['next_run_time'] = None
+            elif not currjob.next_run_time:
+                updated_params['schedule']['next_run_time'] = None
+
+            self.context.scheduler.add_job(
+                job,
+                name=currjob.name,
                 trigger='cron',
-                **exclude(updated_params['schedule'], 'coalesce')
+                id=currjob.id,
+                args=currjob.args,
+                kwargs=currjob.kwargs,
+                replace_existing=True,
+                **updated_params['schedule']
             )
+        else:
+            if 'enabled' in updated_params:
+                if updated_params['enabled']:
+                    self.context.scheduler.resume_job(job_id)
+                else:
+                    self.context.scheduler.pause_job(job_id)
 
     @private
     def run(self, job_id):
