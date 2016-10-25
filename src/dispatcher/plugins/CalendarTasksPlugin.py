@@ -33,6 +33,15 @@ from lib.system import system, SubprocessException
 from freenas.utils import query as q
 
 
+def is_empty_schedule(sched=None):
+    if not sched:
+        return False
+    for k, v in sched.items():
+        if k != 'timezone' and v and v != "*" and not isinstance(v, bool):
+            return False
+    return True
+
+
 @description('Provides information about calendar tasks')
 class CalendarTasksProvider(Provider):
     @query('calendar-task')
@@ -69,6 +78,9 @@ class CreateCalendarTask(Task):
     def run(self, task):
         if task['name'] in self.dispatcher.call_sync('scheduler.management.query', [], {'select': 'name'}):
             raise TaskException(errno.EEXIST, 'Task {0} already exists'.format(task['name']))
+
+        if is_empty_schedule(task.get('schedule')):
+            task['enabled'] = False
 
         try:
             tid = self.dispatcher.call_sync('scheduler.management.add', task)
