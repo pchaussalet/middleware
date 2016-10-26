@@ -24,6 +24,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 #####################################################################
+import json
 import logging
 import re
 
@@ -35,6 +36,26 @@ from south.modelsinspector import add_introspection_rules
 
 add_introspection_rules([], ["^(freenasUI\.)?freeadmin\.models\.fields\..*"])
 log = logging.getLogger('freeadmin.models.fields')
+
+
+class DictField(models.Field):
+    empty_strings_allowed = False
+    __metaclass__ = models.SubfieldBase
+
+    def get_internal_type(self):
+        return "TextField"
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        if not value:
+            value = {}
+        return json.dumps(value)
+
+    def to_python(self, value):
+        if not value:
+            return {}
+        if isinstance(value, str):
+            return json.loads(value)
+        return value
 
 
 class UserField(models.CharField):
@@ -138,12 +159,18 @@ class MultiSelectField(models.Field):
             'choices': self.get_choices(include_blank=False),
         }
         if self.has_default():
-            defaults['initial'] = self.default or []
+            if isinstance(self.default, list):
+                defaults['initial'] = self.default or []
+            else:
+                defaults['initial'] = self.default.split(',') or []
         defaults.update(kwargs)
         return SelectMultipleField(**defaults)
 
+    def get_prep_value(self, value):
+        return '' if value is None else ",".join(value)
+
     def get_db_prep_value(self, value, connection, prepared=False):
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             return value
         elif isinstance(value, list):
             return ','.join(value)
@@ -190,6 +217,49 @@ class MultiSelectField(models.Field):
         return self.get_db_prep_value(value)
 
 
+class ListField(MultiSelectField):
+
+    def formfield(self, **kwargs):
+        from freenasUI.freeadmin.forms import SelectMultipleField
+        defaults = {
+            'required': not self.blank,
+            'label': capfirst(self.verbose_name),
+            'help_text': self.help_text,
+            'choices': self.get_choices(include_blank=False),
+        }
+        if self.has_default():
+            defaults['initial'] = self.default or []
+        defaults.update(kwargs)
+        return SelectMultipleField(**defaults)
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        if isinstance(value, str):
+            return [value]
+        elif isinstance(value, list):
+            return value
+
+    def to_python(self, value):
+        if isinstance(value, list):
+            return value
+        if value in ('', None):
+            return []
+        return value.split(',')
+
+
+class RawCharField(models.CharField):
+    empty_strings_allowed = True
+    __metaclass__ = models.SubfieldBase
+
+    def get_internal_type(self):
+        return "RawCharField"
+
+    def to_python(self, value):
+        return value
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        return value
+
+
 class Network4Field(models.CharField):
 
     def __init__(self, *args, **kwargs):
@@ -217,46 +287,3 @@ class Network6Field(models.CharField):
         defaults = {'form_class': NF}
         kwargs.update(defaults)
         return super(Network6Field, self).formfield(**kwargs)
-
-
-class ListField(MultiSelectField):
-
-    def formfield(self, **kwargs):
-        from freenasUI.freeadmin.forms import SelectMultipleField
-        defaults = {
-            'required': not self.blank,
-            'label': capfirst(self.verbose_name),
-            'help_text': self.help_text,
-            'choices': self.get_choices(include_blank=False),
-        }
-        if self.has_default():
-            defaults['initial'] = self.default or []
-        defaults.update(kwargs)
-        return SelectMultipleField(**defaults)
-
-    def get_db_prep_value(self, value, connection, prepared=False):
-        if isinstance(value, basestring):
-            return [value]
-        elif isinstance(value, list):
-            return value
-
-    def to_python(self, value):
-        if isinstance(value, list):
-            return value
-        if value in ('', None):
-            return []
-        return value.split(',')
-
-
-class RawCharField(models.CharField):
-    empty_strings_allowed = True
-    __metaclass__ = models.SubfieldBase
-
-    def get_internal_type(self):
-        return "RawCharField"
-
-    def to_python(self, value):
-        return value
-
-    def get_db_prep_value(self, value, connection, prepared=False):
-        return value

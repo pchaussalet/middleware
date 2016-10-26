@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 import re
 import ipaddress
-from south.utils import datetime_utils as datetime
-from south.db import db
+from freenasUI.utils import ensure_unique
 from south.v2 import SchemaMigration
-from django.db import models
 from datastore import get_datastore
 from datastore.config import ConfigStore
 
@@ -59,49 +57,69 @@ class Migration(SchemaMigration):
         cs.set('network.netwait.enable', globalconf.gc_netwait_enabled)
         cs.set('network.netwait.addresses', globalconf.gc_netwait_ip.split())
 
+        old_hosts = []
         # Migrate hosts database
         for line in globalconf.gc_hosts.split('\n'):
             line = line.strip()
             if not line:
                 continue
 
-            items = line.split()
-            name = items.pop(0)
-            for addr in items:
-                ds.upsert('network.hosts', name, {
-                    'address': addr
-                })
+            ip, *names = line.split(' ')
+            old_hosts.extend([{'id': name, 'addresses': [ip]} for name in names])
+
+        ensure_unique(ds, ('network.hosts', 'id'), old_ids=[x['id'] for x in old_hosts])
+        for host in old_hosts:
+            ds.insert('network.hosts', host)
 
         # Migrate VLAN interfaces configuration
-        unit = 0
-        for i in orm.VLAN.objects.all():
+        for unit, i in enumerate(orm.VLAN.objects.all()):
             ds.insert('network.interfaces', {
                 'id': 'vlan{0}'.format(unit),
+                'name': None,
                 'type': 'VLAN',
+                'cloned': True,
                 'enabled': True,
-                'description': i.vlan_description,
+                'dhcp': None,
+                'rtadv': False,
+                'noipv6': False,
+                'mtu': None,
+                'media': None,
+                'mediaopts': [],
+                'aliases': [],
                 'vlan': {
                     'parent': i.vlan_pint,
                     'tag': i.vlan_tag
+                },
+                'capabilities': {
+                    'add': [],
+                    'del': []
                 }
             })
 
-            unit += 1
-
         # Migrate LAGG interfaces configuration
-        unit = 0
-        for i in orm.LAGGInterface.objects.all():
+        for unit, i in enumerate(orm.LAGGInterface.objects.all()):
             ds.insert('network.interfaces', {
                 'id': 'lagg{0}'.format(unit),
+                'name': None,
                 'type': 'LAGG',
+                'cloned': True,
                 'enabled': True,
+                'dhcp': None,
+                'rtadv': False,
+                'noipv6': False,
+                'mtu': None,
+                'media': None,
+                'mediaopts': [],
+                'aliases': [],
                 'lagg': {
                     'protocol': LAGG_PROTOCOL_MAP[i.lagg_protocol],
                     'ports': [m.int_interface for m in i.lagg_interfacemembers_set.all()]
+                },
+                'capabilities': {
+                    'add': [],
+                    'del': []
                 }
             })
-
-            unit += 1
 
         # Migrate IP configuration
         autoconfigure = True
@@ -115,7 +133,7 @@ class Migration(SchemaMigration):
                 }
 
             iface.update({
-                'description': i.int_name,
+                'name': i.int_name,
                 'dhcp': i.int_dhcp,
                 'aliases': aliases
             })
@@ -203,15 +221,19 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'Alias'},
             'alias_interface': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['network.Interfaces']"}),
             'alias_v4address': ('freenasUI.contrib.IPAddressField.IP4AddressField', [], {'default': "''", 'blank': 'True'}),
+            'alias_v4address_b': ('freenasUI.contrib.IPAddressField.IP4AddressField', [], {'default': "''", 'blank': 'True'}),
             'alias_v4netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '3', 'blank': 'True'}),
             'alias_v6address': ('freenasUI.contrib.IPAddressField.IP6AddressField', [], {'default': "''", 'blank': 'True'}),
+            'alias_v6address_b': ('freenasUI.contrib.IPAddressField.IP6AddressField', [], {'default': "''", 'blank': 'True'}),
             'alias_v6netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '3', 'blank': 'True'}),
+            'alias_vip': ('freenasUI.contrib.IPAddressField.IP4AddressField', [], {'default': "''", 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
         },
         u'network.globalconfiguration': {
             'Meta': {'object_name': 'GlobalConfiguration'},
             'gc_domain': ('django.db.models.fields.CharField', [], {'default': "'local'", 'max_length': '120'}),
             'gc_hostname': ('django.db.models.fields.CharField', [], {'default': "'nas'", 'max_length': '120'}),
+            'gc_hostname_b': ('django.db.models.fields.CharField', [], {'max_length': '120', 'null': 'True', 'blank': 'True'}),
             'gc_hosts': ('django.db.models.fields.TextField', [], {'default': "''", 'blank': 'True'}),
             'gc_httpproxy': ('django.db.models.fields.CharField', [], {'max_length': '255', 'blank': 'True'}),
             'gc_ipv4gateway': ('freenasUI.contrib.IPAddressField.IP4AddressField', [], {'default': "''", 'blank': 'True'}),
@@ -226,15 +248,21 @@ class Migration(SchemaMigration):
         u'network.interfaces': {
             'Meta': {'ordering': "['int_interface']", 'object_name': 'Interfaces'},
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'int_critical': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'int_dhcp': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
+            'int_group': ('django.db.models.fields.IntegerField', [], {'null': 'True', 'blank': 'True'}),
             'int_interface': ('django.db.models.fields.CharField', [], {'max_length': '300'}),
             'int_ipv4address': ('freenasUI.contrib.IPAddressField.IPAddressField', [], {'default': "''", 'blank': 'True'}),
+            'int_ipv4address_b': ('freenasUI.contrib.IPAddressField.IPAddressField', [], {'default': "''", 'blank': 'True'}),
             'int_ipv6address': ('freenasUI.contrib.IPAddressField.IPAddressField', [], {'default': "''", 'blank': 'True'}),
             'int_ipv6auto': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
             'int_name': ('django.db.models.fields.CharField', [], {'max_length': "'120'"}),
             'int_options': ('django.db.models.fields.CharField', [], {'max_length': '120', 'blank': 'True'}),
+            'int_pass': ('django.db.models.fields.CharField', [], {'max_length': '100', 'blank': 'True'}),
             'int_v4netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '3', 'blank': 'True'}),
-            'int_v6netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '4', 'blank': 'True'})
+            'int_v6netmaskbit': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '4', 'blank': 'True'}),
+            'int_vhid': ('django.db.models.fields.PositiveIntegerField', [], {'null': 'True', 'blank': 'True'}),
+            'int_vip': ('freenasUI.contrib.IPAddressField.IPAddressField', [], {'null': 'True', 'blank': 'True'})
         },
         u'network.lagginterface': {
             'Meta': {'ordering': "['lagg_interface']", 'object_name': 'LAGGInterface'},

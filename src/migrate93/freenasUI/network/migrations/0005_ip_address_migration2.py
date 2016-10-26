@@ -4,6 +4,7 @@ from south.db import db
 from south.v2 import DataMigration
 from django.db import models
 
+
 class Migration(DataMigration):
 
     def forwards(self, orm):
@@ -19,7 +20,6 @@ class Migration(DataMigration):
             if iface.int_v6netmaskbit:
                 iface.int_ipv6address = iface.int_ipv6address + "/" + iface.int_v6netmaskbit
             iface.save()
-
 
     models = {
         'network.globalconfiguration': {

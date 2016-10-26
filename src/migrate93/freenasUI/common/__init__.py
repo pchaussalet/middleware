@@ -1,4 +1,3 @@
-#+
 # Copyright 2010 iXsystems, Inc.
 # All rights reserved
 #
@@ -25,6 +24,8 @@
 #
 #####################################################################
 from collections import OrderedDict
+from decimal import Decimal
+import re
 
 IEC_MAP = OrderedDict((
     ('PiB', 1125899906842624.0),
@@ -61,3 +62,17 @@ def humanize_number_si(number):
 
 def humanize_size(number):
     return (__humanize_number_common(int(number), IEC_MAP))
+
+
+def humansize_to_bytes(size):
+    size = re.sub(r'^([0-9\.]+[A-Z])([A-Z]*)$', '\\1', size.upper())
+    suffix = size[-1]
+    size = Decimal(size[:-1])
+    if suffix == 'B':
+        return size
+
+    suffix += 'iB'
+    mult = IEC_MAP.get(suffix)
+    if mult:
+        return int(size * Decimal(mult))
+    return size

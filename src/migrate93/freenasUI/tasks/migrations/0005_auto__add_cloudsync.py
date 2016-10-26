@@ -1,57 +1,34 @@
 # -*- coding: utf-8 -*-
-import os
 from south.utils import datetime_utils as datetime
 from south.db import db
-from south.v2 import DataMigration
+from south.v2 import SchemaMigration
 from django.db import models
 
-from apscheduler.triggers.cron.expressions import WEEKDAYS
-from datastore import get_datastore
 
-
-class Migration(DataMigration):
+class Migration(SchemaMigration):
 
     def forwards(self, orm):
+        # Adding model 'CloudSync'
+        db.create_table(u'tasks_cloudsync', (
+            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
+            ('description', self.gf('django.db.models.fields.CharField')(max_length=150)),
+            ('path', self.gf('freenasUI.freeadmin.models.fields.PathField')(max_length=255)),
+            ('credential', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['system.CloudCredentials'])),
+            ('minute', self.gf('django.db.models.fields.CharField')(default='00', max_length=100)),
+            ('hour', self.gf('django.db.models.fields.CharField')(default='*', max_length=100)),
+            ('daymonth', self.gf('django.db.models.fields.CharField')(default='*', max_length=100)),
+            ('month', self.gf('django.db.models.fields.CharField')(default='*', max_length=100)),
+            ('dayweek', self.gf('django.db.models.fields.CharField')(default='*', max_length=100)),
+            ('attributes', self.gf('freenasUI.freeadmin.models.fields.DictField')()),
+            ('enabled', self.gf('django.db.models.fields.BooleanField')(default=True)),
+        ))
+        db.send_create_signal(u'tasks', ['CloudSync'])
 
-        # Skip for install time, we only care for upgrades here
-        if 'FREENAS_INSTALL' in os.environ:
-            return
-
-        ds = get_datastore()
-
-        for cron in orm['tasks.CronJob'].objects.all():
-
-            day_of_week = []
-            for w in cron.cron_dayweek.split(','):
-                try:
-                    day_of_week.append(WEEKDAYS[int(w) - 1])
-                except:
-                    pass
-            if not day_of_week:
-                day_of_week = '*'
-            else:
-                day_of_week = ','.join(day_of_week)
-
-            ds.insert('schedulerd.runs', {
-                'id': 'cronjob_{0}_{1}'.format(cron.cron_user, cron.id),
-                'description': cron.cron_description,
-                'name': 'calendar_task.command',
-                'args': [cron.cron_user, cron.cron_command],
-                'enabled': cron.cron_enabled,
-                'schedule': {
-                    'year': '*',
-                    'month': cron.cron_month,
-                    'week': '*',
-                    'day_of_week': day_of_week,
-                    'day': cron.cron_daymonth,
-                    'hour': cron.cron_hour,
-                    'minute': cron.cron_minute,
-                    'second': 0,
-                }
-            })
 
     def backwards(self, orm):
-        pass
+        # Deleting model 'CloudSync'
+        db.delete_table(u'tasks_cloudsync')
+
 
     models = {
         u'storage.disk': {
@@ -160,5 +137,3 @@ class Migration(DataMigration):
     }
 
     complete_apps = ['tasks']
-    symmetrical = True
-

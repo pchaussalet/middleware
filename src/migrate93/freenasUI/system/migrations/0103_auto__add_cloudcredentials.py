@@ -1,42 +1,27 @@
 # -*- coding: utf-8 -*-
-import os
 from south.utils import datetime_utils as datetime
 from south.db import db
-from south.v2 import DataMigration
+from south.v2 import SchemaMigration
 from django.db import models
 
-from datastore import get_datastore
-from datastore.config import ConfigStore
 
-class Migration(DataMigration):
+class Migration(SchemaMigration):
 
     def forwards(self, orm):
-
-        # Skip for install time, we only care for upgrades here
-        if 'FREENAS_INSTALL' in os.environ:
-            return
-
-        ds = get_datastore()
-        cs = ConfigStore(ds)
-
-        email = orm['system.Email'].objects.order_by('-id')[0]
-
-        cs.set('mail.from', email.em_fromemail)
-        cs.set('mail.server', email.em_outgoingserver)
-        cs.set('mail.port', email.em_port)
-
-        encryption = 'PLAIN'
-        if email.em_security in ('ssl', 'tls'):
-            encryption = email.em_security.upper()
-
-        cs.set('mail.encryption', encryption)
-        cs.set('mail.auth', email.em_smtp)
-        cs.set('mail.user', email.em_user)
-        cs.set('mail.pass', email.em_pass)
+        # Adding model 'CloudCredentials'
+        db.create_table(u'system_cloudcredentials', (
+            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
+            ('name', self.gf('django.db.models.fields.CharField')(max_length=100)),
+            ('provider', self.gf('django.db.models.fields.CharField')(max_length=50)),
+            ('attributes', self.gf('freenasUI.freeadmin.models.fields.DictField')()),
+        ))
+        db.send_create_signal(u'system', ['CloudCredentials'])
 
 
     def backwards(self, orm):
-        "Write your backwards methods here."
+        # Deleting model 'CloudCredentials'
+        db.delete_table(u'system_cloudcredentials')
+
 
     models = {
         u'system.advanced': {
@@ -197,4 +182,3 @@ class Migration(DataMigration):
     }
 
     complete_apps = ['system']
-    symmetrical = True

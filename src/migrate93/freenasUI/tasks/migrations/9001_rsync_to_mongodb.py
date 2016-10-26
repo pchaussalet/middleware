@@ -89,7 +89,7 @@ class Migration(DataMigration):
             'disk_description': ('django.db.models.fields.CharField', [], {'max_length': '120', 'blank': 'True'}),
             'disk_enabled': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'disk_hddstandby': ('django.db.models.fields.CharField', [], {'default': "'Always On'", 'max_length': '120'}),
-            'disk_identifier': ('django.db.models.fields.CharField', [], {'max_length': '42'}),
+            'disk_identifier': ('django.db.models.fields.CharField', [], {'max_length': '42', 'primary_key': 'True'}),
             'disk_multipath_member': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'disk_multipath_name': ('django.db.models.fields.CharField', [], {'max_length': '30', 'blank': 'True'}),
             'disk_name': ('django.db.models.fields.CharField', [], {'max_length': '120'}),
@@ -99,8 +99,28 @@ class Migration(DataMigration):
             'disk_smartoptions': ('django.db.models.fields.CharField', [], {'max_length': '120', 'blank': 'True'}),
             'disk_subsystem': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '10'}),
             'disk_togglesmart': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
-            'disk_transfermode': ('django.db.models.fields.CharField', [], {'default': "'Auto'", 'max_length': '120'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
+            'disk_transfermode': ('django.db.models.fields.CharField', [], {'default': "'Auto'", 'max_length': '120'})
+        },
+        u'system.cloudcredentials': {
+            'Meta': {'object_name': 'CloudCredentials'},
+            'attributes': ('freenasUI.freeadmin.models.fields.DictField', [], {}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
+            'provider': ('django.db.models.fields.CharField', [], {'max_length': '50'})
+        },
+        u'tasks.cloudsync': {
+            'Meta': {'ordering': "['description']", 'object_name': 'CloudSync'},
+            'attributes': ('freenasUI.freeadmin.models.fields.DictField', [], {}),
+            'credential': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['system.CloudCredentials']"}),
+            'daymonth': ('django.db.models.fields.CharField', [], {'default': "'*'", 'max_length': '100'}),
+            'dayweek': ('django.db.models.fields.CharField', [], {'default': "'*'", 'max_length': '100'}),
+            'description': ('django.db.models.fields.CharField', [], {'max_length': '150'}),
+            'enabled': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
+            'hour': ('django.db.models.fields.CharField', [], {'default': "'*'", 'max_length': '100'}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'minute': ('django.db.models.fields.CharField', [], {'default': "'00'", 'max_length': '100'}),
+            'month': ('django.db.models.fields.CharField', [], {'default': "'*'", 'max_length': '100'}),
+            'path': ('freenasUI.freeadmin.models.fields.PathField', [], {'max_length': '255'})
         },
         u'tasks.cronjob': {
             'Meta': {'ordering': "['cron_description', 'cron_user']", 'object_name': 'CronJob'},

@@ -21,7 +21,7 @@ class Migration(DataMigration):
             ad = orm.ActiveDirectory.objects.all()[0]
             fad = FreeNAS_ActiveDirectory(flags=FLAGS_DBINIT)
 
-            kr = orm.KerberosRealm() 
+            kr = orm.KerberosRealm()
             kr.krb_realm = ad.ad_domainname.upper()
 
             if ad.ad_krbname:
@@ -45,7 +45,7 @@ class Migration(DataMigration):
                 kt.keytab_principal = "host/%s" % ad.ad_domainname
                 kt.keytab_file = "/data/%s.keytab" % re.sub(
                     '[^a-zA-Z0-9]+', '_',
-                     kt.keytab_principal
+                    kt.keytab_principal
                 )
                 kt.save()
 
@@ -56,7 +56,7 @@ class Migration(DataMigration):
                 ad.save()
 
         except Exception as e:
-            print("ERROR: %s" % e, file=sys.stderr)
+             print("ERROR: %s" % e, file=sys.stderr)
 
     def backwards(self, orm):
         "Write your backwards methods here."

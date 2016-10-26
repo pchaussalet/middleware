@@ -5,6 +5,7 @@ from south.v2 import DataMigration
 from django.db import models
 from freenasUI.contrib.IPAddressField import *
 
+
 class Migration(DataMigration):
 
     def forwards(self, orm):
@@ -27,7 +28,6 @@ class Migration(DataMigration):
                     iface.int_ipv4address_temp = None
                     iface.int_v4netmaskbit = None
 
-
             if iface.int_ipv6address:
                 ip = mask = None
                 try:
@@ -46,12 +46,10 @@ class Migration(DataMigration):
                     iface.int_ipv6address_temp = None
                     iface.int_v6netmaskbit = None
 
-            if (iface.int_ipv4address_temp == None and iface.int_ipv6address_temp == None):
+            if (iface.int_ipv4address_temp is None and iface.int_ipv6address_temp is None):
                 iface.delete()
             else:
                 iface.save()
-
-
 
     def backwards(self, orm):
         raise RuntimeError("No reason to reverse this migration.")
