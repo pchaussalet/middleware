@@ -306,8 +306,15 @@ class ServiceManageTask(Task):
             raise TaskException(errno.ENOENT, 'Service {0} not found'.format(id))
 
         service = self.datastore.get_by_id('service_definitions', id)
+        state, pid = get_status(self.dispatcher, service)
         hook_rpc = service.get('{0}_rpc'.format(action))
         name = service['name']
+
+        if state == 'RUNNING' and action == 'start':
+            return
+
+        if state == 'STOPPED' and action == 'stop':
+            return
 
         if hook_rpc:
             try:
