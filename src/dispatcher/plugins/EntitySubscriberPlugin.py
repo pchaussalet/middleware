@@ -102,14 +102,7 @@ class EntitySubscriberEventSource(EventSource):
             self.logger.warn('Bogus event {0}: no ids and operation is {1}'.format(event, operation))
             return
 
-        if operation in ('delete', 'rename'):
-            self.dispatcher.dispatch_event('entity-subscriber.{0}.changed'.format(service), {
-                'service': service,
-                'operation': operation,
-                'ids': ids
-            })
-        else:
-            self.queues[service].put((self.fetch if ids is not None else self.fetch_one, operation, ids))
+        self.queues[service].put((self.fetch if ids is not None else self.fetch_one, operation, ids))
 
     def fetch(self, service, operation, ids):
         keys = set(ids.keys() if isinstance(ids, dict) else ids)
