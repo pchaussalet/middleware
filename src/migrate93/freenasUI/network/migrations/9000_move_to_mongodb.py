@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 import ipaddress
+from freenasUI.utils import ensure_unique
 from south.v2 import SchemaMigration
 from datastore import get_datastore
 from datastore.config import ConfigStore
@@ -56,6 +57,7 @@ class Migration(SchemaMigration):
         cs.set('network.netwait.enable', globalconf.gc_netwait_enabled)
         cs.set('network.netwait.addresses', globalconf.gc_netwait_ip.split())
 
+        old_hosts = []
         # Migrate hosts database
         for line in globalconf.gc_hosts.split('\n'):
             line = line.strip()
@@ -64,10 +66,11 @@ class Migration(SchemaMigration):
 
             items = line.split()
             name = items.pop(0)
-            for addr in items:
-                ds.upsert('network.hosts', name, {
-                    'address': addr
-                })
+            old_hosts.append({'id': name, 'address': items})
+
+        ensure_unique(ds, ('network.hosts', 'id'), old_ids=[x['id'] for x in old_hosts])
+        for host in old_hosts:
+            ds.insert('network.hosts', host)
 
         # Migrate VLAN interfaces configuration
         unit = 0
