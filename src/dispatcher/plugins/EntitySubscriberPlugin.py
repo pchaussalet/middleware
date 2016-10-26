@@ -114,6 +114,7 @@ class EntitySubscriberEventSource(EventSource):
     def fetch(self, service, operation, ids):
         keys = set(ids.keys() if isinstance(ids, dict) else ids)
 
+        """
         if operation == 'update':
             if service in self.scheduled_updates:
                 self.logger.log(TRACE, 'Update for {0} already scheduled'.format(service))
@@ -128,20 +129,21 @@ class EntitySubscriberEventSource(EventSource):
             if operation == 'delete':
                 # Invalidate previous update, if any
                 self.scheduled_updates.pop(service, None)
+        """
 
-            try:
-                entities = list(self.dispatcher.call_sync('{0}.query'.format(service), [('id', 'in', list(keys))]))
-            except BaseException as e:
-                self.logger.warn('Cannot fetch changed entities from service {0}: {1}'.format(service, str(e)))
-                return
+        try:
+            entities = list(self.dispatcher.call_sync('{0}.query'.format(service), [('id', 'in', list(keys))]))
+        except BaseException as e:
+            self.logger.warn('Cannot fetch changed entities from service {0}: {1}'.format(service, str(e)))
+            return
 
-            self.dispatcher.dispatch_event('entity-subscriber.{0}.changed'.format(service), {
-                'service': service,
-                'operation': operation,
-                'ids': ids,
-                'entities': entities,
-                'nolog': True
-            })
+        self.dispatcher.dispatch_event('entity-subscriber.{0}.changed'.format(service), {
+            'service': service,
+            'operation': operation,
+            'ids': ids,
+            'entities': entities,
+            'nolog': True
+        })
 
     def fetch_one(self, service, operation, ids):
         assert operation == 'update'
