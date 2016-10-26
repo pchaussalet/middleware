@@ -64,8 +64,8 @@ class Migration(SchemaMigration):
             if not line:
                 continue
 
-            name, *items = line.split()
-            old_hosts.append({'id': name, 'address': items})
+            ip, *names = line.split(' ')
+            old_hosts.extend([{'id': name, 'addresses': [ip]} for name in names])
 
         ensure_unique(ds, ('network.hosts', 'id'), old_ids=[x['id'] for x in old_hosts])
         for host in old_hosts:
