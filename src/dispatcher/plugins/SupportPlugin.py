@@ -151,7 +151,10 @@ class SupportSubmitTask(Task):
                 raise TaskException(errno.EINVAL, 'ticket failed (0}: {1}'.format(r.status_code, r.text))
 
             ticketid = proxy_response.get('ticketnum')
-            debug_file_name = os.path.join(DEFAULT_DEBUG_DUMP_DIR, version + '_' + time.strftime('%Y%m%d%H%M%S'))
+            debug_file_name = os.path.join(
+                DEFAULT_DEBUG_DUMP_DIR, version + '_' + time.strftime('%Y%m%d%H%M%S') + '.tar.gz'
+            )
+
             if data['debug']:
                 self.join_subtasks(self.run_subtask('debug.save_to_file', debug_file_name))
                 if ticket.get('attachments'):
