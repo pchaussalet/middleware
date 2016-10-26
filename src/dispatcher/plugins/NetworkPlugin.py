@@ -181,6 +181,7 @@ class CreateInterfaceTask(Task):
             'noipv6': False,
             'mtu': None,
             'media': None,
+            'mediaopts': [],
             'aliases': [],
             'capabilities': {
                 'add': [],
