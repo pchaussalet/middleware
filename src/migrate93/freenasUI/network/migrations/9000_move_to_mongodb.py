@@ -86,7 +86,6 @@ class Migration(SchemaMigration):
                 'media': None,
                 'mediaopts': [],
                 'aliases': [],
-                'description': i.vlan_description,
                 'vlan': {
                     'parent': i.vlan_pint,
                     'tag': i.vlan_tag
