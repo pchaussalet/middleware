@@ -75,12 +75,25 @@ class Migration(SchemaMigration):
         for unit, i in enumerate(orm.VLAN.objects.all()):
             ds.insert('network.interfaces', {
                 'id': 'vlan{0}'.format(unit),
+                'name': None,
                 'type': 'VLAN',
+                'cloned': True,
                 'enabled': True,
+                'dhcp': None,
+                'rtadv': False,
+                'noipv6': False,
+                'mtu': None,
+                'media': None,
+                'mediaopts': [],
+                'aliases': [],
                 'description': i.vlan_description,
                 'vlan': {
                     'parent': i.vlan_pint,
                     'tag': i.vlan_tag
+                },
+                'capabilities': {
+                    'add': [],
+                    'del': []
                 }
             })
 
@@ -88,11 +101,24 @@ class Migration(SchemaMigration):
         for unit, i in enumerate(orm.LAGGInterface.objects.all()):
             ds.insert('network.interfaces', {
                 'id': 'lagg{0}'.format(unit),
+                'name': None,
                 'type': 'LAGG',
+                'cloned': True,
                 'enabled': True,
+                'dhcp': None,
+                'rtadv': False,
+                'noipv6': False,
+                'mtu': None,
+                'media': None,
+                'mediaopts': [],
+                'aliases': [],
                 'lagg': {
                     'protocol': LAGG_PROTOCOL_MAP[i.lagg_protocol],
                     'ports': [m.int_interface for m in i.lagg_interfacemembers_set.all()]
+                },
+                'capabilities': {
+                    'add': [],
+                    'del': []
                 }
             })
 
