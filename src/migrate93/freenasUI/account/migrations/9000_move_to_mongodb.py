@@ -4,7 +4,7 @@ import uuid
 from south.utils import datetime_utils as datetime
 from south.v2 import DataMigration
 from django.db.models import Q
-
+from freenasUI.utils import ensure_unique
 from datastore import get_datastore
 
 
@@ -58,14 +58,28 @@ class Migration(DataMigration):
 
         ds = get_datastore()
 
-        # get all non-builtin groups plus `wheel`
-        for g in orm['account.bsdGroups'].objects.filter(
-            Q(bsdgrp_builtin=False) | Q(bsdgrp_gid=0)
-        ):
-            group_uuid = ds.query('groups', ('gid', '=', g.bsdgrp_gid), single=True)
-            group_uuid = group_uuid['id'] if group_uuid else str(uuid.uuid4())
-            ds.upsert('groups', group_uuid, {
-                'id': group_uuid,
+        # First ensure that no duplicate object is present between the two databses
+        # This call will raise an error if a dup is found and will not proceed
+        ensure_unique(
+            ds,
+            ('groups', 'gid'),
+            orm,
+            ('account.bsdGroups', 'bsdgrp_gid'),
+            orm_query=Q(bsdgrp_builtin=False)
+        )
+
+        ensure_unique(
+            ds,
+            ('users', 'uid'),
+            orm,
+            ('account.bsdUsers', 'bsdusr_uid'),
+            orm_query=Q(bsdusr_builtin=False)
+        )
+
+        # get all non-builtin groups
+        for g in orm['account.bsdGroups'].objects.filter(bsdgrp_builtin=False):
+            ds.insert('groups', {
+                'id': str(uuid.uuid4()),
                 'gid': g.bsdgrp_gid,
                 'builtin': g.bsdgrp_builtin,
                 'sudo': g.bsdgrp_sudo,
