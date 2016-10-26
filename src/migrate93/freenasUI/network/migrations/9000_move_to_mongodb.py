@@ -133,7 +133,7 @@ class Migration(SchemaMigration):
                 }
 
             iface.update({
-                'description': i.int_name,
+                'name': i.int_name,
                 'dhcp': i.int_dhcp,
                 'aliases': aliases
             })
