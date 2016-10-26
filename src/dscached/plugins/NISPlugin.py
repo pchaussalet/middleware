@@ -28,9 +28,10 @@
 import logging
 import errno
 import netif
+import threading
 from binascii import crc32
 from utils import uuid2, parse_uuid2
-from bsd.nis import NIS
+from bsd.nis import NIS, NISError
 from freenas.utils import normalize
 from freenas.utils.query import query
 from plugin import DirectoryServicePlugin, DirectoryState
@@ -44,6 +45,10 @@ class NISPlugin(DirectoryServicePlugin):
         self.server = None
         self.domain_name = None
         self.server_name = None
+        self.bnd_lock = threading.RLock()
+        self.bind_thread = threading.Thread(target=self.bind, daemon=True)
+        self.cv = threading.Condition()
+        self.bind_thread.start()
 
     @staticmethod
     def normalize_parameters(parameters):
@@ -131,19 +136,52 @@ class NISPlugin(DirectoryServicePlugin):
         # Not currently implemented, or at least not implemented well
         raise OSError(errno.EPERM)
 
+    def bind(self):
+        while True:
+            with self.cv:
+                notify = self.cv.wait(60)
+
+                if self.enabled:
+                    if self.directory.state == DirectoryState.BOUND and not notify:
+                        contnue
+
+                    self.directory.put_state(DirectoryState.JOINING)
+                    self.domain_name = self.parameters.get("domain")
+                    self.server_name = self.parameters.get("server")
+
+                    # I don't think this is right.
+                    # Should probably use get_domainname() if it's None?
+                    if self.domain_name:
+                        netif.set_domainname(self.domain_name)
+                        
+                    if self.server_name is None:
+                        try:
+                            self.context.client.call_sync('service.ensure_started', 'ypbind')
+                        except:
+                            logger.debug("Unable to start ypbind", exc_info=True)
+
+                    try:
+                        self.server = NIS(self.domain_name, self.server_name)
+                        self.directory.put_state(DirectoryState.BOUND)
+                    except NISError as err:
+                        logger.debug("Unable to bind to domain {} using server {}".format(self.domain_name, self.server_name), exc_info=True)
+                        self.directory.put_state(DirectoryState.FAILURE)
+                else:
+                    if self.directory.state != DirectoryState.DISABLED:
+                        self.server = None
+                        self.domain_name = None
+                        self.server_name = None
+                        self.directory.put_state(DirectoryState.DISABLED)
+                continue
+                        
     def configure(self, enable, directory):
-        directory.put_state(DirectoryState.JOINING)
-        self.domain_name = directory.parameters.get("domain")
-        self.server_name = directory.parameters.get("server")
-
-        netif.set_domainname(self.domain_name)
-        self.context.client.call_sync('service.ensure_started', 'ypbind')
-        self.server = NIS(self.domain_name, self.server_name)
-        if self.server:
-            directory.put_state(DirectoryState.BOUND)
-
-        return self.domain_name
-
+        with self.cv:
+            self.directory = directory
+            self.parameters = directory.parameters
+            self.enabled = enable
+            self.cv_notify_all()
+            
+        return directory.parameters.get("domain")
 
 def _init(context):
     context.register_plugin('nis', NISPlugin)
