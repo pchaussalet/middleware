@@ -63,16 +63,16 @@ class Migration(DataMigration):
         ensure_unique(
             ds,
             ('groups', 'gid'),
-            orm,
-            ('account.bsdGroups', 'bsdgrp_gid'),
+            orm_handle=orm,
+            orm_tuple=('account.bsdGroups', 'bsdgrp_gid'),
             orm_query=Q(bsdgrp_builtin=False)
         )
 
         ensure_unique(
             ds,
             ('users', 'uid'),
-            orm,
-            ('account.bsdUsers', 'bsdusr_uid'),
+            orm_handle=orm,
+            orm_tuple=('account.bsdUsers', 'bsdusr_uid'),
             orm_query=Q(bsdusr_builtin=False)
         )
 
