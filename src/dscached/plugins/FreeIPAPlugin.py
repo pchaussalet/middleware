@@ -36,7 +36,7 @@ from datetime import datetime
 from plugin import DirectoryServicePlugin, DirectoryState
 from utils import obtain_or_renew_ticket, join_dn, domain_to_dn, get_srv_records, LdapQueryBuilder
 from freenas.utils import normalize, first_or_default
-from freenas.utils.query import get
+from freenas.utils.query import get, contains
 
 
 FREEIPA_REALM_ID = uuid.UUID('e44553e1-0c0b-11e6-9898-000c2957240a')
