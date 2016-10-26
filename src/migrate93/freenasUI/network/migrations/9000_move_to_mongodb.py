@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 import ipaddress
-from south.utils import datetime_utils as datetime
-from south.db import db
 from south.v2 import SchemaMigration
-from django.db import models
 from datastore import get_datastore
 from datastore.config import ConfigStore
 
