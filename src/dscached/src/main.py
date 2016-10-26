@@ -61,7 +61,7 @@ AF_MAP = {
 }
 
 
-def privileged():
+def privileged(uid):
     """
     Warning: that function shall be used only within RPC method context
     """
@@ -70,7 +70,7 @@ def privileged():
         logging.warning('privileged(): sender unknown, assuming no')
         return False
 
-    return sender.credentials and sender.credentials['uid'] == 0
+    return sender.credentials and sender.credentials['uid'] in (0, uid)
 
 
 def my_ips():
@@ -113,7 +113,7 @@ def fix_passwords(user):
     """
     Warning: this function shall be called only within an RPC method context
     """
-    if not privileged():
+    if not privileged(user['uid']):
         return extend(user, {
             'unixhash': '*',
             'nthash': None,
