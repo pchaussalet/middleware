@@ -344,7 +344,7 @@ call_dispatcher(const char *method, json_t *args, json_t **result)
 		return (-1);
 
 	gettimeofday(&tv, NULL);
-	ts.tv_sec = tv.tv_sec + 2;
+	ts.tv_sec = tv.tv_sec + 5;
 	ts.tv_nsec = tv.tv_usec * 1000;
 
 	call = dispatcher_call_async(conn, method, args, NULL, NULL);
