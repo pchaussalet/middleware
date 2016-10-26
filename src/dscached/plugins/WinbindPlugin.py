@@ -494,6 +494,8 @@ class WinbindPlugin(DirectoryServicePlugin):
         try:
             self.configure_smb(True)
             obtain_or_renew_ticket(self.principal, self.parameters['password'])
+
+            os.environ['LOGNAME'] = 'root'
             subprocess.call(['/usr/local/bin/net', 'ads', 'join', self.realm, '-k'])
             subprocess.call(['/usr/sbin/service', 'samba_server', 'restart'])
 
