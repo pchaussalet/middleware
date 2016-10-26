@@ -22,6 +22,16 @@ class SystemInfoUnameFullResource(Resource):
     get = 'rpc:system.info.uname_full'
 
 
+class SystemShutdownResource(Resource):
+    name = 'system/shutdown'
+    post = 'task:system.shutdown'
+
+
+class SystemRebootResource(Resource):
+    name = 'system/reboot'
+    post = 'task:system.reboot'
+
+
 class SystemInfoVersionResource(Resource):
     name = 'system/info/version'
     get = 'rpc:system.info.version'
