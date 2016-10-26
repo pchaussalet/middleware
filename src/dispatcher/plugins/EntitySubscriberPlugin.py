@@ -28,6 +28,8 @@
 import logging
 import re
 import gevent
+import contextlib
+from gevent.queue import Queue
 from freenas.utils.trace_logger import TRACE
 from event import EventSource, sync
 
@@ -63,11 +65,18 @@ class EntitySubscriberEventSource(EventSource):
     def __init__(self, dispatcher):
         super(EntitySubscriberEventSource, self).__init__(dispatcher)
         self.handles = {}
+        self.queues = {}
         self.services = []
         self.scheduled_updates = {}
         self.logger = logging.getLogger(self.__class__.__name__)
         dispatcher.register_event_handler('server.event.added', self.event_added)
         dispatcher.register_event_handler('server.event.removed', self.event_removed)
+
+    def worker(self, service):
+        while True:
+            fn, operation, ids = self.queues[service].get()
+            with contextlib.suppress(BaseException):
+                fn(service, operation, ids)
 
     def event_added(self, args):
         if args['name'].startswith('entity-subscriber'):
@@ -100,7 +109,7 @@ class EntitySubscriberEventSource(EventSource):
                 'ids': ids
             })
         else:
-            gevent.spawn(self.fetch if ids is not None else self.fetch_one, service, operation, ids)
+            self.queues[service].put((self.fetch if ids is not None else self.fetch_one, operation, ids))
 
     def fetch(self, service, operation, ids):
         keys = set(ids.keys() if isinstance(ids, dict) else ids)
@@ -116,6 +125,10 @@ class EntitySubscriberEventSource(EventSource):
                 self.scheduled_updates[service] = update
                 return
         else:
+            if operation == 'delete':
+                # Invalidate previous update, if any
+                self.scheduled_updates.pop(service, None)
+
             try:
                 entities = list(self.dispatcher.call_sync('{0}.query'.format(service), [('id', 'in', list(keys))]))
             except BaseException as e:
@@ -156,6 +169,8 @@ class EntitySubscriberEventSource(EventSource):
         self.dispatcher.register_event_type('entity-subscriber.{0}.changed'.format(service), self)
         self.logger.info('Registered subscriber for service {0}'.format(service))
         self.services.append(service)
+        self.queues[service] = Queue()
+        gevent.spawn(self.worker, service)
 
     def run(self):
         # Scan through registered events for those ending with .changed
