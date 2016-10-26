@@ -415,6 +415,8 @@ class AccountService(RpcService):
                     yield fix_passwords(annotate(user, d, 'username'))
                     if single:
                         return
+            except GeneratorExit:
+                return
             except:
                 self.context.logger.error('Directory {0} exception during account iteration'.format(d.name), exc_info=True)
                 continue
@@ -563,6 +565,8 @@ class GroupService(RpcService):
                     yield annotate(group, d, 'name')
                     if single:
                         return
+            except GeneratorExit:
+                return
             except:
                 self.context.logger.error('Directory {0} exception during group iteration'.format(d.name), exc_info=True)
                 continue
