@@ -34,6 +34,7 @@ import gevent
 import libzfs
 from threading import Thread, Event
 from cache import EventCacheStore
+from event import sync
 from task import (
     Provider, Task, ProgressTask, TaskWarning, TaskException,
     VerifyException, TaskAbortException, query, TaskDescription
@@ -1457,22 +1458,26 @@ def _depends():
 
 
 def _init(dispatcher, plugin):
+    @sync
     def on_pool_create(args):
         logger.info('New pool created: {0} <{1}>'.format(args['pool'], args['guid']))
         with dispatcher.get_lock('zfs-cache'):
             sync_zpool_cache(dispatcher, args['pool'], args['guid'])
 
+    @sync
     def on_pool_import(args):
         logger.info('New pool imported: {0} <{1}>'.format(args['pool'], args['guid']))
         with dispatcher.get_lock('zfs-cache'):
             sync_zpool_cache(dispatcher, args['pool'], args['guid'])
             sync_dataset_cache(dispatcher, args['pool'], recursive=True)
 
+    @sync
     def on_pool_destroy(args):
         logger.info('Pool {0} <{1}> destroyed'.format(args['pool'], args['guid']))
         with dispatcher.get_lock('zfs-cache'):
             sync_zpool_cache(dispatcher, args['pool'], args['guid'])
 
+    @sync
     def on_pool_changed(args):
         if args['pool'] == '$import':
             return
@@ -1480,9 +1485,11 @@ def _init(dispatcher, plugin):
         with dispatcher.get_lock('zfs-cache'):
             sync_zpool_cache(dispatcher, args['pool'], args['guid'])
 
+    @sync
     def on_pool_reguid(args):
         logger.info('Pool {0} changed guid to <{1}>'.format(args['pool'], args['guid']))
 
+    @sync
     def on_dataset_create(args):
         with dispatcher.get_lock('zfs-cache'):
             if '@' in args['ds']:
@@ -1492,6 +1499,7 @@ def _init(dispatcher, plugin):
                 logger.info('New dataset created: {0}'.format(args['ds']))
                 sync_dataset_cache(dispatcher, args['ds'])
 
+    @sync
     def on_dataset_delete(args):
         with dispatcher.get_lock('zfs-cache'):
             if '@' in args['ds']:
@@ -1501,6 +1509,7 @@ def _init(dispatcher, plugin):
                 logger.info('Dataset removed: {0}'.format(args['ds']))
                 sync_dataset_cache(dispatcher, args['ds'])
 
+    @sync
     def on_dataset_rename(args):
         with dispatcher.get_lock('zfs-cache'):
             if '@' in args['ds']:
@@ -1510,6 +1519,7 @@ def _init(dispatcher, plugin):
                 logger.info('Dataset {0} renamed to: {1}'.format(args['ds'], args['new_ds']))
                 sync_dataset_cache(dispatcher, args['new_ds'], args['ds'], True)
 
+    @sync
     def on_dataset_setprop(args):
         with dispatcher.get_lock('zfs-cache'):
             if args['action'] == 'set':
@@ -1532,6 +1542,7 @@ def _init(dispatcher, plugin):
             else:
                 sync_dataset_cache(dispatcher, args['ds'], recursive=True)
 
+    @sync
     def on_vfs_mount_or_unmount(type, args):
         if args['fstype'] == 'zfs':
             with dispatcher.get_lock('zfs-cache'):
@@ -1569,6 +1580,7 @@ def _init(dispatcher, plugin):
                         'properties.mounted.parsed': False
                     })
 
+    @sync
     def on_device_attached(args):
         for p in pools.validvalues():
             if p['status'] not in ('DEGRADED', 'UNAVAIL'):

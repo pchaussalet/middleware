@@ -41,6 +41,7 @@ import hashlib
 import json
 import time
 import uuid
+from event import sync
 from cache import EventCacheStore
 from lib.system import system, SubprocessException
 from lib.freebsd import fstyp
@@ -2889,6 +2890,7 @@ def _init(dispatcher, plugin):
             'permissions': perms['permissions'] if perms else None
         }
 
+    @sync
     def on_pool_change(args):
         if args['operation'] == 'delete':
             for i in args['ids']:
@@ -2955,12 +2957,15 @@ def _init(dispatcher, plugin):
                         'ids': [i['name']]
                     })
 
+    @sync
     def on_snapshot_change(args):
         snapshots.propagate(args, callback=convert_snapshot)
 
+    @sync
     def on_dataset_change(args):
         datasets.propagate(args, callback=convert_dataset)
 
+    @sync
     def on_vdev_remove(args):
         dispatcher.call_sync('alert.emit', {
             'name': 'volume.disk_removed',
@@ -2968,6 +2973,7 @@ def _init(dispatcher, plugin):
             'severity': 'WARNING'
         })
 
+    @sync
     def on_vdev_state_change(args):
         guid = args['guid']
         volume = dispatcher.call_sync('volume.query', [('guid', '=', guid)], {'single': True})
