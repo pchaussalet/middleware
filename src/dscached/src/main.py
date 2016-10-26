@@ -116,7 +116,8 @@ def fix_passwords(user):
     if not privileged():
         return extend(user, {
             'unixhash': '*',
-            'smbhash': None
+            'nthash': None,
+            'lmhash': None
         })
 
     return user
