@@ -72,8 +72,7 @@ class Migration(SchemaMigration):
             ds.insert('network.hosts', host)
 
         # Migrate VLAN interfaces configuration
-        unit = 0
-        for i in orm.VLAN.objects.all():
+        for unit, i in enumerate(orm.VLAN.objects.all()):
             ds.insert('network.interfaces', {
                 'id': 'vlan{0}'.format(unit),
                 'type': 'VLAN',
@@ -85,11 +84,8 @@ class Migration(SchemaMigration):
                 }
             })
 
-            unit += 1
-
         # Migrate LAGG interfaces configuration
-        unit = 0
-        for i in orm.LAGGInterface.objects.all():
+        for unit, i in enumerate(orm.LAGGInterface.objects.all()):
             ds.insert('network.interfaces', {
                 'id': 'lagg{0}'.format(unit),
                 'type': 'LAGG',
@@ -99,8 +95,6 @@ class Migration(SchemaMigration):
                     'ports': [m.int_interface for m in i.lagg_interfacemembers_set.all()]
                 }
             })
-
-            unit += 1
 
         # Migrate IP configuration
         autoconfigure = True
