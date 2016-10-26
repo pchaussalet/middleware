@@ -39,7 +39,7 @@ def ensure_unique(datastore, ds_tuple, orm_handle, orm_tuple, **kwargs):
         orm_filter: Optional filter for the 9.x orm query
     """
     orm_filter = kwargs.get('orm_filter', None)
-    old_ids = [obj[orm_tuple[1]] for obj in orm_handle[orm_tuple[0]].objects.filter(orm_filter)]
+    old_ids = [getattr(obj, orm_tuple[1]) for obj in orm_handle[orm_tuple[0]].objects.filter(orm_filter)]
     conflicting_ids = datastore.query(ds_tuple[0], (ds_tuple[1], 'in', old_ids))
     if conflicting_ids:
         raise ValueError(
