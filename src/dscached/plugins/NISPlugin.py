@@ -45,7 +45,6 @@ class NISPlugin(DirectoryServicePlugin):
         self.server = None
         self.domain_name = None
         self.server_name = None
-        self.bnd_lock = threading.RLock()
         self.bind_thread = threading.Thread(target=self.bind, daemon=True)
         self.cv = threading.Condition()
         self.bind_thread.start()
@@ -143,7 +142,7 @@ class NISPlugin(DirectoryServicePlugin):
 
                 if self.enabled:
                     if self.directory.state == DirectoryState.BOUND and not notify:
-                        contnue
+                        continue
 
                     self.directory.put_state(DirectoryState.JOINING)
                     self.domain_name = self.parameters.get("domain")
