@@ -36,15 +36,15 @@ def ensure_unique(datastore, ds_tuple, orm_handle, orm_tuple, **kwargs):
         ds_tuple: (10_collection_name, primary_key) (mandatory)
         orm_handle: 9.x orm handle (mandatory)
         orm_tuple: (9.x app name, primary_key)
-        orm_filter: Optional filter for the 9.x orm query
+        orm_filter_dict: Optional filter dict for the 9.x orm query
     """
-    orm_filter = kwargs.get('orm_filter', None)
-    old_ids = [getattr(obj, orm_tuple[1]) for obj in orm_handle[orm_tuple[0]].objects.filter(orm_filter)]
+    orm_filter_dict = kwargs.get('orm_filter_dict', {})
+    old_ids = [getattr(obj, orm_tuple[1]) for obj in orm_handle[orm_tuple[0]].objects.filter(**orm_filter_dict)]
     conflicting_ids = datastore.query(ds_tuple[0], (ds_tuple[1], 'in', old_ids))
     if conflicting_ids:
         raise ValueError(
-            "For the collection: {0} (9.x app name: {1})".format(ds_tuple[0])
-            "These objects were found in the 9.x database but pre-existed in the 10 datastore"
-            "{0}".format(list(conflicting_ids))
+            "For the collection: {0} (9.x app name: {1}) "
+            "These objects were found in the 9.x database but pre-existed "
+            "in the 10 datastore: \n{2}".format(ds_tuple[0], orm_tuple[0], list(conflicting_ids))
         )
 
