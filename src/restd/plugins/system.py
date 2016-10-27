@@ -17,11 +17,6 @@ class SystemUISingleItem(SingleItemBase):
     namespace = 'system.ui'
 
 
-class SystemInfoUnameFullResource(Resource):
-    name = 'system/info/uname_full'
-    get = 'rpc:system.info.uname_full'
-
-
 class SystemShutdownResource(Resource):
     name = 'system/shutdown'
     post = 'task:system.shutdown'
@@ -30,6 +25,11 @@ class SystemShutdownResource(Resource):
 class SystemRebootResource(Resource):
     name = 'system/reboot'
     post = 'task:system.reboot'
+
+
+class SystemInfoUnameFullResource(Resource):
+    name = 'system/info/uname_full'
+    get = 'rpc:system.info.uname_full'
 
 
 class SystemInfoVersionResource(Resource):
@@ -52,6 +52,8 @@ def _init(rest):
     rest.register_singleitem(SystemGeneralSingleItem)
     rest.register_singleitem(SystemTimeSingleItem)
     rest.register_singleitem(SystemUISingleItem)
+    rest.register_resource(SystemShutdownResource)
+    rest.register_resource(SystemRebootResource)
     rest.register_resource(SystemInfoUnameFullResource)
     rest.register_resource(SystemInfoVersionResource)
     rest.register_resource(SystemInfoLoadAvgResource)
