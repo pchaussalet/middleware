@@ -29,7 +29,7 @@ import errno
 import gevent
 import logging
 from cache import CacheStore
-from freenas.utils import query as q
+from freenas.utils import query as q, normalize
 from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, returns, generator
 from task import Task, Provider, TaskException, VerifyException, query, TaskDescription
 
@@ -87,8 +87,9 @@ class PeerCreateTask(Task):
         return ['system']
 
     def run(self, peer, initial_credentials=None):
-        if 'health_check_interval' not in peer:
-            peer['health_check_interval'] = 0
+        normalize(peer, {
+            'health_check_interval': 60
+        })
 
         ids = self.join_subtasks(self.run_subtask(
             'peer.{0}.create'.format(peer.get('type')),
