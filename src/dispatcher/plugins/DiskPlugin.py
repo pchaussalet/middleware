@@ -1416,7 +1416,6 @@ def persist_disk(dispatcher, disk):
         'mediasize': disk['mediasize'],
         'serial': disk['serial'],
         'is_multipath': disk['is_multipath'],
-        'data_partition_uuid': disk['data_partition_uuid'],
         'delete_at': None
     })
 
