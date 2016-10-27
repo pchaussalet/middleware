@@ -297,6 +297,9 @@ class VirtualMachine(object):
         if self.config['bootloader'] == 'UEFI_CSM':
             args += ['-l', 'bootrom,{0}'.format(BOOTROM_CSM_PATH)]
 
+        if self.guest_type == 'freebsd64':
+            args += ['-W']
+
         args.append(self.name)
         self.logger.debug('bhyve args: {0}'.format(args))
         return args
