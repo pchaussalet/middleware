@@ -1256,6 +1256,10 @@ class DockerService(RpcService):
 
     def create_exec(self, id, command):
         host = self.context.docker_host_by_container_id(id)
+        try:
+            host.connection.start(container=id)
+        except BaseException as err:
+            raise RpcException(errno.EFAULT, 'Failed to start container: {0}'.format(str(err)))
         exec = host.connection.exec_create(
             container=id,
             cmd=command,
