@@ -277,8 +277,8 @@ class CreateShareTask(Task):
         service_state = self.dispatcher.call_sync('service.query', [('name', '=', share['type'])], {'single': True})
         if service_state['state'] != 'RUNNING':
             self.add_warning(TaskWarning(
-                errno.ENXIO, "Share has been created but the service '{0}' is not currently running"
-                             "Please enable the{0} service.".format(share['type'])
+                errno.ENXIO, "Share has been created but the service {0} is not currently running "
+                             "Please enable the {0} service.".format(share['type'])
             ))
 
         return ids[0]
@@ -378,6 +378,13 @@ class UpdateShareTask(Task):
             )
         except OSError as err:
             self.add_warning(TaskWarning(errno.ENXIO, 'Cannot save backup config file: {0}'.format(str(err))))
+
+        service_state = self.dispatcher.call_sync('service.query', [('name', '=', share['type'])], {'single': True})
+        if service_state['state'] != 'RUNNING':
+            self.add_warning(TaskWarning(
+                errno.ENXIO, "Share has been updated but the service {0} is not currently running "
+                             "Please enable the {0} service.".format(share['type'])
+            ))
 
 
 @description("Imports existing share")
