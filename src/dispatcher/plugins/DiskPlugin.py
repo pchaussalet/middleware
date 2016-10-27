@@ -1416,7 +1416,6 @@ def persist_disk(dispatcher, disk):
         'mediasize': disk['mediasize'],
         'serial': disk['serial'],
         'is_multipath': disk['is_multipath'],
-        'data_partition_uuid': disk['data_partition_uuid'],
         'delete_at': None
     })
 
@@ -1532,6 +1531,7 @@ def _init(dispatcher, plugin):
             'apm_mode': {'type': ['integer', 'null']},
             'acoustic_level': {'$ref': 'disk-acousticlevel'},
             'status': {'$ref': 'disk-status'},
+            'is_multipath': {'type': 'boolean'}
         }
     })
 

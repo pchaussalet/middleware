@@ -27,7 +27,6 @@ class Migration(DataMigration):
                     'salt': None,
                     'slot': None
                 },
-                'mountpoint': '/mnt/{0}'.format(vol.vol_name),
                 'attributes': {},
             })
 

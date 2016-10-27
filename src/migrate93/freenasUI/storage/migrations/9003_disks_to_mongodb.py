@@ -102,8 +102,8 @@ class Migration(DataMigration):
                 print("Failed to convert {0} to id, skipping".format(dev))
             ds.insert('disks', {
                 'id': newident,
+                'name': disk.disk_name,
                 'serial': disk.disk_serial,
-                'description': disk.disk_description,
                 'smart': disk.disk_togglesmart,
                 'smart_options': disk.disk_smartoptions,
                 'standby_mode': None if disk.disk_hddstandby == 'Always On' else int(disk.disk_hddstandby),
