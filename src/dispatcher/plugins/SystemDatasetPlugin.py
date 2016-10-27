@@ -33,6 +33,7 @@ import logging
 import shutil
 import time
 import tempfile
+import libzfs
 from resources import Resource
 from freenas.dispatcher.rpc import RpcException, accepts, returns, description, private
 from freenas.dispatcher.rpc import SchemaHelper as h
