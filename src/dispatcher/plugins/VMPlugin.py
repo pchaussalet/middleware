@@ -1844,6 +1844,7 @@ def _init(dispatcher, plugin):
         'readOnly': True,
         'properties': {
             'state': {'$ref': 'vm-status-state'},
+            'health': {'$ref': 'vm-status-health'},
             'vm_tools_available': {'type': 'boolean'},
             'nat_lease': {'oneOf': [
                 {'$ref': 'vm-status-lease'},
@@ -1859,6 +1860,11 @@ def _init(dispatcher, plugin):
     plugin.register_schema_definition('vm-status-state', {
         'type': 'string',
         'enum': ['STOPPED', 'BOOTLOADER', 'RUNNING']
+    })
+
+    plugin.register_schema_definition('vm-status-state', {
+        'type': 'string',
+        'enum': ['HEALTHY', 'DYING', 'DEAD']
     })
 
     plugin.register_schema_definition('vm-status-lease', {
