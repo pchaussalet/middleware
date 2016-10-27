@@ -960,6 +960,7 @@ class ManagementService(RpcService):
 
         return {
             'state': vm.state.name,
+            'health': vm.health,
             'vm_tools_available': vm.vmtools_ready,
             'management_lease': mgmt_lease.lease if mgmt_lease else None,
             'nat_lease': nat_lease.lease if nat_lease else None
