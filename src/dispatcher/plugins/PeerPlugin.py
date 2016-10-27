@@ -87,6 +87,9 @@ class PeerCreateTask(Task):
         return ['system']
 
     def run(self, peer, initial_credentials=None):
+        if 'health_check_interval' not in peer:
+            peer['health_check_interval'] = 0
+
         ids = self.join_subtasks(self.run_subtask(
             'peer.{0}.create'.format(peer.get('type')),
             peer,
@@ -167,6 +170,7 @@ def _init(dispatcher, plugin):
             'id': {'type': 'string'},
             'type': {'type': 'string'},
             'status': {'$ref': 'peer-status'},
+            'health_check_interval': {'type': 'integer'},
             'credentials': {'$ref': 'peer-credentials'}
         },
         'additionalProperties': False
@@ -187,14 +191,25 @@ def _init(dispatcher, plugin):
 
     def on_peer_change(args):
         if args['operation'] == 'create':
-            items = list(dispatcher.datastore.query('peers', ('id', 'in', args['ids'])))
-            peers_status.update(**{i['id']: {'state': 'UNKNOWN', 'rtt': None} for i in items})
+            peers_status.update(**{i: {'state': 'UNKNOWN', 'rtt': None} for i in args['ids']})
 
-            for i in items:
-                update_peer_health(i)
+            for i in args['ids']:
+                health_worker(i)
 
         elif args['operation'] == 'delete':
             peers_status.remove_many(args['ids'])
+
+        else:
+            for i in args['ids']:
+                if not peers_status.get(i):
+                    interval = dispatcher.call_sync(
+                        'peer.query',
+                        [('id', '=', i)],
+                        {'single': True, 'select': 'health_check_interval'}
+                    )
+                    if interval:
+                        peers_status.put(i, {'state': 'UNKNOWN', 'rtt': None})
+                        health_worker(i)
 
     def update_peer_health(peer):
         def update_one(id, new_state):
@@ -210,19 +225,37 @@ def _init(dispatcher, plugin):
                     'ids': [id]
                 })
 
+        if not int(peer['health_check_interval']):
+            peers_status.remove(peer['id'])
+            dispatcher.dispatch_event('peer.changed', {
+                'operation': 'update',
+                'ids': [peer['id']]
+            })
+            return
+
         dispatcher.call_async(
             'peer.{0}.get_status'.format(peer['type']),
             lambda result: update_one(peer['id'], result),
             peer['id']
         )
 
-    def health_worker():
-        interval = dispatcher.configstore.get('peer.ping_interval')
+    def health_worker(id):
+        logger.trace('Starting health worker for peer {0}'.format(id))
         while True:
-            for p in dispatcher.call_sync('peer.query'):
-                update_peer_health(p)
+            peer = dispatcher.call_sync('peer.query', [('id', '=', id)], {'single': True})
 
-            gevent.sleep(interval)
+            if not peer:
+                logger.trace('Peer {0} not found - closing health worker.'.format(id))
+                return
+
+            update_peer_health(peer)
+
+            update_interval = int(peer['health_check_interval'])
+            if not update_interval:
+                logger.trace('Peer {0} health checks disabled - closing health worker'.format(id))
+                return
+
+            gevent.sleep(update_interval)
 
     # Register credentials schema
     def update_peer_credentials_schema():
@@ -249,6 +282,11 @@ def _init(dispatcher, plugin):
                 [{'type': 'null'}]
         })
 
+    def start_health_workers():
+        dispatcher.call_sync('management.wait_ready', timeout=600)
+        for id in dispatcher.call_sync('peer.query', [], {'select': 'id'}):
+            gevent.spawn(health_worker, id)
+
     # Register providers
     plugin.register_provider('peer', PeerProvider)
     plugin.register_event_handler('peer.changed', on_peer_change)
@@ -269,4 +307,4 @@ def _init(dispatcher, plugin):
 
     peers_status.update(**{i['id']: {'state': 'UNKNOWN', 'rtt': None} for i in dispatcher.datastore.query('peers')})
 
-    gevent.spawn(health_worker)
+    gevent.spawn(start_health_workers)
