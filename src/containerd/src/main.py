@@ -171,6 +171,7 @@ class VirtualMachine(object):
         self.nmdm = None
         self.state = VirtualMachineState.STOPPED
         self.guest_type = 'other'
+        self.health = 'UNKNOWN'
         self.config = None
         self.devices = []
         self.files_root = None
@@ -324,14 +325,25 @@ class VirtualMachine(object):
 
         while True:
             time.sleep(60)
-
             if not self.vmtools_ready:
                 continue
 
             try:
                 self.vmtools_client.call_sync('system.ping')
+                if self.health != 'HEALTHY':
+                    self.health = 'HEALTHY'
+                    self.changed()
             except RpcException as err:
                 self.logger.warning('Ping VM {0} failed: {1}'.format(self.name, str(err)))
+                if self.health == 'HEALTHY':
+                    self.health = 'DYING'
+                    self.changed()
+                    continue
+
+                if self.health == 'DYING':
+                    self.health = 'DEAD'
+                    self.changed()
+                    continue
 
     def call_vmtools(self, method, *args, timeout=None):
         if not self.vmtools_ready:
