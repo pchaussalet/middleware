@@ -170,7 +170,7 @@ class Resource(object):
             rv = req.context['result'] = r.run(req, urlparams)
 
         if method == 'post':
-            resp.status = falcon.HTTP_201
+            resp.status = falcon.HTTP_200
         elif method == 'delete':
             resp.status = falcon.HTTP_204
         return rv
@@ -188,10 +188,10 @@ class Resource(object):
                 op = self.rest._rpcs[name]
 
             code_map = {
-                'post': '201',
+                'post': '200',
                 'get': '200',
                 'delete': '204',
-                'put': '200',
+                'put': '202',
             }
 
             response = {
