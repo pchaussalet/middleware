@@ -3020,6 +3020,18 @@ def _init(dispatcher, plugin):
             'rname': {'type': 'string'},
             'topology': {'$ref': 'zfs-topology'},
             'scan': {'$ref': 'zfs-scan'},
+            'mountpoint': {
+                'type': ['string', 'null'],
+                'readOnly': True
+            },
+            'status': {'$ref': 'volume-status'},
+            'upgraded': {
+                'oneOf': [
+                    {'type': 'boolean'},
+                    {'type': 'null'}
+                ],
+                'readOnly': True
+            },
             'key_encrypted': {'type': 'boolean'},
             'password_encrypted': {'type': 'boolean'},
             'encryption': {'$ref': 'volume-encryption'},
@@ -3048,6 +3060,12 @@ def _init(dispatcher, plugin):
                 }
             }
         }
+    })
+
+    plugin.register_schema_definition('volume-status', {
+        'type': 'string',
+        'readOnly': True,
+        'enum': ['UNAVAIL', 'UNKNOWN', 'LOCKED', 'ONLINE']
     })
 
     plugin.register_schema_definition('volume-providerspresence', {
