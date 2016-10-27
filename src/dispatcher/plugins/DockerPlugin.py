@@ -141,6 +141,19 @@ class DockerContainerProvider(Provider):
     def create_exec(self, id, command):
         return self.dispatcher.call_sync('containerd.docker.create_exec', id, command)
 
+    @description('Requests interactive console\'s id')
+    @accepts(str)
+    @returns(str)
+    def request_interactive_console(self, id):
+        container = self.dispatcher.call_sync('docker.container.query', [('id', '=', id)], {'single': True})
+        if not container:
+            raise RpcException(errno.ENOENT, 'Container {0} not found'.format(id))
+
+        if container['interactive']:
+            return id
+        else:
+            return self.dispatcher.call_sync('docker.container.create_exec', id, '/bin/sh')
+
 
 @description('Provides information about Docker container images')
 class DockerImagesProvider(Provider):
