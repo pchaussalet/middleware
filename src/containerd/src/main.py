@@ -330,7 +330,7 @@ class VirtualMachine(object):
 
             try:
                 self.vmtools_client.call_sync('system.ping')
-                if self.health != 'HEALTHY':
+                if self.health in ('HEALTHY', 'UNKNOWN'):
                     self.health = 'HEALTHY'
                     self.changed()
             except RpcException as err:
