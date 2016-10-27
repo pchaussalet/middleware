@@ -902,9 +902,6 @@ class VMUpdateTask(VMBaseTask):
                     readme_file.write(readme)
 
         if 'devices' in updated_params:
-            if vm.get('template'):
-                self.join_subtasks(self.run_subtask('vm.cache.update', vm['template']['name']))
-
             for res in updated_params['devices']:
                 res.pop('id', None)
                 existing = first_or_default(lambda i: i['name'] == res['name'], vm['devices'])
