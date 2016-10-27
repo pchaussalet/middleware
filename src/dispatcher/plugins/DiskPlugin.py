@@ -1531,6 +1531,7 @@ def _init(dispatcher, plugin):
             'apm_mode': {'type': ['integer', 'null']},
             'acoustic_level': {'$ref': 'disk-acousticlevel'},
             'status': {'$ref': 'disk-status'},
+            'is_multipath': {'type': 'boolean'}
         }
     })
 
