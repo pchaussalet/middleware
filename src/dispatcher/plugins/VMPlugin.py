@@ -210,6 +210,19 @@ class VMProvider(Provider):
             'load_avg': list(loadavg)
         }
 
+    @accepts(str, str)
+    @returns(h.object())
+    def guest_ls(self, id, path):
+        return list(self.dispatcher.call_sync('containerd.management.call_vmtools', id, 'file.ls', path))
+
+    @accepts(str, str)
+    def guest_get(self, id, path):
+        return self.dispatcher.call_sync('containerd.management.call_vmtools', id, 'file.get', path)
+
+    @accepts(str, str, h.array(str))
+    def guest_exec(self, id, cmd, args):
+        return self.dispatcher.call_sync('containerd.management.call_vmtools', id, 'system.exec', cmd, args)
+
     @accepts(str)
     @returns(str)
     def request_serial_console(self, id):
@@ -1861,7 +1874,7 @@ def _init(dispatcher, plugin):
 
     plugin.register_schema_definition('vm-status-state', {
         'type': 'string',
-        'enum': ['HEALTHY', 'DYING', 'DEAD']
+        'enum': ['HEALTHY', 'DYING', 'DEAD', 'UNKNOWN']
     })
 
     plugin.register_schema_definition('vm-status-lease', {
