@@ -296,7 +296,7 @@ class FreeNASPeerCreateTask(Task):
 
                 local_host_key, local_pub_key = self.dispatcher.call_sync('peer.freenas.get_ssh_keys')
                 remote_host_key, remote_pub_key = remote_client.call_sync('peer.freenas.get_ssh_keys')
-                ip_at_remote_side = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
+                ip_at_remote_side = remote_client.local_address[0]
 
                 remote_hostname = remote_client.call_sync('system.general.get_config')['hostname']
 
@@ -551,7 +551,7 @@ class FreeNASPeerUpdateRemoteTask(Task):
             if not remote_peer:
                 raise TaskException(errno.ENOENT, 'Remote side of peer {0} does not exist'.format(peer['name']))
 
-            ip_at_remote_side = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
+            ip_at_remote_side = remote_client.local_address[0]
             hostname = self.dispatcher.call_sync('system.general.get_config')['hostname']
             port = self.dispatcher.call_sync('service.sshd.get_config')['port']
 

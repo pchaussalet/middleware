@@ -272,7 +272,7 @@ class TransportSendTask(Task):
             buffer_size = transport.get('buffer_size', 1024*1024)
             client_address = transport.get('client_address')
             remote_client = get_freenas_peer_client(self, client_address)
-            server_address = remote_client.call_sync('management.get_sender_address').split(',', 1)[0]
+            server_address = remote_client.local_address[0]
             server_port = transport.get('server_port', 0)
 
             for conn_option in socket.getaddrinfo(server_address, server_port, socket.AF_UNSPEC, socket.SOCK_STREAM):
