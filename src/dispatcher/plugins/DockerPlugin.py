@@ -827,6 +827,11 @@ def _init(dispatcher, plugin):
                     parents = ['docker', 'zpool:{0}'.format(host['target'])]
                     docker_resource_create_update('docker:{0}'.format(host['name']), parents)
 
+                    dispatcher.dispatch_event('docker.host.changed', {
+                        'operation': 'update',
+                        'ids': id
+                    })
+
     def on_image_event(args):
         logger.trace('Received Docker image event: {0}'.format(args))
         if args['ids']:
