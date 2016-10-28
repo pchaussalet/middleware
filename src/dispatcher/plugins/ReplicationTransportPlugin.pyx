@@ -444,7 +444,7 @@ class TransportSendTask(Task):
             if conn_fd and header_wr != conn_fd:
                 close_fds(header_wr)
 
-            if not self.aborted:
+            if not self.aborted and self.conn and addr:
                 if ret_wr == -1:
                     raise TaskException(
                         errno,
