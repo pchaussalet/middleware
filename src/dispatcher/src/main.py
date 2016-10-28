@@ -643,18 +643,20 @@ class Dispatcher(object):
     def unregister_task_handler(self, name):
         del self.tasks[name]
 
-    def register_task_hook(self, hook, name):
+    def register_task_hook(self, hook, name, condition=None):
         task_name, hook_name = hook.split(':')
         hooks = self.task_hooks.setdefault(task_name, {})
-        hooklist = hooks.setdefault(hook_name, set())
-        hooklist.add(name)
+        hooklist = hooks.setdefault(hook_name, {})
+        hooklist[name] = {
+            'condition': condition
+        }
 
     def unregister_task_hook(self, hook, name):
         task_name, hook_name = hook.split(':')
         hooks = self.task_hooks.get(task_name, {})
-        hooklist = hooks.get(hook_name, [])
+        hooklist = hooks.get(hook_name, {})
         with contextlib.suppress(ValueError):
-            hooklist.remove(name)
+            hooklist.pop(name)
 
     def register_provider(self, name, clazz):
         self.logger.debug("New provider: %s", name)

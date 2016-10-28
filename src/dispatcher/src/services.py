@@ -439,8 +439,8 @@ class TaskService(RpcService):
         return result
 
     @private
-    def register_task_hook(self, hook, task):
-        self.__dispatcher.register_task_hook(hook, task)
+    def register_task_hook(self, hook, task, condition=None):
+        self.__dispatcher.register_task_hook(hook, task, condition)
 
     @private
     def unregister_task_hook(self, hook, task):

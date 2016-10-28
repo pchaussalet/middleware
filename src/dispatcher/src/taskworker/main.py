@@ -96,8 +96,8 @@ class DispatcherWrapper(object):
     def unregister_resource(self, resource):
         self.dispatcher.call_sync('task.unregister_resource', resource)
 
-    def register_task_hook(self, hook, task):
-        self.dispatcher.call_sync('task.register_task_hook', hook, task)
+    def register_task_hook(self, hook, task, condition=None):
+        self.dispatcher.call_sync('task.register_task_hook', hook, task, condition)
 
     def unregister_task_hook(self, hook, task):
         self.dispatcher.call_sync('task.unregister_task_hook', hook, task)
@@ -185,7 +185,14 @@ class Context(object):
                 pass
 
     def run_task_hooks(self, instance, task, type, **extra_env):
-        for hook in task['hooks'].get(type, []):
+        for hook in task['hooks'].get(type, {}):
+            try:
+                if hook['condition'] and not hook['condition'](*task['args']):
+                    continue
+            except BaseException as err:
+                print(err)
+                continue
+
             instance.join_subtasks(instance.run_subtask(hook, *task['args'], **extra_env))
 
     def main(self):
