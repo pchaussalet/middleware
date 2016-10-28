@@ -178,7 +178,7 @@ class NISPlugin(DirectoryServicePlugin):
             self.directory = directory
             self.parameters = directory.parameters
             self.enabled = enable
-            self.cv_notify_all()
+            self.cv.notify_all()
             
         return directory.parameters.get("domain")
 
