@@ -41,7 +41,7 @@ from cache import EventCacheStore
 from datastore.config import ConfigNode
 from freenas.utils import normalize, query as q, first_or_default
 from freenas.utils.decorators import throttle
-from freenas.dispatcher.rpc import generator, accepts, returns, SchemaHelper as h, RpcException, description
+from freenas.dispatcher.rpc import generator, accepts, returns, SchemaHelper as h, RpcException, description, private
 
 
 logger = logging.getLogger(__name__)
@@ -697,6 +697,73 @@ class DockerImageDeleteTask(DockerBaseTask):
                 raise TaskException(errno.EACCES, 'Failed to remove image {0}: {1}'.format(name, err))
 
 
+@private
+@accepts(str, h.ref('vm'))
+@description('Updates Docker host resource')
+class DockerUpdateHostResourceTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return 'Updating Docker host resource'
+
+    def describe(self, id, updated_params):
+        vm = self.datastore.get_by_id('vms', id)
+        return TaskDescription('Updating Docker host {name} resource', name=vm.get('name', '') if vm else '')
+
+    def verify(self, id, updated_params):
+        return ['docker']
+
+    def run(self, id, updated_params):
+        host = self.datastore.query(
+            'vms',
+            ('config.docker_host', '=', True),
+            ('id', '=', id),
+            single=True
+        )
+        resource_name = 'docker:{0}'.format(host['name'])
+        self.dispatcher.task_setenv(self.environment['parent'], 'old_name', host['name'])
+
+        if first_or_default(lambda o: o['name'] == resource_name, self.dispatcher.call_sync('task.list_resources')):
+            parents = ['docker', 'zpool:{0}'.format(host['target'])]
+            self.dispatcher.unregister_resource(resource_name)
+            self.dispatcher.register_resource(
+                Resource('docker:{0}'.format(updated_params['name'])),
+                parents=parents
+            )
+
+
+@private
+@accepts(str, h.ref('vm'))
+@description('Reverts Docker host resource state')
+class DockerRollbackHostResourceTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return 'Reverting Docker host resource state'
+
+    def describe(self, id, updated_params):
+        vm = self.datastore.get_by_id('vms', id)
+        return TaskDescription('Reverting Docker host {name} resource state', name=vm.get('name', '') if vm else '')
+
+    def verify(self, id, updated_params):
+        return ['docker']
+
+    def run(self, id, updated_params):
+        host = self.datastore.query(
+            'vms',
+            ('config.docker_host', '=', True),
+            ('id', '=', id),
+            single=True
+        )
+        if host:
+            old_name = self.environment.get('old_name')
+            new_name = updated_params['name']
+            parents = ['docker', 'zpool:{0}'.format(host['target'])]
+            self.dispatcher.unregister_resource('docker:{0}'.format(new_name))
+            self.dispatcher.register_resource(
+                Resource('docker:{0}'.format(old_name)),
+                parents=parents
+            )
+
+
 def _depends():
     return ['VMPlugin']
 
@@ -893,6 +960,9 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('docker.image.pull', DockerImagePullTask)
     plugin.register_task_handler('docker.image.delete', DockerImageDeleteTask)
 
+    plugin.register_task_handler('docker.host.update_resource', DockerUpdateHostResourceTask)
+    plugin.register_task_handler('docker.host.rollback_resource', DockerRollbackHostResourceTask)
+
     plugin.register_event_type('docker.host.changed')
     plugin.register_event_type('docker.container.changed')
     plugin.register_event_type('docker.image.changed')
@@ -907,6 +977,20 @@ def _init(dispatcher, plugin):
     plugin.attach_hook('vm.pre_destroy', vm_pre_destroy)
 
     dispatcher.register_resource(Resource('docker'))
+
+    def resource_hook_condition(id, updated_params):
+        return 'name' in updated_params
+
+    dispatcher.register_task_hook(
+        'vm.update:before',
+        'docker.host.update_resource',
+        resource_hook_condition
+    )
+    dispatcher.register_task_hook(
+        'vm.update:error',
+        'docker.host.rollback_resource',
+        resource_hook_condition
+    )
 
     plugin.register_schema_definition('docker-config', {
         'type': 'object',
