@@ -127,6 +127,7 @@ def annotate(user, directory, name_field, cache=None):
     return extend(user, {
         'origin': {
             'directory': directory.name,
+            'domain': directory.domain_name,
             'cached_at': None,
             'ttl': None
         }
@@ -154,6 +155,7 @@ class CacheItem(object):
         return extend(self.value, {
             'origin': {
                 'directory': self.directory.name,
+                'domain': self.directory.domain_name,
                 'cached_at': self.created_at,
                 'ttl': self.ttl
             }
