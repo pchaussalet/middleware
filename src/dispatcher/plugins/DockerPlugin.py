@@ -1080,3 +1080,11 @@ def _init(dispatcher, plugin):
             dispatcher.call_task_sync('docker.config.update', {'default_host': host_id})
 
     gevent.spawn(sync_caches)
+
+    for h in dispatcher.datastore.query('vms', ('config.docker_host', '=', True)):
+        parents = ['docker', 'zpool:{0}'.format(h['target'])]
+        dispatcher.register_resource(
+            Resource('docker:{0}'.format(h['name'])),
+            parents=parents
+        )
+
