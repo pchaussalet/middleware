@@ -1,6 +1,6 @@
 GRUB_TERMINAL_OUTPUT=console
 
-if [ -x "/usr/local/sbin/dsutil" && "$(/usr/local/sbin/dsutil --tcp config-get system.serial.console)" = "true" ]; then
+if [ -x "/usr/local/sbin/dsutil" ] && [ "$(/usr/local/sbin/dsutil --tcp config-get system.serial.console)" = "true" ]; then
         _tmp=$(/usr/local/sbin/dsutil --tcp config-get system.serial.port)
         port=$(eval echo $_tmp)
         speed=$(/usr/local/sbin/dsutil --tcp config-get system.serial.speed)
