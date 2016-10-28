@@ -469,7 +469,7 @@ class TaskService(RpcService):
             t['progress'] = {
                 'percentage': 100 if t['state'] == 'FINISHED' else 0,
                 'message': t['state'].lower().capitalize(),
-                'extrs': None
+                'extra': None
             }
 
             return t
