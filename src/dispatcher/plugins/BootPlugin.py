@@ -76,8 +76,16 @@ class BootEnvironmentCreate(Task):
         return ['system']
 
     def run(self, newname, source=None):
-        if not CreateClone(newname, bename=source):
-            raise TaskException(errno.EIO, 'Cannot create the {0} boot environment'.format(newname))
+        def doit():
+            if not CreateClone(newname, bename=source):
+                raise TaskException(errno.EIO, 'Cannot create the {0} boot environment'.format(newname))
+
+        self.dispatcher.exec_and_wait_for_event(
+            'boot.environment.changed',
+            lambda args: args['operation'] == 'create' and newname in args['ids'],
+            doit,
+            600
+        )
 
 
 @description("Activates the specified Boot Environment to be selected on reboot")
