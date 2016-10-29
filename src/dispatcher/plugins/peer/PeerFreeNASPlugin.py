@@ -444,7 +444,8 @@ class FreeNASPeerDeleteTask(Task):
                 call_task_and_check_state(
                     remote_client,
                     'peer.freenas.delete_local',
-                    hostid
+                    hostid,
+                    False
                 )
             except RpcException as e:
                 self.add_warning(TaskWarning(
@@ -459,7 +460,8 @@ class FreeNASPeerDeleteTask(Task):
 
             self.join_subtasks(self.run_subtask(
                 'peer.freenas.delete_local',
-                id
+                id,
+                True
             ))
 
         finally:
@@ -469,24 +471,29 @@ class FreeNASPeerDeleteTask(Task):
 
 @private
 @description('Removes local FreeNAS peer entry from database')
-@accepts(str)
+@accepts(str, bool)
 class FreeNASPeerDeleteLocalTask(Task):
     @classmethod
     def early_describe(cls):
         return 'Removing FreeNAS peer entry'
 
-    def describe(self, id):
+    def describe(self, id, local=False):
         peer = self.datastore.get_by_id('peers', id)
         return TaskDescription('Removing FreeNAS peer entry {name}', name=peer['name'])
 
-    def verify(self, id):
+    def verify(self, id, local=False):
         return ['system']
 
-    def run(self, id):
+    def run(self, id, local=False):
         peer = self.datastore.get_by_id('peers', id)
         if not peer:
             raise TaskException(errno.ENOENT, 'FreeNAS peer entry {0} does not exist'.format(peer['name']))
         self.datastore.delete('peers', id)
+        if not local:
+            self.dispatcher.dispatch_event('peer.changed', {
+                'operation': 'delete',
+                'ids': [id]
+            })
 
 
 @private
