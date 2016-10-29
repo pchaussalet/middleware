@@ -302,6 +302,20 @@ class Directory(object):
             'ids': [self.id]
         })
 
+        alert = self.context.client.call_sync('alert.get_active_alert', 'DirectoryServiceBindFailed', self.id)
+        if alert:
+            self.context.client.call_sync('alert.cancel', alert['id'])
+
+        if state == 'FAILED':
+            self.context.client.call_sync('alert.emit', {
+                'class': 'DirectoryServiceBindFailed',
+                'active': True,
+                'target': self.id,
+                'title': 'Binding to directory {0} failed'.format(self.name),
+                'description': self.status_message
+            })
+
+
     def put_status(self, code, message):
         code_str = os.strerror(code) if code else 'OK'
         self.status_code = code
