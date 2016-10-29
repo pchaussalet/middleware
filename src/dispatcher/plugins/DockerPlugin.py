@@ -35,9 +35,11 @@ import dockerhub
 import socket
 import logging
 import requests
+from gevent.lock import RLock
 from resources import Resource
+from datetime import datetime, timedelta
 from task import Provider, Task, ProgressTask, TaskDescription, TaskException, query, TaskWarning, VerifyException
-from cache import EventCacheStore
+from cache import EventCacheStore, CacheStore
 from datastore.config import ConfigNode
 from freenas.utils import normalize, query as q, first_or_default
 from freenas.utils.decorators import throttle
@@ -46,6 +48,7 @@ from freenas.dispatcher.rpc import generator, accepts, returns, SchemaHelper as 
 logger = logging.getLogger(__name__)
 containers = None
 images = None
+collections = None
 
 CONTAINERS_QUERY = 'containerd.docker.query_containers'
 IMAGES_QUERY = 'containerd.docker.query_images'
@@ -155,6 +158,12 @@ class DockerContainerProvider(Provider):
 
 @description('Provides information about Docker container images')
 class DockerImagesProvider(Provider):
+    def __init__(self):
+        self.throttle_period = timedelta(
+            seconds=0, minutes=0, hours=1
+        )
+        self.update_collection_lock = RLock()
+
     @description('Returns current status of cached Docker container images')
     @query('docker-image')
     @generator
@@ -199,30 +208,53 @@ class DockerImagesProvider(Provider):
     @accepts(str)
     @generator
     def get_collection_images(self, collection='freenas'):
-        parser = dockerfile_parse.DockerfileParser()
-        hub = dockerhub.DockerHub()
+        def update_collection(c):
+            parser = dockerfile_parse.DockerfileParser()
+            hub = dockerhub.DockerHub()
+            items = []
 
-        for i in hub.get_repositories(collection):
-            presets = None
-            icon = None
-            repo_name = '{0}/{1}'.format(i['user'], i['name'])
+            with self.update_collection_lock:
+                for i in hub.get_repositories(c):
+                    presets = None
+                    icon = None
+                    repo_name = '{0}/{1}'.format(i['user'], i['name'])
 
-            if i['is_automated']:
-                # Fetch dockerfile
-                try:
-                    parser.content = hub.get_dockerfile(repo_name)
-                    presets = self.labels_to_presets(parser.labels)
-                except:
-                    pass
+                    if i['is_automated']:
+                        # Fetch dockerfile
+                        try:
+                            parser.content = hub.get_dockerfile(repo_name)
+                            presets = self.labels_to_presets(parser.labels)
+                        except:
+                            pass
 
-            yield {
-                'name': repo_name,
-                'description': i['description'],
-                'star_count': i['star_count'],
-                'pull_count': i['pull_count'],
-                'icon': icon,
-                'presets': presets
-            }
+                    item = {
+                        'name': repo_name,
+                        'description': i['description'],
+                        'star_count': i['star_count'],
+                        'pull_count': i['pull_count'],
+                        'icon': icon,
+                        'presets': presets
+                    }
+                    items.append(item)
+                    yield item
+
+                collections.put(c, {
+                    'update_time': datetime.now(),
+                    'items': items
+                })
+
+        if collections.is_valid(collection):
+            collection_data = collections.get(collection)
+            now = datetime.now()
+            time_since_last_update = now - collection_data['update_time']
+
+            if time_since_last_update > self.throttle_period:
+                return update_collection(collection)
+            else:
+                for i in collection_data['items']:
+                    yield i
+        else:
+            return update_collection(collection)
 
     @description('Returns a full description of specified Docker container image')
     @accepts(str)
@@ -818,9 +850,11 @@ def _depends():
 def _init(dispatcher, plugin):
     global containers
     global images
+    global collections
 
     containers = EventCacheStore(dispatcher, 'docker.container')
     images = EventCacheStore(dispatcher, 'docker.image')
+    collections = CacheStore()
 
     def docker_resource_create_update(name, parents):
         if first_or_default(lambda o: o['name'] == name, dispatcher.call_sync('task.list_resources')):
