@@ -48,7 +48,7 @@ from freenas.dispatcher.server import Server
 from freenas.dispatcher.rpc import RpcContext, RpcService, RpcException, generator, get_sender, accepts, returns
 from freenas.utils import first_or_default, configure_logging, extend, load_module_from_file
 from freenas.utils.debug import DebugService
-from freenas.utils.query import query, get, set, delete
+from freenas.utils.query import query
 from plugin import DirectoryState
 
 
@@ -182,7 +182,7 @@ class TTLCacheStore(object):
 
     def get(self, id=None, uuid=None, name=None):
         if id is not None:
-            item = get(self.id_store, id)
+            item = self.id_store.get(id)
         elif uuid is not None:
             item = self.uuid_store.get(uuid.lower())
         elif name is not None:
@@ -212,14 +212,14 @@ class TTLCacheStore(object):
                 for i in item.names:
                     del self.name_store[i]
                 del self.uuid_store[item.uuid]
-                delete(self.id_store, item.id)
+                del self.id_store[item.id]
 
     def query(self, filter=None, params=None):
         return query(self.id_store, *(filter or []), **(params or {}))
 
     def set(self, item):
         with item.lock:
-            set(self.id_store, item.id, item)
+            self.id_store[item.id] = item
             self.uuid_store[item.uuid] = item
             for i in item.names:
                 self.name_store[i] = item
