@@ -288,7 +288,7 @@ def _init(dispatcher, plugin):
     })
 
     def convert_bootenv(boot_pool, ds):
-        root_mount = bsd.statfs('/')
+        root_mount = dispatcher.threaded(bsd.statfs, '/')
         path = ds['id'].split('/')
 
         if len(path) != 3:
