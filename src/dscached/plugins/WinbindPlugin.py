@@ -135,16 +135,17 @@ class WinbindPlugin(DirectoryServicePlugin):
             'allow_dns_updates': True
         })
 
-    def is_joined(self):
-        # Check if we have ticket
-        if not have_ticket(self.principal):
-            logger.debug('Ticket not found or expired')
-            return False
+    def is_joined(self, full=False):
+        if full:
+            # Check if we have ticket
+            if not have_ticket(self.principal):
+                logger.debug('Ticket not found or expired')
+                return False
 
-        # Check if we can fetch domain SID
-        if subprocess.call(['/usr/local/bin/net', 'getdomainsid']) != 0:
-            logger.debug('Cannot fetch domain SID')
-            return False
+            # Check if we can fetch domain SID
+            if subprocess.call(['/usr/local/bin/net', 'getdomainsid']) != 0:
+                logger.debug('Cannot fetch domain SID')
+                return False
 
         # Check if winbind is running
         if self.wbc.interface is None:
@@ -189,7 +190,7 @@ class WinbindPlugin(DirectoryServicePlugin):
                         self.directory.put_state(DirectoryState.FAILURE)
                         continue
 
-                    if not self.is_joined():
+                    if not self.is_joined(True):
                         # Try to rejoin
                         logger.debug('Keepalive thread: rejoining')
                         self.directory.put_state(DirectoryState.JOINING)
