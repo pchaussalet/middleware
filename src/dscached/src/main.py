@@ -306,7 +306,7 @@ class Directory(object):
         if alert:
             self.context.client.call_sync('alert.cancel', alert['id'])
 
-        if state == 'FAILED':
+        if state == DirectoryState.FAILURE:
             self.context.client.call_sync('alert.emit', {
                 'class': 'DirectoryServiceBindFailed',
                 'active': True,
