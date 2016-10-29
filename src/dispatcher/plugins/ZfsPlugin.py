@@ -1552,7 +1552,7 @@ def _init(dispatcher, plugin):
                     ds = datasets.query(('properties.mountpoint.value', '=', args['path']), single=True)
 
                 if not ds:
-                    for mnt in bsd.getmntinfo():
+                    for mnt in dispatcher.threaded(lambda: list(bsd.getmntinfo())):
                         if mnt.dest == args['path']:
                             ds = datasets.query(('id', '=', mnt.source), single=True)
                             if ds:
