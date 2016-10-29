@@ -133,6 +133,9 @@ class VMwarePeerUpdateTask(Task):
             raise TaskException(errno.ENOENT, 'Peer {0} does not exist'.format(id))
 
         peer.update(updated_fields)
+        if 'name' in updated_fields and self.datastore.exists('peers', ('name', '=', peer['name'])):
+            raise TaskException(errno.EINVAL, 'Peer entry {0} already exists'.format(peer['name']))
+
         self.datastore.update('peers', id, peer)
 
 
