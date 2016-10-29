@@ -243,7 +243,11 @@ class Context(object):
                 time.sleep(1)
 
     def run_job(self, *args, **kwargs):
-        tid = self.client.call_sync('task.submit_with_env', args[0], args[1:], {'RUN_AS_USER': 'root'})
+        tid = self.client.call_sync('task.submit_with_env', args[0], args[1:], {
+            'RUN_AS_USER': 'root',
+            'CALENDAR_TASK_NAME': kwargs.get('name')
+        })
+
         self.active_tasks[kwargs['id']] = tid
         self.client.call_sync('task.wait', tid, timeout=None)
         result = self.client.call_sync('task.status', tid)
