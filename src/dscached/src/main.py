@@ -292,9 +292,6 @@ class Directory(object):
             self.context.logger.error('Stack trace: ', exc_info=True)
 
     def put_state(self, state):
-        if self.state == state:
-            return
-
         self.context.logger.info('Directory {0} state: {1}'.format(self.name, state.name))
         self.state = state
         self.context.client.emit_event('directory.changed', {
@@ -314,7 +311,6 @@ class Directory(object):
                 'title': 'Binding to directory {0} failed'.format(self.name),
                 'description': self.status_message
             })
-
 
     def put_status(self, code, message):
         code_str = os.strerror(code) if code else 'OK'
