@@ -43,11 +43,9 @@ from freenas.utils import normalize, query as q, first_or_default
 from freenas.utils.decorators import throttle
 from freenas.dispatcher.rpc import generator, accepts, returns, SchemaHelper as h, RpcException, description, private
 
-
 logger = logging.getLogger(__name__)
 containers = None
 images = None
-
 
 CONTAINERS_QUERY = 'containerd.docker.query_containers'
 IMAGES_QUERY = 'containerd.docker.query_images'
@@ -479,7 +477,23 @@ class DockerContainerCreateTask(DockerBaseTask):
         container['name'] = container['names'][0]
 
         self.set_progress(90, 'Creating container {0}'.format(container['name']))
-        self.dispatcher.call_sync('containerd.docker.create', container)
+
+        def match_fn(args):
+            if args['operation'] == 'create':
+                return self.dispatcher.call_sync(
+                    'docker.container.query',
+                    [('id', 'in', args['ids']), ('names.0', '=', container['name'])],
+                    {'single': True}
+                )
+            else:
+                return False
+
+        self.dispatcher.exec_and_wait_for_event(
+            'docker.container.changed',
+            match_fn,
+            lambda: self.dispatcher.call_sync('containerd.docker.create', container),
+            600
+        )
         self.set_progress(100, 'Finished')
 
 
@@ -509,7 +523,12 @@ class DockerContainerDeleteTask(ProgressTask):
             return ['docker']
 
     def run(self, id):
-        self.dispatcher.call_sync('containerd.docker.delete', id)
+        self.dispatcher.exec_and_wait_for_event(
+            'docker.container.changed',
+            lambda args: args['operation'] == 'delete' and id in args['ids'],
+            lambda: self.dispatcher.call_sync('containerd.docker.delete', id),
+            600
+        )
 
 
 @description('Starts a Docker container')
@@ -538,7 +557,12 @@ class DockerContainerStartTask(Task):
             return ['docker']
 
     def run(self, id):
-        self.dispatcher.call_sync('containerd.docker.start', id)
+        self.dispatcher.exec_and_wait_for_event(
+            'docker.container.changed',
+            lambda args: args['operation'] == 'update' and id in args['ids'],
+            lambda: self.dispatcher.call_sync('containerd.docker.start', id),
+            600
+        )
 
 
 @description('Stops a Docker container')
@@ -567,7 +591,12 @@ class DockerContainerStopTask(Task):
             return ['docker']
 
     def run(self, id):
-        self.dispatcher.call_sync('containerd.docker.stop', id)
+        self.dispatcher.exec_and_wait_for_event(
+            'docker.container.changed',
+            lambda args: args['operation'] == 'update' and id in args['ids'],
+            lambda: self.dispatcher.call_sync('containerd.docker.stop', id),
+            600
+        )
 
 
 @description('Pulls a selected container image from Docker Hub and caches it on specified Docker host')
@@ -689,12 +718,30 @@ class DockerImageDeleteTask(DockerBaseTask):
                 {'select': 'hosts', 'single': True}
             )
 
-        for id in hosts:
-            self.check_host_state(id)
-            try:
-                self.dispatcher.call_sync('containerd.docker.delete_image', name, id)
-            except RpcException as err:
-                raise TaskException(errno.EACCES, 'Failed to remove image {0}: {1}'.format(name, err))
+        def delete_image():
+            for id in hosts:
+                self.check_host_state(id)
+                try:
+                    self.dispatcher.call_sync('containerd.docker.delete_image', name, id)
+                except RpcException as err:
+                    raise TaskException(errno.EACCES, 'Failed to remove image {0}: {1}'.format(name, err))
+
+        def match_fn(args):
+            if args['operation'] == 'delete':
+                return not self.dispatcher.call_sync(
+                    'docker.image.query',
+                    [('names', 'contains', name)],
+                    {'single': True}
+                )
+            else:
+                return False
+
+        self.dispatcher.exec_and_wait_for_event(
+            'docker.image.changed',
+            match_fn,
+            lambda: delete_image(),
+            600
+        )
 
 
 @private
