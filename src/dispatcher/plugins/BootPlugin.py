@@ -159,8 +159,16 @@ class BootEnvironmentsDelete(Task):
         if not be:
             raise TaskException(errno.ENOENT, 'Boot environment {0} not found'.format(id))
 
-        if not DeleteClone(id):
-            raise TaskException(errno.EIO, 'Cannot delete the {0} boot environment'.format(id))
+        def doit():
+            if not DeleteClone(id):
+                raise TaskException(errno.EIO, 'Cannot delete the {0} boot environment'.format(id))
+
+        self.dispatcher.exec_and_wait_for_event(
+            'boot.environment.changed',
+            lambda args: args['operation'] == 'delete' and id in args['ids'],
+            doit,
+            600
+        )
 
 
 @description("Attaches the given Disk to the boot pool")
