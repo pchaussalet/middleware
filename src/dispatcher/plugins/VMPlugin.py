@@ -1872,7 +1872,7 @@ def _init(dispatcher, plugin):
         'enum': ['STOPPED', 'BOOTLOADER', 'RUNNING']
     })
 
-    plugin.register_schema_definition('vm-status-state', {
+    plugin.register_schema_definition('vm-status-health', {
         'type': 'string',
         'enum': ['HEALTHY', 'DYING', 'DEAD', 'UNKNOWN']
     })
