@@ -71,8 +71,8 @@ def yesno(val):
 class WinbindPlugin(DirectoryServicePlugin):
     def __init__(self, context):
         self.context = context
-        self.uid_min = None
-        self.uid_max = None
+        self.uid_min = 90000001
+        self.uid_max = 100000000
         self.dc = None
         self.enabled = False
         self.domain_info = None
@@ -263,7 +263,7 @@ class WinbindPlugin(DirectoryServicePlugin):
             'idmap config *: range': '0-65536',
             'idmap config {0}: backend'.format(workgroup): 'rid',
             'idmap config {0}: range'.format(workgroup):
-                '{0}-{1}'.format(self.uid_min or 90000001, self.uid_max or 100000000),
+                '{0}-{1}'.format(self.uid_min, self.uid_max),
             'client use spnego': 'yes',
             'allow trusted domains': 'no',
             'client ldap sasl wrapping': 'plain',
@@ -399,6 +399,9 @@ class WinbindPlugin(DirectoryServicePlugin):
 
     def getpwuid(self, uid):
         logger.debug('getpwuid(uid={0})'.format(uid))
+        if not (self.uid_min <= uid <= self.uid_max):
+            return
+
         if not self.is_joined():
             logger.debug('getpwuid: not joined')
             return
