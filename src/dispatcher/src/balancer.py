@@ -584,6 +584,7 @@ class Balancer(object):
         if 'RUN_AS_USER' in task.environment:
             task.user = task.environment['RUN_AS_USER']
 
+        task.environment['SENDER_ADDRESS'] = sender.client_address
         task.id = self.dispatcher.datastore.insert("tasks", task)
         task.set_state(TaskState.CREATED)
         self.task_queue.put(task)
