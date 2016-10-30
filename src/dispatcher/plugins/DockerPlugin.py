@@ -162,6 +162,9 @@ class DockerImagesProvider(Provider):
         self.throttle_period = timedelta(
             seconds=0, minutes=0, hours=1
         )
+        self.collection_cache_lifetime = timedelta(
+            seconds=0, minutes=0, hours=24
+        )
         self.update_collection_lock = RLock()
 
     @description('Returns current status of cached Docker container images')
@@ -243,9 +246,17 @@ class DockerImagesProvider(Provider):
                     'items': items
                 })
 
+        outdated_collections = []
+        now = datetime.now()
+        for k, v in collections.itervalid():
+            time_since_last_update = now - v['update_time']
+            if time_since_last_update > self.collection_cache_lifetime:
+                outdated_collections.append(k)
+
+        collections.remove_many(outdated_collections)
+
         if collections.is_valid(collection):
             collection_data = collections.get(collection)
-            now = datetime.now()
             time_since_last_update = now - collection_data['update_time']
 
             if time_since_last_update > self.throttle_period:
