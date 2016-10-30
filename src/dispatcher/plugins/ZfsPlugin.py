@@ -1564,7 +1564,6 @@ def _init(dispatcher, plugin):
                 logger.info('Dataset {0} {1}ed'.format(ds['name'], type))
                 if type == 'mount' and not ds['mountpoint']:
                     datasets.update_one(ds['id'], **{
-                        'mounted': True,
                         'mountpoint': args['path'],
                         'properties.mounted.rawvalue': 'yes',
                         'properties.mounted.value': 'yes',
@@ -1573,7 +1572,6 @@ def _init(dispatcher, plugin):
 
                 if type == 'unmount' and ds['mountpoint']:
                     datasets.update_one(ds['id'], **{
-                        'mounted': True,
                         'mountpoint': args['path'],
                         'properties.mounted.rawvalue': 'no',
                         'properties.mounted.value': 'no',
