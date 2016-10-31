@@ -242,7 +242,6 @@ class DockerImagesProvider(Provider):
                         'presets': presets
                     }
                     items.append(item)
-                    yield item
 
                 collections.put(c, {
                     'update_time': datetime.now(),
@@ -263,12 +262,13 @@ class DockerImagesProvider(Provider):
             time_since_last_update = now - collection_data['update_time']
 
             if time_since_last_update > self.throttle_period:
-                return update_collection(collection)
-            else:
-                for i in collection_data['items']:
-                    yield i
+                update_collection(collection)
         else:
-            return update_collection(collection)
+            update_collection(collection)
+
+        collection_data = collections.get(collection)
+        for i in collection_data['items']:
+            yield i
 
     @description('Returns a full description of specified Docker container image')
     @accepts(str)
