@@ -374,6 +374,7 @@
             "container.docker.default_host": null,
             "container.docker.api_forwarding": null,
             "container.docker.api_forwarding_enable": false,
+            "container.docker.default_collection": "freenas",
             "container.cache_refresh_interval": 60,
             "storage.hotsparing.autoreplace": true,
             "storage.hotsparing.strong_match": false,

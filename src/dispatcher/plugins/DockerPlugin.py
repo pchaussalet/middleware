@@ -1099,6 +1099,7 @@ def _init(dispatcher, plugin):
         'properties': {
             'default_host': {'type': ['string', 'null']},
             'api_forwarding': {'type': ['string', 'null']},
+            'default_collection': {'type': ['string', 'null']},
             'api_forwarding_enable': {'type': 'boolean'}
         }
     })
