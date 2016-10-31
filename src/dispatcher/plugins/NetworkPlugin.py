@@ -677,7 +677,7 @@ class UpdateRouteTask(Task):
         return "Updating static route"
 
     def describe(self, name, updated_fields):
-        return TaskDescription("Updating static route {name}", name=id)
+        return TaskDescription("Updating static route {name}", name=name)
 
     def verify(self, name, updated_fields):
         return ['system']
