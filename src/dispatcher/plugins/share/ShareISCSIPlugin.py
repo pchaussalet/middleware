@@ -137,6 +137,7 @@ class CreateISCSIShareTask(Task):
             'physical_block_size': True,
             'tpc': False,
             'vendor_id': None,
+            'product_id': None,
             'device_id': None,
             'rpm': 'SSD',
             'read_only': False,
@@ -552,6 +553,7 @@ def _init(dispatcher, plugin):
             'xen_compat': {'type': 'boolean'},
             'tpc': {'type': 'boolean'},
             'vendor_id': {'type': ['string', 'null']},
+            'product_id': {'type': ['string', 'null']},
             'device_id': {'type': ['string', 'null']},
             'rpm': {'$ref': 'share-iscsi-rpm'}
         }

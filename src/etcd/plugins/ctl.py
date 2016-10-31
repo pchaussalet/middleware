@@ -88,6 +88,9 @@ def generate_luns(context):
         if props.get('vendor_id'):
             extent['options']['vendor'] = props['vendor_id']
 
+        if props.get('product_id'):
+            extent['options']['product'] = props['product_id']
+
         if props.get('device_id'):
             extent['options']['device-id'] = props['device_id']
 
