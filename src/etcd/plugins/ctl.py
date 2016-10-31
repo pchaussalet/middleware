@@ -75,9 +75,9 @@ def generate_luns(context):
             'blocksize': props['block_size'],
             'serial': serial,
             'options': {
-                'device-id': 'iSCSI Disk {0}'.format(props['serial']),
+                'device-id': 'SCSI Disk {0}'.format(props['serial']),
                 'vendor': 'FreeNAS',
-                'product': 'iSCSI Disk',
+                'product': 'SCSI Disk',
                 'revision': '0123',
                 'naa': props['naa'],
                 'readonly': 'on' if props['read_only'] else 'off',
