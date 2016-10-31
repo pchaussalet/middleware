@@ -85,6 +85,7 @@ class WinbindPlugin(DirectoryServicePlugin):
         self.cv = Condition()
         self.bind_thread = Thread(target=self.bind, daemon=True)
         self.bind_thread.start()
+        os.environ['LOGNAME'] = 'root'
 
         # Remove winbind cache files
         with contextlib.suppress(FileNotFoundError):
@@ -499,7 +500,6 @@ class WinbindPlugin(DirectoryServicePlugin):
             self.configure_smb(True)
             obtain_or_renew_ticket(self.principal, self.parameters['password'])
 
-            os.environ['LOGNAME'] = 'root'
             subprocess.call(['/usr/local/bin/net', 'ads', 'join', self.realm, '-k'])
             subprocess.call(['/usr/sbin/service', 'samba_server', 'restart'])
 
