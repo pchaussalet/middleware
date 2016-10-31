@@ -170,6 +170,12 @@ class DockerImagesProvider(Provider):
         )
         self.update_collection_lock = RLock()
 
+    @description('Returns current status of cached Docker container collections')
+    @query('docker-hub-image')
+    @generator
+    def collection_query(self, filter=None, params=None):
+        return collections.query(*(filter or []), stream=True, **(params or {}))
+
     @description('Returns current status of cached Docker container images')
     @query('docker-image')
     @generator
@@ -269,12 +275,6 @@ class DockerImagesProvider(Provider):
         collection_data = collections.get(collection)
         for i in collection_data['items']:
             yield i
-
-    @description('Returns current status of cached Docker container collections')
-    @query('docker-hub-image')
-    @generator
-    def collection_query(self, filter=None, params=None):
-        return collections.query(*(filter or []), stream=True, **(params or {}))
 
     @description('Returns a full description of specified Docker container image')
     @accepts(str)
