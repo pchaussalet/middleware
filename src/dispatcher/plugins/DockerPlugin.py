@@ -53,6 +53,9 @@ collections = None
 CONTAINERS_QUERY = 'containerd.docker.query_containers'
 IMAGES_QUERY = 'containerd.docker.query_images'
 
+dockerfile_parser_logger = logging.getLogger('dockerfile_parse.parser')
+dockerfile_parser_logger.setLevel(logging.ERROR)
+
 
 @description('Provides information about Docker configuration')
 class DockerConfigProvider(Provider):
