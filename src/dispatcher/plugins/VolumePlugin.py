@@ -41,6 +41,7 @@ import hashlib
 import json
 import time
 import uuid
+from datetime import datetime
 from event import sync
 from cache import EventCacheStore
 from lib.system import system, SubprocessException
@@ -2860,6 +2861,7 @@ def _init(dispatcher, plugin):
             except RpcException:
                 pass
 
+        last_replicated_at = q.get(ds, 'properties.org\\.freenas:last_replicated_at.value')
         temp_mountpoint = None
         if q.get(ds, 'properties.readonly.parsed') and q.get(ds, 'properties.mounted.parsed'):
             for mnt in bsd.getmntinfo():
@@ -2887,7 +2889,9 @@ def _init(dispatcher, plugin):
                 'usedbychildren', 'logicalused', 'logicalreferenced', 'readonly'
             ),
             'permissions_type': q.get(ds, 'properties.org\\.freenas:permissions_type.value'),
-            'permissions': perms['permissions'] if perms else None
+            'permissions': perms['permissions'] if perms else None,
+            'last_replicated_by': q.get(ds, 'properties.org\\.freenas:last_replicated_by.value'),
+            'last_replicated_at': datetime.utcfromtimestamp(int(last_replicated_at)) if last_replicated_at else None
         }
 
     @sync
@@ -3118,7 +3122,9 @@ def _init(dispatcher, plugin):
             'volsize': {'type': ['integer', 'null']},
             'properties': {'$ref': 'volume-dataset-properties'},
             'permissions': {'$ref': 'permissions'},
-            'permissions_type': {'$ref': 'volume-dataset-permissionstype'}
+            'permissions_type': {'$ref': 'volume-dataset-permissionstype'},
+            'last_replicated_by': {'type': ['string', 'null']},
+            'last_replicated_at': {'type': ['datetime', 'null']}
         }
     })
 
