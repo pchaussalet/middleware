@@ -163,7 +163,9 @@ class NISPlugin(DirectoryServicePlugin):
                         self.server = NIS(self.domain_name, self.server_name)
                         self.directory.put_state(DirectoryState.BOUND)
                     except NISError as err:
-                        logger.debug("Unable to bind to domain {} using server {}".format(self.domain_name, self.server_name), exc_info=True)
+                        s = "Unable to bind to domain {} using server {}".format(self.domain_name, self.server_name)
+                        logger.debug(s, exc_info=True)
+                        self.directory.put_status(errno.ECONNREFUSED, s)
                         self.directory.put_state(DirectoryState.FAILURE)
                 else:
                     if self.directory.state != DirectoryState.DISABLED:
