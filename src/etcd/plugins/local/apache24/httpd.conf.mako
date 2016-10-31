@@ -28,7 +28,7 @@
     if cfg['authentication'] == 'BASIC':
         with open(auth_file, "wb+") as f:
             f.write(
-                "webdav:{0}".format(crypt.crypt(cfg['password'].encode('utf8'), salt()))
+                "webdav:{0}".format(crypt.crypt(cfg['password'], salt())).encode('utf8')
             )
     else:
         hexdigest = hashlib.md5('webdav:webdav:{0}'.format(cfg['password']).encode('utf8')).hexdigest()
