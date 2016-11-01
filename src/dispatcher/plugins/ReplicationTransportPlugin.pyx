@@ -561,12 +561,11 @@ class TransportReceiveTask(ProgressTask):
 
         progress_t = None
 
-        server_address = transport.get('server_address')
+        server_address = self.environment['SENDER_ADDRESS']
         try:
             buffer_size = transport.get('buffer_size', 1024*1024)
 
             self.estimated_size = transport.get('estimated_size', 0)
-            server_address = transport.get('server_address')
             server_port = transport.get('server_port')
             token = base64.b64decode(transport.get('auth_token').encode('utf-8'))
             token_size = transport.get('auth_token_size')
