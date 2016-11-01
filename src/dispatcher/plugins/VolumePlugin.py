@@ -2119,9 +2119,7 @@ class DatasetCreateTask(Task):
         ))
 
         props.update({
-            'org.freenas:uuid': {'value': str(uuid.uuid4())},
-            'org.freenas:last_replicated_by': {'value': 'none'},
-            'org.freenas:last_replicated_at': {'value': 'none'}
+            'org.freenas:uuid': {'value': str(uuid.uuid4())}
         })
 
         self.join_subtasks(self.run_subtask(
@@ -2859,6 +2857,8 @@ def _init(dispatcher, plugin):
 
     def convert_dataset(ds):
         perms = None
+        last_replicated_at = None
+        last_replicated_by = None
 
         if ds['pool'] == boot_pool['id']:
             return None
@@ -2869,13 +2869,20 @@ def _init(dispatcher, plugin):
             except RpcException:
                 pass
 
-        last_replicated_at = q.get(ds, 'properties.org\\.freenas:last_replicated_at.value')
         temp_mountpoint = None
         if q.get(ds, 'properties.readonly.parsed') and q.get(ds, 'properties.mounted.parsed'):
             for mnt in bsd.getmntinfo():
                 if mnt.source == ds['name'] and mnt.dest != q.get(ds, 'properties.mountpoint.parsed'):
                     temp_mountpoint = mnt.dest
                     break
+
+        prop = q.get(ds, 'properties.org\\.freenas:last_replicated_at')
+        if prop and prop['source'] == 'LOCAL':
+            last_replicated_at = datetime.utcfromtimestamp(int(prop['value']))
+
+        prop = q.get(ds, 'properties.org\\.freenas:last_replicated_by')
+        if prop and prop['source'] == 'LOCAL':
+            last_replicated_by = prop['value']
 
         return {
             'id': ds['name'],
@@ -2898,8 +2905,8 @@ def _init(dispatcher, plugin):
             ),
             'permissions_type': q.get(ds, 'properties.org\\.freenas:permissions_type.value'),
             'permissions': perms['permissions'] if perms else None,
-            'last_replicated_by': q.get(ds, 'properties.org\\.freenas:last_replicated_by.value'),
-            'last_replicated_at': datetime.utcfromtimestamp(int(last_replicated_at)) if last_replicated_at else None
+            'last_replicated_by': last_replicated_by,
+            'last_replicated_at': last_replicated_at
         }
 
     @sync
