@@ -200,20 +200,20 @@ class BackupS3GetTask(Task):
         folder = backup['folder'] or ''
         index = 0
 
-        while True:
-            try:
-                key = os.path.join(folder, suffix(name, index))
-                obj = client.get_object(
-                    Bucket=backup['bucket'],
-                    Key=key
-                )
-            except botocore.exceptions.ClientError as e:
-                if index != 0:
-                    return
+        with os.fdopen(fd.fd, 'wb') as f:
+            while True:
+                try:
+                    key = os.path.join(folder, suffix(name, index))
+                    obj = client.get_object(
+                        Bucket=backup['bucket'],
+                        Key=key
+                    )
+                except botocore.exceptions.ClientError as e:
+                    if index != 0:
+                        return
 
-                raise
+                    raise
 
-            with os.fdopen(fd.fd, 'wb') as f:
                 while True:
                     chunk = obj['Body'].read(CHUNK_SIZE)
                     if chunk == b'':
@@ -221,7 +221,7 @@ class BackupS3GetTask(Task):
 
                     f.write(chunk)
 
-            index += 1
+                index += 1
 
 
 def open_client(dispatcher, backup):
