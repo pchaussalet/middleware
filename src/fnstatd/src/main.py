@@ -117,6 +117,10 @@ class DataSourceConfig(object):
             if (start <= i.covered_start <= end) or (i.covered_start <= start <= i.covered_end):
                 yield i
 
+            # No need to look further
+            if start > i.covered_start:
+                return
+
 
 class DataSource(object):
     def __init__(self, context, name, config, alert_config):
