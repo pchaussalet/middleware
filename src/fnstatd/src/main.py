@@ -101,11 +101,11 @@ class DataSourceConfig(object):
         self.ds_schema = datastore.get_by_id('statd.schemas', self.ds_obj['schema'])
         self.buckets = [DataSourceBucket(idx, i) for idx, i in enumerate(self.ds_schema['buckets'])]
         self.primary_bucket = self.buckets[0]
-
-        for i in self.buckets:
-            self.logger.debug('Created bucket with interval {0} and retention {1}'.format(i.interval, i.retention))
-
-        self.logger.debug('Created using schema {0}, {1} buckets'.format(self.ds_obj['schema'], len(self.buckets)))
+        self.logger.debug('Created {0} using schema {1}, {2} buckets'.format(
+            name,
+            self.ds_obj['schema'],
+            len(self.buckets))
+        )
 
     @property
     def primary_interval(self):
