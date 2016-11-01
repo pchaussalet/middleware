@@ -78,12 +78,6 @@ class ManagementService(RpcService):
             if last_run:
                 last_task = self.context.datastore.get_by_id('tasks', last_run['task_id'])
 
-            if job.id in self.context.active_tasks:
-                current_task_id = self.context.active_tasks[job.id]
-                current_task = self.context.client.call_sync('task.status', current_task_id)
-                if 'progress' in current_task:
-                    current_progress = current_task['progress']
-
             return {
                 'id': job.id,
                 'name': job.name,
@@ -96,8 +90,7 @@ class ManagementService(RpcService):
                     'next_run_time': job.next_run_time,
                     'last_run_time': last_run['created_at'] if last_run else None,
                     'last_run_status': last_task['state'] if last_task else None,
-                    'current_run_status': current_task['state'] if current_task else None,
-                    'current_run_progress': current_progress
+                    'current_run_id': self.context.active_tasks.get(job.id)
                 },
                 'schedule': schedule
             }
