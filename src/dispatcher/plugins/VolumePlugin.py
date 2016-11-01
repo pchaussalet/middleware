@@ -1161,7 +1161,7 @@ class VolumeImportTask(Task):
                     disk_id = self.dispatcher.call_sync('disk.path_to_id', dname)
                     self.join_subtasks(self.run_subtask('disk.geli.attach', disk_id, attach_params))
 
-            new_name, = self.join_subtasks(self.run_subtask('zfs.pool.import', id, new_name, params))
+            (new_name, guid), = self.join_subtasks(self.run_subtask('zfs.pool.import', id, new_name, params))
             mountpoint = os.path.join(VOLUMES_ROOT, new_name)
             self.join_subtasks(self.run_subtask(
                 'zfs.update',
@@ -1173,7 +1173,7 @@ class VolumeImportTask(Task):
 
             new_id = self.datastore.insert('volumes', {
                 'id': new_name,
-                'guid': id,
+                'guid': guid,
                 'type': 'zfs',
                 'encryption': {
                     'key': key,
@@ -2118,7 +2118,11 @@ class DatasetCreateTask(Task):
             'written', 'usedbyrefreservation', 'referenced', 'available', 'compressratio', 'refcompressratio'
         ))
 
-        props['org.freenas:uuid'] = {'value': str(uuid.uuid4())}
+        props.update({
+            'org.freenas:uuid': {'value': str(uuid.uuid4())},
+            'org.freenas:last_replicated_by': 'none',
+            'org.freenas:last_replicated_at': 'none'
+        })
 
         self.join_subtasks(self.run_subtask(
             'zfs.create_dataset',

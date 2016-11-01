@@ -71,11 +71,11 @@ class ZpoolProvider(Provider):
     def query(self, filter=None, params=None):
         return pools.query(*(filter or []), stream=True, **(params or {}))
 
-    @accepts()
+    @accepts(h.one_of(str, None))
     @returns(h.array(h.ref('zfs-pool')))
-    def find(self):
+    def find(self, name=None):
         zfs = get_zfs()
-        return self.dispatcher.threaded(lambda: [p.__getstate__() for p in zfs.find_import()])
+        return self.dispatcher.threaded(lambda: [p.__getstate__() for p in zfs.find_import(name=name)])
 
     @accepts()
     @returns(h.ref('zfs-pool'))
@@ -740,7 +740,18 @@ class ZpoolImportTask(Task):
 
     def verify(self, guid, name=None, properties=None):
         zfs = get_zfs()
-        pool = first_or_default(lambda p: str(p.guid) == guid, zfs.find_import())
+
+        if guid.isdigit():
+            pool = first_or_default(
+                lambda p: str(p.guid) == guid,
+                self.dispatcher.threaded(lambda: list(zfs.find_import()))
+            )
+        else:
+            pool = first_or_default(
+                None,
+                self.dispatcher.threaded(lambda: list(zfs.find_import(name=guid))),
+            )
+
         if not pool:
             raise VerifyException(errno.ENOENT, 'Pool with GUID {0} not found'.format(guid))
 
@@ -748,16 +759,24 @@ class ZpoolImportTask(Task):
 
     def run(self, guid, name=None, properties=None):
         zfs = get_zfs()
-        pool = first_or_default(lambda p: str(p.guid) == guid, zfs.find_import())
-        if not pool:
-            raise TaskException(errno.ENOENT, 'Pool with GUID {0} not found'.format(guid))
-
         opts = properties or {}
-        name = name or pool.name
         try:
-            pool = first_or_default(lambda p: str(p.guid) == guid, zfs.find_import())
-            zfs.import_pool(pool, name, opts)
-            return name
+            if guid.isdigit():
+                pool = first_or_default(
+                    lambda p: str(p.guid) == guid,
+                    zfs.find_import()
+                )
+            else:
+                pool = first_or_default(
+                    None,
+                    zfs.find_import(name=guid),
+                )
+
+            if not pool:
+                raise TaskException(errno.ENOENT, 'Pool {0} not found'.format(guid))
+
+            zfs.import_pool(pool, name or pool.name, opts)
+            return name or pool.name, pool.guid
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
