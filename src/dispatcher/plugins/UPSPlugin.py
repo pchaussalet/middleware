@@ -77,6 +77,23 @@ class UPSProvider(Provider):
             )))
         return drivers
 
+    @accepts()
+    @returns(h.array(h.array(str)))
+    def get_usb_devices(self):
+        usb_devices_list = []
+        try:
+            usbconfig_output = system('usbconfig')[0]
+            if not usbconfig_output.startswith('No device match'):
+                for device in usbconfig_output.rstrip().split('\n'):
+                    device_path = os.path.join('/dev', device.split()[0][:-1])
+                    device_description = re.findall(r'<.*?>', device)[0]
+                    usb_devices_list.append([device_path, device_description])
+
+        except SubprocessException as e:
+            raise TaskException(errno.EBUSY, e.err)
+
+        return usb_devices_list
+
     @private
     def service_start(self):
         ups = self.get_config()
