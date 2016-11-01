@@ -25,6 +25,8 @@
 #
 #####################################################################
 
+import gevent.monkey
+gevent.monkey.patch_all()
 
 import os
 import sys
@@ -43,8 +45,8 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 import gevent
-import gevent.monkey
 import gevent.socket
+import gevent.threadpool
 from gevent.server import StreamServer
 from freenas.dispatcher.client import Client, ClientError
 from freenas.dispatcher.rpc import RpcService, RpcException, accepts, returns, generator
@@ -56,7 +58,7 @@ from freenas.utils import configure_logging, to_timedelta, materialized_paths_to
 
 DEFAULT_CONFIGFILE = '/usr/local/etc/middleware.conf'
 DEFAULT_DBFILE = 'stats.hdf'
-gevent.monkey.patch_all()
+threadpool = gevent.threadpool.ThreadPool(5)
 
 
 def round_timestamp(timestamp, frequency):
@@ -129,8 +131,6 @@ class DataSource(object):
         self.events_enabled = False
         self.alerts = alert_config
 
-        self.logger.debug('Created')
-
     def create_buckets(self):
         # Primary bucket should be hold in memory
         buckets = [MemoryRingBuffer(self.config.buckets[0].intervals_count)]
@@ -184,27 +184,34 @@ class DataSource(object):
                         self.emit_alert_low()
 
     def persist(self, timestamp, buffer, bucket):
-        count = bucket.interval.total_seconds() / self.config.buckets[0].interval.total_seconds()
-        data = self.bucket_buffers[0].data
-        mean = np.mean(list(zip(*data[-count:]))[1])
-        buffer.push(timestamp, mean)
+        def doit():
+            count = bucket.interval.total_seconds() / self.config.buckets[0].interval.total_seconds()
+            data = self.bucket_buffers[0].data
+            mean = np.mean(list(zip(*data[-count:]))[1])
+            buffer.push(timestamp, mean)
+
+        threadpool.apply(doit)
 
     def query(self, start, end, frequency):
         self.logger.debug('Query: start={0}, end={1}, frequency={2}'.format(start, end, frequency))
         buckets = list(self.config.get_covered_buckets(start, end))
-        df = pd.DataFrame()
 
-        for b in buckets:
-            new = self.bucket_buffers[b.index].df
-            if new is not None:
-                df = pd.concat((df, new))
+        def doit():
+            df = pd.DataFrame()
 
-        df = df.reset_index().drop_duplicates(subset='index').set_index('index')
-        if len(buckets):
-            df = df.sort()[0]
-            df = df[start:end]
-            df = df.resample(frequency, how='mean').interpolate()
-        return df
+            for b in buckets:
+                new = self.bucket_buffers[b.index].df
+                if new is not None:
+                    df = pd.concat((df, new))
+
+            df = df.reset_index().drop_duplicates(subset='index').set_index('index')
+            if len(buckets):
+                df = df.sort()[0]
+                df = df[start:end]
+                df = df.resample(frequency, how='mean').interpolate()
+            return df
+
+        return threadpool.apply(doit)
 
     def check_alerts(self):
         if self.last_value is not None:
