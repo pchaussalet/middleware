@@ -51,7 +51,7 @@ class ServiceInfoProvider(Provider):
     @generator
     def query(self, filter=None, params=None):
         def extend(i):
-            state, pid = get_status(self.dispatcher, i)
+            state, pid = get_status(self.dispatcher, self.datastore, i)
             entry = {
                 'id': i['id'],
                 'name': i['name'],
@@ -264,7 +264,7 @@ class ServiceInfoProvider(Provider):
         if not svc:
             raise RpcException(errno.ENOENT, 'Service {0} not found'.format(service))
 
-        state, pid = get_status(self.dispatcher, svc)
+        state, pid = get_status(self.dispatcher, self.datastore, svc)
         node = ConfigNode('service.{0}'.format(service), self.configstore)
 
         if node['enable'].value and state != 'RUNNING':
@@ -306,7 +306,7 @@ class ServiceManageTask(Task):
             raise TaskException(errno.ENOENT, 'Service {0} not found'.format(id))
 
         service = self.datastore.get_by_id('service_definitions', id)
-        state, pid = get_status(self.dispatcher, service)
+        state, pid = get_status(self.dispatcher, self.datastore, service)
         hook_rpc = service.get('{0}_rpc'.format(action))
         name = service['name']
 
@@ -444,7 +444,7 @@ class UpdateServiceConfigTask(Task):
         })
 
 
-def get_status(dispatcher, service):
+def get_status(dispatcher, datastore, service):
     if 'status_rpc' in service:
         state = 'RUNNING'
         pid = None
@@ -496,8 +496,8 @@ def get_status(dispatcher, service):
         state = 'RUNNING'
 
         for i in service['dependencies']:
-            d_service = dispatcher.datastore.get_one('service_definitions', ('id', '=', i))
-            d_state, d_pid = get_status(dispatcher, d_service)
+            d_service = datastore.get_one('service_definitions', ('id', '=', i))
+            d_state, d_pid = get_status(dispatcher, datastore, d_service)
             if d_state != 'RUNNING':
                 state = d_state
 
