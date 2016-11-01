@@ -2120,8 +2120,8 @@ class DatasetCreateTask(Task):
 
         props.update({
             'org.freenas:uuid': {'value': str(uuid.uuid4())},
-            'org.freenas:last_replicated_by': 'none',
-            'org.freenas:last_replicated_at': 'none'
+            'org.freenas:last_replicated_by': {'value': 'none'},
+            'org.freenas:last_replicated_at': {'value': 'none'}
         })
 
         self.join_subtasks(self.run_subtask(
