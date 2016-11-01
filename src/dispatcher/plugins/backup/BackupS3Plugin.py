@@ -171,6 +171,8 @@ class BackupS3PutTask(ProgressTask):
                         }
                     )
 
+                    index += 1
+
                     if end:
                         return
 
