@@ -1153,6 +1153,18 @@
     },
     {
         "metadata": {
+            "name": "docker.collections",
+            "migration": "keep",
+            "pkey-type": "uuid",
+            "attributes": {
+                "type": "config"
+            }
+        },
+        "data": {
+        }
+    },
+    {
+        "metadata": {
             "name": "peers",
             "migration": "keep",
             "pkey-type": "uuid",

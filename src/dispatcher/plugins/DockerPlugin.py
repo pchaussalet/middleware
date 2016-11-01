@@ -170,12 +170,6 @@ class DockerImagesProvider(Provider):
         )
         self.update_collection_lock = RLock()
 
-    @description('Returns current status of cached Docker container collections')
-    @query('docker-hub-image')
-    @generator
-    def collection_query(self, filter=None, params=None):
-        return collections.query(*(filter or []), stream=True, **(params or {}))
-
     @description('Returns current status of cached Docker container images')
     @query('docker-image')
     @generator
@@ -215,7 +209,7 @@ class DockerImagesProvider(Provider):
                 'presets': presets
             }
 
-    @description('Returns a list of official FreeNAS docker images')
+    @description('Returns a list of docker images from a given collection')
     @returns(h.array(h.ref('docker-hub-image')))
     @accepts(str)
     @generator
@@ -360,6 +354,30 @@ class DockerImagesProvider(Provider):
                     })
 
         return result
+
+
+@description('Provides information about cached Docker container collections')
+class DockerCollectionProvider(Provider):
+    @description('Returns current status of cached Docker container collections')
+    @query('docker-collection')
+    @generator
+    def query(self, filter=None, params=None):
+        return self.datastore.query_stream(
+            'docker.collections', *(filter or []), **(params or {})
+        )
+
+    @description('Returns a list of Docker images related to a saved collection')
+    @returns(h.array(h.ref('docker-hub-image')))
+    @accepts(str)
+    @generator
+    def get_entries(self, id):
+        collection = self.dispatcher.call_sync('docker.collection.query', [('id', '=', id)], {'single': True})
+        if not collection:
+            raise RpcException(errno.ENOENT, 'Collection {0} not found'.format(id))
+
+        for i in self.dispatcher.call_sync('docker.image.get_collection_images', collection['collection']):
+            if collection['match_expr'] in i['name']:
+                yield i
 
 
 class DockerBaseTask(ProgressTask):
@@ -863,6 +881,98 @@ class DockerRollbackHostResourceTask(Task):
             )
 
 
+@accepts(h.ref('docker-collection'))
+@returns(str)
+@description('Creates a known Docker cache collection')
+class DockerCollectionCreateTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return 'Creating known collection of containers'
+
+    def describe(self, collection):
+        return TaskDescription('Creating known collection of containers {name}', name=collection.get('name', ''))
+
+    def verify(self, collection):
+        if 'name' not in collection:
+            raise RpcException(errno.EINVAL, 'Collection name has to be specified')
+        if 'collection' not in collection:
+            raise RpcException(errno.EINVAL, 'Name of DockerHub collection has to be specified')
+
+        return ['docker']
+
+    def run(self, collection):
+        normalize(collection, {
+            'match_expr': ''
+        })
+
+        if self.datastore.exists('docker.collections', ('name', '=', collection['name'])):
+            raise TaskException(errno.EEXIST, 'Containers collection {0} already exists'.format(collection['name']))
+
+        id = self.datastore.insert('docker.collections', collection)
+        self.dispatcher.dispatch_event('docker.collection.changed', {
+            'operation': 'create',
+            'ids': [id]
+        })
+
+        return id
+
+
+@accepts(str, h.ref('docker-collection'))
+@description('Updates a known Docker cache collection')
+class DockerCollectionUpdateTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return 'Updating known collection of containers'
+
+    def describe(self, id, updated_params):
+        collection = self.datastore.get_by_id('docker.collections', id)
+        return TaskDescription('Updating known collection of containers {name}', name=collection.get(''))
+
+    def verify(self, id, updated_params):
+        return ['docker']
+
+    def run(self, id, updated_params):
+        if not self.datastore.exists('docker.collections', ('id', '=', id)):
+            raise TaskException(errno.ENOENT, 'Docker collection {0} not found'.format(id))
+        collection = self.datastore.get_by_id('docker.collections', id)
+
+        collection.update(updated_params)
+        if 'name' in updated_params and self.datastore.exists('docker.collections', ('name', '=', collection['name'])):
+            raise TaskException(errno.EEXIST, 'Docker collection {0} already exists'.format(collection['name']))
+
+        self.datastore.update('docker.collections', id, collection)
+        self.dispatcher.dispatch_event('docker.collection.changed', {
+            'operation': 'update',
+            'ids': [id]
+        })
+
+
+@accepts(str)
+@description('Deletes a known Docker cache collection')
+class DockerCollectionDeleteTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return 'Deleting known collection of containers'
+
+    def describe(self, id):
+        collection = self.datastore.get_by_id('docker.collections', id)
+        return TaskDescription('Deleting known collection of containers {name}', name=collection.get(''))
+
+    def verify(self, id):
+        return ['docker']
+
+    def run(self, id):
+        if not self.datastore.exists('docker.collections', ('id', '=', id)):
+            raise TaskException(errno.ENOENT, 'Docker collection {0} not found'.format(id))
+
+        self.datastore.delete('docker.collections', id)
+
+        self.dispatcher.dispatch_event('docker.collection.changed', {
+            'operation': 'delete',
+            'ids': [id]
+        })
+
+
 def _depends():
     return ['VMPlugin']
 
@@ -1050,6 +1160,7 @@ def _init(dispatcher, plugin):
     plugin.register_provider('docker.host', DockerHostProvider)
     plugin.register_provider('docker.container', DockerContainerProvider)
     plugin.register_provider('docker.image', DockerImagesProvider)
+    plugin.register_provider('docker.collection', DockerCollectionProvider)
 
     plugin.register_task_handler('docker.config.update', DockerUpdateTask)
 
@@ -1064,9 +1175,14 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('docker.host.update_resource', DockerUpdateHostResourceTask)
     plugin.register_task_handler('docker.host.rollback_resource', DockerRollbackHostResourceTask)
 
+    plugin.register_task_handler('docker.collection.create', DockerCollectionCreateTask)
+    plugin.register_task_handler('docker.collection.update', DockerCollectionUpdateTask)
+    plugin.register_task_handler('docker.collection.delete', DockerCollectionDeleteTask)
+
     plugin.register_event_type('docker.host.changed')
     plugin.register_event_type('docker.container.changed')
     plugin.register_event_type('docker.image.changed')
+    plugin.register_event_type('docker.collection.changed')
 
     plugin.register_event_handler('containerd.docker.host.changed', on_host_event)
     plugin.register_event_handler('containerd.docker.container.changed', on_container_event)
@@ -1101,6 +1217,17 @@ def _init(dispatcher, plugin):
             'api_forwarding': {'type': ['string', 'null']},
             'default_collection': {'type': ['string', 'null']},
             'api_forwarding_enable': {'type': 'boolean'}
+        }
+    })
+
+    plugin.register_schema_definition('docker-collection', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'id': {'type': 'string'},
+            'name': {'type': 'string'},
+            'collection': {'type': 'string'},
+            'match_expr': {'type': ['string', 'null']}
         }
     })
 
