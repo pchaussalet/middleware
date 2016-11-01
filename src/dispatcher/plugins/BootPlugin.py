@@ -299,7 +299,7 @@ def _init(dispatcher, plugin):
 
         return {
             'active': root_mount.source == ds['id'],
-            'keep': q.get(ds, 'properties.beadm:keep.value') in ('yes', 'True', 'true', 'on'),
+            'keep': q.get(ds, 'properties.beadm:keep.value') not in ('no', 'off', 'False'),
             'on_reboot': q.get(boot_pool, 'properties.bootfs.value') == ds['id'],
             'id': q.get(ds, 'properties.beadm:nickname.value', path[-1]),
             'space': q.get(ds, 'properties.used.parsed'),
