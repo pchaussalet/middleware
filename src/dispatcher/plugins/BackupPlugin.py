@@ -228,7 +228,7 @@ class BackupSyncTask(ProgressTask):
             snapname = '{0}@{1}'.format(action['localfs'], action['snapshot'])
             filename = hashlib.md5(snapname.encode('utf-8')).hexdigest()
             snap = self.dispatcher.call_sync(
-                'volume.snapshot.query',
+                'zfs.snapshot.query',
                 [('id', '=', snapname)],
                 {'single': True}
             )
