@@ -775,13 +775,19 @@ class VolumeDestroyTask(Task):
             except FileNotFoundError:
                 pass
 
-            if vol['key_encrypted'] or vol['password_encrypted']:
-                subtasks = []
-                if 'topology' in vol:
-                    for dname, _ in get_disks(vol['topology']):
-                        disk_id = self.dispatcher.call_sync('disk.path_to_id', dname)
+            volume_encrypted = vol['key_encrypted'] or vol['password_encrypted']
+            subtasks = []
+            if 'topology' in vol:
+                for dname, _ in get_disks(vol['topology']):
+                    disk_id = self.dispatcher.call_sync('disk.path_to_id', dname)
+                    disk_encrypted = self.dispatcher.call_sync(
+                        'disk.query',
+                        [('id', '=', disk_id)],
+                        {'single': True, 'select': 'status.encrypted'}
+                    )
+                    if disk_encrypted or volume_encrypted:
                         subtasks.append(self.run_subtask('disk.geli.kill', disk_id))
-                    self.join_subtasks(*subtasks)
+                self.join_subtasks(*subtasks)
 
             self.datastore.delete('volumes', vol['id'])
             self.dispatcher.dispatch_event('volume.changed', {
