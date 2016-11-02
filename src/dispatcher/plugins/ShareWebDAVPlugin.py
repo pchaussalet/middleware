@@ -93,6 +93,7 @@ class CreateWebDAVShareTask(Task):
         normalize(share['properties'], {
             'read_only': False,
             'permission': False,
+            'show_hidden_files': False,
         })
         id = self.datastore.insert('shares', share)
         self.dispatcher.call_sync('etcd.generation.generate_group', 'webdav')
@@ -196,6 +197,7 @@ def _init(dispatcher, plugin):
             '%type': {'enum': ['share-webdav']},
             'read_only': {'type': 'boolean'},
             'permission': {'type': 'boolean'},
+            'show_hidden_files': {'type': 'boolean'},
         }
     })
 
