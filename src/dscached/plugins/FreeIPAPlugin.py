@@ -127,7 +127,7 @@ class FreeIPAPlugin(DirectoryServicePlugin):
                 ('dn', 'in', get(entry, 'memberOf'))
             ])
 
-            for r in self.search(self.base_dn, qstr):
+            for r in self.search(self.base_dn, qstr, attributes='ipaUniqueID'):
                 r = dict(r['attributes'])
                 groups.append(get(r, 'ipaUniqueID.0'))
 
