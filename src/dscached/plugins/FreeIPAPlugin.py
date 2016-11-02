@@ -114,8 +114,7 @@ class FreeIPAPlugin(DirectoryServicePlugin):
         if contains(entry, 'gidNumber.0'):
             ret = self.search_one(
                 self.group_dn,
-                '(gidNumber={0})'.format(get(entry, 'gidNumber.0')),
-                attributes='ipaUniqueID'
+                '(gidNumber={0})'.format(get(entry, 'gidNumber.0'))
             )
 
             if ret:
@@ -127,7 +126,7 @@ class FreeIPAPlugin(DirectoryServicePlugin):
                 ('dn', 'in', get(entry, 'memberOf'))
             ])
 
-            for r in self.search(self.base_dn, qstr, attributes='ipaUniqueID'):
+            for r in self.search(self.base_dn, qstr):
                 r = dict(r['attributes'])
                 groups.append(get(r, 'ipaUniqueID.0'))
 
