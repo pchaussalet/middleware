@@ -35,7 +35,7 @@ from task import Provider, Task, ProgressTask, TaskException, query, TaskDescrip
 from cache import EventCacheStore
 from utils import split_dataset
 from freenas.dispatcher.rpc import accepts, returns, description, SchemaHelper as h, generator
-from freenas.utils import first_or_default, query as q
+from freenas.utils import include, first_or_default, query as q
 
 sys.path.append('/usr/local/lib')
 from freenasOS.Update import ListClones, FindClone, RenameClone, ActivateClone, DeleteClone, CreateClone, CloneSetAttr
@@ -128,17 +128,28 @@ class BootEnvironmentUpdate(Task):
         if not be:
             raise TaskException(errno.ENOENT, 'Boot environment {0} not found'.format(id))
 
-        if 'id' in updated_params:
-            if not RenameClone(id, updated_params['id']):
-                raise TaskException(errno.EIO, 'Cannot rename the {0} boot evironment'.format(id))
+        if not include(updated_params, 'id', 'keep', 'active'):
+            return
 
-        if 'keep' in updated_params:
-            if not CloneSetAttr(be, keep=updated_params['keep']):
-                raise TaskException(errno.EIO, 'Cannot set keep flag on boot environment {0}'.format(id))
+        def doit():
+            if 'id' in updated_params:
+                if not RenameClone(id, updated_params['id']):
+                    raise TaskException(errno.EIO, 'Cannot rename the {0} boot evironment'.format(id))
 
-        if updated_params.get('active'):
-            if not ActivateClone(id):
-                raise TaskException(errno.EIO, 'Cannot activate the {0} boot environment'.format(id))
+            if 'keep' in updated_params:
+                if not CloneSetAttr(be, keep=updated_params['keep']):
+                    raise TaskException(errno.EIO, 'Cannot set keep flag on boot environment {0}'.format(id))
+
+            if updated_params.get('active'):
+                if not ActivateClone(id):
+                    raise TaskException(errno.EIO, 'Cannot activate the {0} boot environment'.format(id))
+
+        self.dispatcher.exec_and_wait_for_event(
+            'boot.environment.changed',
+            lambda args: args['operation'] == 'update' and id in args['ids'],
+            doit,
+            600
+        )
 
 
 @description("Deletes the given Boot Environments. Note: It cannot delete an activated BE")
