@@ -776,7 +776,7 @@ class ZpoolImportTask(Task):
                 raise TaskException(errno.ENOENT, 'Pool {0} not found'.format(guid))
 
             zfs.import_pool(pool, name or pool.name, opts)
-            return name or pool.name, pool.guid
+            return name or pool.name, str(pool.guid)
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
 
