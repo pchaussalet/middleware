@@ -543,9 +543,9 @@ def _init(context):
         'properties': {
             '%type': {'enum': ['winbind-directory-params']},
             'realm': {'type': 'string'},
-            'username': {'type': 'string'},
+            'username': {'type': ['string', 'null']},
             'password': {'type': ['string', 'null']},
-            'keytab': {'type': ['string', 'null']},
+            'krb_principal': {'type': ['string', 'null']},
             'site_name': {'type': ['string', 'null']},
             'dc_address': {'type': ['string', 'null']},
             'gcs_address': {'type': ['string', 'null']},

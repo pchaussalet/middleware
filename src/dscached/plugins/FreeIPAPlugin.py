@@ -299,8 +299,9 @@ def _init(context):
             'realm': {'type': 'string'},
             'server': {'type': ['string', 'null']},
             'kdc': {'type': ['string', 'null']},
-            'username': {'type': 'string'},
-            'password': {'type': 'string'},
+            'username': {'type': ['string', 'null']},
+            'password': {'type': ['string', 'null']},
+            'krb_principal': {'type': ['string', 'null']},
             'user_suffix': {'type': ['string', 'null']},
             'group_suffix': {'type': ['string', 'null']},
             'encryption': {

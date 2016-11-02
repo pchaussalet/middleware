@@ -332,7 +332,6 @@ def _init(context):
             'password': {'type': ['string', 'null']},
             'user_suffix': {'type': ['string', 'null']},
             'group_suffix': {'type': ['string', 'null']},
-            'krb_realm': {'type': ['string', 'null']},
             'krb_principal': {'type': ['string', 'null']},
             'encryption': {'$ref': 'ldap-directory-params-encryption'},
             'certificate': {'type': ['string', 'null']},
