@@ -207,6 +207,7 @@ def configure_params(smb, ad=False):
         conf['local master'] = yesno(smb['local_master'])
         conf['server role'] = 'auto'
         conf['workgroup'] = smb['workgroup']
+        conf['auth methods'] = 'guest sam'
 
 
 def collect_debug(dispatcher):

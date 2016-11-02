@@ -269,7 +269,8 @@ class WinbindPlugin(DirectoryServicePlugin):
             'allow trusted domains': 'no',
             'client ldap sasl wrapping': 'plain',
             'template shell': '/bin/sh',
-            'template homedir': '/home/%U'
+            'template homedir': '/home/%U',
+            'auth methods': 'guest sam winbind'
         }
 
         if enable:
