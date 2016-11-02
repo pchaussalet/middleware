@@ -105,11 +105,11 @@ class EntitySubscriberEventSource(EventSource):
         self.queues[service].put((self.fetch if ids is not None else self.fetch_one, operation, ids))
 
     def fetch(self, service, operation, ids):
-        keys = set(ids.keys() if isinstance(ids, dict) else ids)
         entities = None
 
         if operation in ('create', 'update'):
             try:
+                keys = set(ids.keys() if isinstance(ids, dict) else ids)
                 entities = list(self.dispatcher.call_sync('{0}.query'.format(service), [('id', 'in', list(keys))]))
             except BaseException as e:
                 self.logger.warn('Cannot fetch changed entities from service {0}: {1}'.format(service, str(e)))
