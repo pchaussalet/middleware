@@ -32,6 +32,7 @@ import ldap3.utils.dn
 import logging
 import threading
 import ssl
+import krb5
 from datetime import datetime
 from plugin import DirectoryServicePlugin, DirectoryState
 from utils import LdapQueryBuilder, obtain_or_renew_ticket, join_dn, dn_to_domain, domain_to_dn, uuid2, parse_uuid2
@@ -40,6 +41,7 @@ from freenas.utils import first_or_default, normalize
 from freenas.utils.query import get, contains
 
 
+TICKET_RENEW_LIFE = 30 * 86400  # 30 days
 logger = logging.getLogger(__name__)
 
 
@@ -259,22 +261,43 @@ class LDAPPlugin(DirectoryServicePlugin):
                 notify = self.cv.wait(60)
 
                 if self.enabled:
+                    if self.parameters['krb_principal']:
+                        try:
+                            obtain_or_renew_ticket(
+                                self.principal,
+                                keytab=True,
+                                renew_life=TICKET_RENEW_LIFE
+                            )
+                        except krb5.KrbException as err:
+                            self.directory.put_status(errno.ENXIO, '{0} <{1}>'.format(str(err), type(err).__name__))
+                            self.directory.put_state(DirectoryState.FAILURE)
+                            continue
+
                     if self.directory.state == DirectoryState.BOUND and not notify:
                         continue
 
                     try:
                         self.directory.put_state(DirectoryState.JOINING)
-                        self.conn = ldap3.Connection(
-                            self.server,
-                            client_strategy='ASYNC',
-                            user=self.parameters['bind_dn'],
-                            password=self.parameters['password']
-                        )
 
-                        if self.start_tls:
-                            logger.debug('Performing STARTTLS...')
-                            self.conn.open()
-                            self.conn.start_tls()
+                        if self.parameters['krb_principal']:
+                            self.conn = ldap3.Connection(
+                                self.server,
+                                client_strategy='ASYNC',
+                                authentication=ldap3.SASL,
+                                sasl_mechanism='GSSAPI'
+                            )
+                        else:
+                            self.conn = ldap3.Connection(
+                                self.server,
+                                client_strategy='ASYNC',
+                                user=self.parameters['bind_dn'],
+                                password=self.parameters['password']
+                            )
+
+                            if self.start_tls:
+                                logger.debug('Performing STARTTLS...')
+                                self.conn.open()
+                                self.conn.start_tls()
 
                         self.conn.bind()
                         self.directory.put_state(DirectoryState.BOUND)
@@ -305,8 +328,8 @@ def _init(context):
             '%type': {'enum': ['ldap-directory-params']},
             'server': {'type': 'string'},
             'base_dn': {'type': 'string'},
-            'bind_dn': {'type': 'string'},
-            'password': {'type': 'string'},
+            'bind_dn': {'type': ['string', 'null']},
+            'password': {'type': ['string', 'null']},
             'user_suffix': {'type': ['string', 'null']},
             'group_suffix': {'type': ['string', 'null']},
             'krb_realm': {'type': ['string', 'null']},
