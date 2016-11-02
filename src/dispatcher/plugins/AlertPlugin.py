@@ -47,6 +47,7 @@ from freenas.utils import normalize
 logger = logging.getLogger('AlertPlugin')
 registered_alerts = {}
 pending_alerts = deque()
+pending_cancels = deque()
 
 
 @description('Provides access to the alert system')
@@ -154,7 +155,16 @@ class AlertsProvider(Provider):
             'ids': [id]
         })
 
-        self.dispatcher.call_sync('alertd.alert.cancel', id)
+        try:
+            self.dispatcher.call_sync('alertd.alert.cancel', id)
+        except RpcException as err:
+            if err.code == errno.ENOENT:
+                # Alertd didn't start yet. Add alert to the pending queue
+                pending_cancels.append(id)
+            else:
+                raise
+
+        return id
 
     @description("Returns list of registered alerts")
     @accepts()
@@ -417,6 +427,15 @@ def _init(dispatcher, plugin):
                 logger.warning('Failed to emit alert {0}'.format(id))
             else:
                 pending_alerts.pop()
+
+        while pending_cancels:
+            id = pending_cancels[-1]
+            try:
+                dispatcher.call_sync('alertd.alert.cancel', id)
+            except RpcException:
+                logger.warning('Failed to cancel alert {0}'.format(id))
+            else:
+                pending_cancels.pop()
 
     plugin.register_event_handler('plugin.service_registered', on_alertd_started)
 
