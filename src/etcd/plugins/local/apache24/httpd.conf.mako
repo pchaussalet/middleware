@@ -112,22 +112,16 @@ Group www
     Require all denied
 </Files>
 
-<Files ~ "^\.">
-    Order allow,deny
-    Deny from all
-    Satisfy All
-</Files>
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
 
 <DirectoryMatch "^(.*/)*\..*">
-    Order allow,deny
-    Deny from all
-    Satisfy All
+    Require all denied
 </DirectoryMatch>
 
 <LocationMatch ^(.*/)\..*>
-    Order Allow,Deny
-    Deny from All
-    Satisfy All
+    Require all denied
 </LocationMatch>
 
 ErrorLog "/var/log/httpd-error.log"
