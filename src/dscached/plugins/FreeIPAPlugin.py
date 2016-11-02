@@ -48,6 +48,7 @@ LDAP_ATTRIBUTE_MAPPING = {
     'full_name': 'gecos',
     'shell': 'loginShell',
     'home': 'homeDirectory',
+    'builtin': True
 }
 
 logger = logging.getLogger(__name__)
