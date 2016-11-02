@@ -1177,10 +1177,33 @@ class VolumeImportTask(Task):
 
             self.join_subtasks(self.run_subtask('zfs.mount', new_name, True))
 
+            new_topology = self.dispatcher.call_sync(
+                'zfs.pool.query',
+                [('id', '=', new_name)],
+                {'single': True, 'select': 'groups'}
+            )
+
+            def simplify_vdev(v):
+                unwanted = []
+                for prop in v:
+                    if prop not in ('type', 'path', 'children'):
+                        unwanted.append(prop)
+                for key in unwanted:
+                    del v[key]
+
+            for name, grp in new_topology.items():
+                for vdev in grp:
+                    simplify_vdev(vdev)
+
+                    if 'children' in vdev:
+                        for child in vdev['children']:
+                            simplify_vdev(child)
+
             new_id = self.datastore.insert('volumes', {
                 'id': new_name,
                 'guid': guid,
                 'type': 'zfs',
+                'topology': new_topology,
                 'encryption': {
                     'key': key,
                     'hashed_password': digest,
