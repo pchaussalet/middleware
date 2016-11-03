@@ -1249,6 +1249,10 @@ class VolumeDiskImportTask(ProgressTask):
         if fstype == 'ntfs':
             try:
                 bsd.kld.kldload('/boot/kernel/fuse.ko')
+            except FileExistsError:
+                # This can only arise if the module was already mounted
+                # and we tried to remount it, in which case lets just proceed
+                pass
             except OSError as err:
                 raise TaskException(err.errno, str(err))
 
