@@ -1273,7 +1273,7 @@ class VolumeDiskImportTask(ProgressTask):
             failures = list(err)
 
         try:
-            bsd.unmount(src_mount, bsd.MountFlags.FORCE)
+            bsd.unmount(src_mount.encode('utf8'), bsd.MountFlags.FORCE)
         except OSError:
             pass
 
