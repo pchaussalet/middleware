@@ -236,9 +236,8 @@ class VolumeProvider(Provider):
                     'path': disk['path'],
                     'size': disk['mediasize'],
                     'fstype': typ,
-                    'label': label or disk['description']
+                    'label': label or disk['status'].get('description')
                 })
-                continue
 
             for part in q.get(disk, 'status.partitions'):
                 path = part['paths'][0]
@@ -248,7 +247,7 @@ class VolumeProvider(Provider):
                         'path': path,
                         'size': part['mediasize'],
                         'fstype': typ,
-                        'label': label or disk['description']
+                        'label': label or part['label']
                     })
 
         return result
@@ -1224,7 +1223,7 @@ class VolumeImportTask(Task):
 
 
 @description("Imports non-ZFS disk contents into existing volume")
-@accepts(str, str, str)
+@accepts(str, str, h.one_of(str, None))
 class VolumeDiskImportTask(ProgressTask):
     @classmethod
     def early_describe(cls):
@@ -3233,7 +3232,7 @@ def _init(dispatcher, plugin):
             'path': {'type': 'string'},
             'fstype': {'type': 'string'},
             'size': {'type': 'integer'},
-            'label': {'type': 'string'}
+            'label': {'type': ['string', 'null']}
         }
     })
 
