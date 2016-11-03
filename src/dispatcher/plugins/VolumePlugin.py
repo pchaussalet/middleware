@@ -1259,12 +1259,14 @@ class VolumeDiskImportTask(ProgressTask):
         except OSError as err:
             raise TaskException(err.errno, "Cannot mount disk: {0}".format(str(err)))
 
-        def callback(srcfile, dstfile):
-            self.set_progress(self.copied / self.nfiles * 100, "Copying {0}".format(os.path.basename(srcfile)))
-
         self.set_progress(0, "Counting files...")
         self.nfiles = count_files(src_mount)
         self.copied = 0
+
+        def callback(srcfile, dstfile):
+            self.copied += 1
+            self.set_progress(self.copied / self.nfiles * 100, "Copying {0}".format(os.path.basename(srcfile)))
+
         failures = []
 
         try:
