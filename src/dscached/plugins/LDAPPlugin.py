@@ -119,6 +119,11 @@ class LDAPPlugin(DirectoryServicePlugin):
             if ret:
                 group = dict(ret['attributes'])
 
+        # Try to find any auxiliary groups
+        for i in self.search(self.group_dn, '(memberUid={0})'.format(get(entry, 'uid.0'))):
+            g = dict(i['attributes'])
+            groups.append(self.get_id(g))
+
         return {
             'id': self.get_id(entry),
             'sid': get(entry, 'sambaSID.0'),
@@ -308,6 +313,7 @@ class LDAPPlugin(DirectoryServicePlugin):
                         continue
                 else:
                     if self.directory.state != DirectoryState.DISABLED:
+                        self.directory.put_state(DirectoryState.EXITING)
                         self.conn.unbind()
                         self.directory.put_state(DirectoryState.DISABLED)
                         continue
