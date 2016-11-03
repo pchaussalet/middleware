@@ -860,6 +860,14 @@
                 "status_rpc": "service.ups.service_status",
                 "name": "ups"
             },
+            "301e7943-5d01-43e8-b211-1303d1a2e1e6": {
+                "builtin": false,
+                "start_rpc": "service.dc.service_start",
+                "stop_rpc": "service.dc.service_stop",
+                "restart_rpc": "service.dc.service_restart",
+                "status_rpc": "service.dc.service_status",
+                "name": "dc"
+            },
             "3f884592-fd25-4fe6-85c5-f1aabd4387e2": {
                 "rcng": {
                     "rc-scripts": "apache24"
