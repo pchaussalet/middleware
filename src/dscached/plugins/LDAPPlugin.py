@@ -68,7 +68,6 @@ class LDAPPlugin(DirectoryServicePlugin):
             '%type': 'ldap-directory-params',
             'user_suffix': 'ou=users',
             'group_suffix': 'ou=groups',
-            'krb_realm': None,
             'krb_principal': None,
             'encryption': 'OFF',
             'certificate': None,
