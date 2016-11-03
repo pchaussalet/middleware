@@ -1242,7 +1242,7 @@ class VolumeDiskImportTask(ProgressTask):
     def run(self, src, dest_path, fstype=None):
         if not fstype:
             try:
-                fstype, _ = system('/usr/sbin/fstyp', src)
+                fstype, _ = fstyp(src)
             except SubprocessException:
                 raise TaskException(errno.EINVAL, 'Cannot figure out filesystem type')
 
