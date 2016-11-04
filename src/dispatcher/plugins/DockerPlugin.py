@@ -361,6 +361,25 @@ class DockerCollectionProvider(Provider):
     @description('Returns current status of cached Docker container collections')
     @query('docker-collection')
     @generator
+    def full_query(self, filter=None, params=None):
+        id_filters = []
+        for f in filter:
+            if f[0] == 'id':
+                id_filters.append(f)
+
+        if not id_filters:
+            raise RpcException(errno.EINVAL, 'Collection entries have to be filtered by id')
+
+        results = self.dispatcher.call_sync('docker.collection.raw_query', id_filters)
+
+        for r in results:
+            r['images'] = list(self.dispatcher.call_sync('docker.collection.get_entries', r['id']))
+
+        return q.query(results, *(filter or []), stream=True, **(params or {}))
+
+    @description('Returns current status of cached Docker container collections without image entries')
+    @query('docker-collection')
+    @generator
     def query(self, filter=None, params=None):
         return self.datastore.query_stream(
             'docker.collections', *(filter or []), **(params or {})
