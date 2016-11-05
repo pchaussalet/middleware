@@ -41,12 +41,14 @@ class SharesProvider(Provider):
     def query(self, filter=None, params=None):
         def extend(share):
             perms = None
-            path = self.translate_path(share['id'])
-            if share['target_type'] in ('DIRECTORY', 'DATASET', 'FILE'):
-                try:
+            path = None
+
+            try:
+                path = self.translate_path(share['id'])
+                if share['target_type'] in ('DIRECTORY', 'DATASET', 'FILE'):
                     perms = self.dispatcher.call_sync('filesystem.stat', path)
-                except RpcException:
-                    pass
+            except RpcException:
+                pass
 
             share['filesystem_path'] = path
             share['permissions'] = perms['permissions'] if perms else None
