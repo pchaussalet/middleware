@@ -1246,7 +1246,8 @@ def _init(dispatcher, plugin):
             'id': {'type': 'string'},
             'name': {'type': 'string'},
             'collection': {'type': 'string'},
-            'match_expr': {'type': ['string', 'null']}
+            'match_expr': {'type': ['string', 'null']},
+            'images': {'$ref': 'docker-hub-image'}
         }
     })
 
