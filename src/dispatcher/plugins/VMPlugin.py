@@ -1736,7 +1736,7 @@ class VMTemplateFetchTask(ProgressTask):
                                         repo.head.set_target(remote_master_id)
                                     else:
                                         clean_clone(source['url'], source_path)
-                        except pygit2.GitError:
+                        except (pygit2.GitError, KeyError):
                             self.add_warning(TaskWarning(
                                 errno.EACCES,
                                 'Cannot update template cache. Result is outdated. Check networking.'))
