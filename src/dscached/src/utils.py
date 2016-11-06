@@ -94,7 +94,7 @@ def dn_to_domain(dn):
     return '.'.join(i[1] for i in parse_dn(dn))
 
 
-def obtain_or_renew_ticket(principal, password, renew_life=None):
+def obtain_or_renew_ticket(principal, password=None, renew_life=None, keytab=False):
     ctx = krb5.Context()
     cc = krb5.CredentialsCache(ctx)
 
@@ -107,7 +107,12 @@ def obtain_or_renew_ticket(principal, password, renew_life=None):
         else:
             return
 
-    tgt = ctx.obtain_tgt_password(principal, password, renew_life=renew_life)
+    if keytab:
+        keytab = krb5.Keytab(ctx, '/etc/krb5.keytab')
+        tgt = ctx.obtain_tgt_keytab(principal, keytab, renew_life=renew_life)
+    else:
+        tgt = ctx.obtain_tgt_password(principal, password, renew_life=renew_life)
+
     if abs((tgt.starttime - datetime.now()).total_seconds()) > 300:
         raise krb5.KrbException("Clock skew too great")
 
