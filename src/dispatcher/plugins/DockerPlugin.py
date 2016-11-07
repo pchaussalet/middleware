@@ -363,9 +363,10 @@ class DockerCollectionProvider(Provider):
     @generator
     def full_query(self, filter=None, params=None):
         id_filters = []
-        for f in filter:
-            if f[0] == 'id':
-                id_filters.append(f)
+        if filter:
+            for f in filter:
+                if f[0] == 'id':
+                    id_filters.append(f)
 
         if not id_filters:
             raise RpcException(errno.EINVAL, 'Collection entries have to be filtered by id')
@@ -1373,13 +1374,14 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
-            'id': {'type': 'string'},
-            'namespace': {'type': 'string'},
+            'name': {'type': 'string'},
+            #'namespace': {'type': 'string'},
             'description': {'type': 'string'},
-            'full_description': {'type': 'string'},
+            'icon': {'type': 'string'},
+            #'full_description': {'type': 'string'},
             'pull_count': {'type': 'integer'},
             'star_count': {'type': 'integer'},
-            'updated_at': {'type': 'datetime'},
+            #'updated_at': {'type': 'datetime'},
             'presets': {'type': ['object', 'null']},
         }
     })
