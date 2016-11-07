@@ -511,7 +511,6 @@
             },
             "11bb3d33-a56b-4b2a-ae2d-76b77e5a9895": {
                 "dependencies": [
-                    "file:hosts",
                     "file:dhclient.conf"
                 ],
                 "name": "network"
@@ -585,12 +584,6 @@
                     "file:rc.conf"
                 ],
                 "name": "hostname"
-            },
-            "5105e171-7efb-11e5-bbec-005056826348": {
-                "dependencies": [
-                    "file:hosts"
-                ],
-                "name": "hosts"
             },
             "6c58080b-7efb-11e5-bbec-005056826348": {
                 "dependencies": [
