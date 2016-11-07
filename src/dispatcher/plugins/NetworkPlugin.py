@@ -527,12 +527,6 @@ class AddHostTask(Task):
             raise TaskException(errno.EEXIST, 'Host entry {0} already exists'.format(host['id']))
 
         self.datastore.insert('network.hosts', host)
-
-        try:
-            self.dispatcher.call_sync('etcd.generation.generate_group', 'network')
-        except RpcException as err:
-            raise TaskException(errno.ENXIO, 'Cannot update host: {0}'.format(str(err)))
-
         self.dispatcher.dispatch_event('network.host.changed', {
             'operation': 'create',
             'ids': [host['id']]
@@ -559,12 +553,6 @@ class UpdateHostTask(Task):
         host = self.datastore.get_one('network.hosts', ('id', '=', id))
         host.update(updated_fields)
         self.datastore.update('network.hosts', host['id'], host)
-
-        try:
-            self.dispatcher.call_sync('etcd.generation.generate_group', 'network')
-        except RpcException as err:
-            raise TaskException(errno.ENXIO, 'Cannot update host: {0}'.format(str(err)))
-
         self.dispatcher.dispatch_event('network.host.changed', {
             'operation': 'update',
             'ids': [id]
@@ -589,12 +577,6 @@ class DeleteHostTask(Task):
             raise TaskException(errno.ENOENT, 'Host entry {0} does not exist'.format(id))
 
         self.datastore.delete('network.hosts', id)
-
-        try:
-            self.dispatcher.call_sync('etcd.generation.generate_group', 'network')
-        except RpcException as err:
-            raise TaskException(errno.ENXIO, 'Cannot delete host: {0}'.format(str(err)))
-
         self.dispatcher.dispatch_event('network.host.changed', {
             'operation': 'delete',
             'ids': [id]
