@@ -112,17 +112,22 @@ Group www
     Require all denied
 </Files>
 
-<FilesMatch "^\.">
+% for share in dispatcher.call_sync('share.query', [('type', '=', 'webdav')]):
+% if not share.get('properties').get('show_hidden_files'):
+<FilesMatch "^${share['filesystem_path']}/\.">
     Require all denied
 </FilesMatch>
 
-<DirectoryMatch "^(.*/)*\..*">
+<DirectoryMatch "^${share['filesystem_path']}/\.">
     Require all denied
 </DirectoryMatch>
 
-<LocationMatch ^(.*/)\..*>
+<LocationMatch ^/${share['name']}/\.>
     Require all denied
 </LocationMatch>
+
+% endif
+% endfor
 
 ErrorLog "/var/log/httpd-error.log"
 LogLevel warn
