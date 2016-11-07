@@ -371,7 +371,7 @@ class DockerCollectionProvider(Provider):
         if not id_filters:
             raise RpcException(errno.EINVAL, 'Collection entries have to be filtered by id')
 
-        results = self.dispatcher.call_sync('docker.collection.raw_query', id_filters)
+        results = list(self.dispatcher.call_sync('docker.collection.query', id_filters))
 
         for r in results:
             r['images'] = list(self.dispatcher.call_sync('docker.collection.get_entries', r['id']))
