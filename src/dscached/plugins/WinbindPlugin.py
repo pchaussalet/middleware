@@ -487,9 +487,11 @@ class WinbindPlugin(DirectoryServicePlugin):
         with self.cv:
             self.enabled = enable
             self.directory = directory
-            self.uid_min = directory.min_uid
-            self.uid_max = directory.max_uid
             self.parameters = directory.parameters
+            if directory.min_uid:
+                self.uid_min = directory.min_uid
+                self.uid_max = directory.max_uid
+
             self.cv.notify_all()
 
         return self.realm.lower()
