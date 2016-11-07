@@ -883,7 +883,8 @@ def _init(dispatcher, plugin):
                 'properties': {
                     'directory': {'type': 'string'},
                     'cached_at': {'type': ['datetime', 'null']},
-                    'ttl': {'type': ['number', 'null']}
+                    'ttl': {'type': ['number', 'null']},
+                    'read_only': {'type': 'boolean'}
                 }
             }
         },

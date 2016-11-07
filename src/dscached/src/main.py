@@ -128,6 +128,7 @@ def annotate(user, directory, name_field, cache=None):
         'origin': {
             'directory': directory.name,
             'domain': directory.domain_name,
+            'read_only': directory.plugin_type != 'local',
             'cached_at': None,
             'ttl': None
         }
@@ -156,6 +157,7 @@ class CacheItem(object):
             'origin': {
                 'directory': self.directory.name,
                 'domain': self.directory.domain_name,
+                'read_only': self.directory.plugin_type != 'local',
                 'cached_at': self.created_at,
                 'ttl': self.ttl
             }
