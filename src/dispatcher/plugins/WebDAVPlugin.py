@@ -71,7 +71,7 @@ class WebDAVConfigureTask(Task):
         if node['certificate']:
             cert = self.dispatcher.call_sync(
                 'crypto.certificate.query',
-                [('id', '=', node['certificate'])],
+                [('name', '=', node['certificate'])],
                 {'single': True}
             )
 
