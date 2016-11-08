@@ -303,7 +303,9 @@ class LDAPPlugin(DirectoryServicePlugin):
                                 self.conn.open()
                                 self.conn.start_tls()
 
-                        self.conn.bind()
+                        if not self.conn.bind():
+                            raise RuntimeError('Bind failed: {0}'.format(self.conn.result))
+
                         self.directory.put_state(DirectoryState.BOUND)
                         continue
                     except BaseException as err:
