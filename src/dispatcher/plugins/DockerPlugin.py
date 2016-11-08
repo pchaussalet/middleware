@@ -478,6 +478,13 @@ class DockerUpdateTask(Task):
         return ['docker']
 
     def run(self, updated_params):
+        if 'default_collection' in updated_params:
+            if not self.datastore.exists('docker.collections', ('id', '=', updated_params['default_collection'])):
+                raise TaskException(
+                    errno.ENOENT,
+                    'Containers collection {0} does not exist'.format(updated_params['default_collection'])
+                )
+
         node = ConfigNode('container.docker', self.configstore)
         node.update(updated_params)
         state = node.__getstate__()
