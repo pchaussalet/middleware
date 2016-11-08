@@ -59,6 +59,10 @@ from pySMART import Device, smart_health_assement
 
 EXPIRE_TIMEOUT = timedelta(hours=24)
 SMART_CHECK_INTERVAL = 600  # in seconds (i.e. 10 minutes)
+SMART_ALERT_MAP = {
+    'WARN': ('SmartWarn', 'S.M.A.R.T status warning'),
+    'FAIL': ('SmartFail', 'S.M.A.R.T status failing')
+}
 multipaths = -1
 diskinfo_cache = CacheStore()
 logger = logging.getLogger('DiskPlugin')
@@ -1458,6 +1462,37 @@ def update_smart_info(dispatcher, disk):
     if updated_disk != disk:
         diskinfo_cache.put(disk['id'], updated_disk)
         updated = True
+        if updated_disk['smart_info']['smart_status'] in ('FAIL', 'WARN'):
+            # We need to issue a S.M.A.R.T alert for this disk
+            smart_status = updated_disk['smart_status']
+            disk_name = disk['gdisk_name']
+            alert_class, title = SMART_ALERT_MAP[smart_status]
+            existing_smart_alerts = dispatcher.call_sync(
+                'alert.query',
+                [
+                    ('active', '=', True),
+                    ('or', ('class', '=', alert_class), ('target', '=', disk_name))
+                ]
+            )
+            alert_payload = {
+                'class': alert_class,
+                'title': title,
+                'target': disk_name,
+                'description': 'Disk {0} S.M.A.R.T status: {1}.\
+                See disk nnfo in GUI/CLI for details'.format(disk_name, smart_status)
+            }
+
+            alert_exists = False
+
+            for smart_alert in existing_smart_alerts:
+                if smart_alert['class'] == alert_class and smart_alert['target'] == disk_name:
+                    alert_exists = True
+                    continue
+                dispatcher.call_sync('alert.cancel', smart_alert['id'])
+
+            if not alert_exists:
+                dispatcher.call_sync('alert.emit', alert_payload)
+
     return updated
 
 
