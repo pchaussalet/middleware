@@ -128,6 +128,8 @@ class ManagementService(RpcService):
     @private
     def delete(self, job_id):
         job = self.context.scheduler.get_job(job_id)
+        if not job:
+            raise RpcException(errno.ENOENT, 'Job with id: {0} does not exist'.format(job_id))
         if job.kwargs['protected']:
             raise RpcException(errno.EPERM, 'Job {0} is protected from being deleted'.format(job_id))
 
