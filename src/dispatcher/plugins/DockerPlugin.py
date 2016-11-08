@@ -111,7 +111,8 @@ class DockerContainerProvider(Provider):
             settings = obj.setdefault('settings', [])
             obj.update({
                 'web_ui_url': None,
-                'settings': []
+                'settings': [],
+                'version': 0
             })
 
             if presets:
@@ -128,6 +129,8 @@ class DockerContainerProvider(Provider):
                         presets['web_ui_port'],
                         presets['web_ui_path'][1:]
                     )
+
+                obj['version'] = presets.get('version', 0)
 
             return obj
 
@@ -291,6 +294,7 @@ class DockerImagesProvider(Provider):
             'web_ui_protocol': labels.get('org.freenas.web-ui-protocol'),
             'web_ui_port': labels.get('org.freenas.web-ui-port'),
             'web_ui_path': labels.get('org.freenas.web-ui-path'),
+            'version': labels.get('org.freenas.version'),
             'ports': [],
             'volumes': [],
             'static_volumes': [],
@@ -1316,6 +1320,7 @@ def _init(dispatcher, plugin):
             'autostart': {'type': 'boolean'},
             'running': {'type': 'boolean'},
             'interactive': {'type': 'boolean'},
+            'version': {'type': 'integer'},
             'web_ui_url': {'type': 'string'},
             'environment': {
                 'type': 'array',
@@ -1388,14 +1393,11 @@ def _init(dispatcher, plugin):
         'additionalProperties': False,
         'properties': {
             'name': {'type': 'string'},
-            #'namespace': {'type': 'string'},
             'description': {'type': 'string'},
             'icon': {'type': 'string'},
-            #'full_description': {'type': 'string'},
             'pull_count': {'type': 'integer'},
             'star_count': {'type': 'integer'},
-            #'updated_at': {'type': 'datetime'},
-            'presets': {'type': ['object', 'null']},
+            'presets': {'type': ['object', 'null']}
         }
     })
 
