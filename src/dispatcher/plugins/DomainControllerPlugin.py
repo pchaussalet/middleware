@@ -66,14 +66,18 @@ class DCProvider(Provider):
     def provide_dc_url(self):
         dc_vm = self.get_config()
         if dc_vm['vm_id'] and dc_vm['enable']:
-            guest_info = self.dispatcher.call_sync('vm.get_guest_info', dc_vm['vm_id'])
-            addresses = []
-            for name, config in guest_info['interfaces'].items():
-                if name.startswith('lo'):
-                    continue
-                addresses += ['https://' + i['address'] + ':8443' for i in config['aliases'] if i['af'] != 'LINK']
+            try:
+                guest_info = self.dispatcher.call_sync('vm.get_guest_info', dc_vm['vm_id'])
+                addresses = []
+                for name, config in guest_info['interfaces'].items():
+                    if name.startswith('lo'):
+                        continue
+                    addresses += ['https://' + i['address'] + ':8443' for i in config['aliases'] if i['af'] != 'LINK']
 
-            return addresses
+                return addresses
+
+            except RpcException:
+                return "Please wait - Domain Controller vm service is not ready."
         else:
             return "Please configure and enable the Domain Controller vm service."
 
