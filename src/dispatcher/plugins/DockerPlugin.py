@@ -908,7 +908,10 @@ class DockerRollbackHostResourceTask(Task):
             )
 
 
-@accepts(h.ref('docker-collection'))
+@accepts(h.all_of(
+    h.ref('docker-collection'),
+    h.forbidden('images')
+))
 @returns(str)
 @description('Creates a known Docker cache collection')
 class DockerCollectionCreateTask(Task):
@@ -944,7 +947,10 @@ class DockerCollectionCreateTask(Task):
         return id
 
 
-@accepts(str, h.ref('docker-collection'))
+@accepts(str, h.all_of(
+    h.ref('docker-collection'),
+    h.forbidden('images')
+))
 @description('Updates a known Docker cache collection')
 class DockerCollectionUpdateTask(Task):
     @classmethod
