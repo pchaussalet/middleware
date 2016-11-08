@@ -77,7 +77,8 @@ class DCProvider(Provider):
                 return addresses
 
             except RpcException:
-                return "Please wait - Domain Controller vm service is not ready."
+                return "Please wait - Domain Controller vm service is not ready or the zentyal_domain_controller " +\
+                       "virtual machine state was altered manually."
         else:
             return "Please configure and enable the Domain Controller vm service."
 
