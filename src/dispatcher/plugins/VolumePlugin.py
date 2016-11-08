@@ -2286,6 +2286,17 @@ class DatasetConfigureTask(Task):
             self.join_subtasks(self.run_subtask('zfs.rename', ds['id'], updated_params['id']))
             ds['id'] = updated_params['id']
 
+        if 'volsize' in updated_params:
+            if ds['type'] != 'VOLUME':
+                raise TaskException(errno.EINVAL, 'Cannot set volsize on non-volume dataset')
+
+            if updated_params['volsize'] < q.get(ds, 'properties.volsize.parsed'):
+                raise TaskException(errno.EBUSY, 'Cannot shrink a zvol')
+
+            self.join_subtasks(self.run_subtask('zfs.update', ds['id'], {
+                'volsize': {'value': int(updated_params['volsize'])}
+            }))
+
         if 'properties' in updated_params:
             props = exclude(
                 updated_params['properties'],
