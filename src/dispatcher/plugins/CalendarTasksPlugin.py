@@ -154,8 +154,11 @@ class DeleteCalendarTask(Task):
     def run(self, id):
         try:
             self.dispatcher.call_sync('scheduler.management.delete', id)
-        except RpcException:
-            raise
+        except RpcException as err:
+            if err.code == errno.ENOENT:
+                raise TaskException(err.code, err.message)
+            else:
+                raise
 
         self.dispatcher.dispatch_event('calendar_task.changed', {
             'operation': 'delete',
