@@ -33,7 +33,6 @@ import json
 import shutil
 import datastore
 import datastore.restore
-from freenas.utils import deep_update
 
 
 DEFAULT_CONFIGFILE = '/usr/local/etc/middleware.conf'
@@ -55,7 +54,7 @@ def main():
     global ds
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', metavar='CONFIG', default=DEFAULT_CONFIGFILE, help='Config file name')
-    parser.add_argument('-f', action='append', metavar='FILE', default=DEFAULT_FACTORY_FILE, help='Input file name(s)')
+    parser.add_argument('-f', metavar='FILE', default=DEFAULT_FACTORY_FILE, help='Input file name')
     parser.add_argument('-t', metavar='TYPE', default='', help='Collection types to restore')
     parser.add_argument('--reset', action='store_true')
     parser.add_argument('--alt', action='store_true', help='Use alternate DSN')
@@ -63,18 +62,10 @@ def main():
     args = parser.parse_args()
     types = list(filter(None, args.t.split(',')))
     init_datastore(args.c, args.alt)
-    dump = None
 
     try:
-        for f in args.f:
-            with open(f, 'r') as fd:
-                data = json.load(fd)
-                if not dump:
-                    dump = data
-                    continue
-
-                deep_update(dump, data)
-
+        fd = open(args.f, 'r') if args.f else sys.stdin
+        dump = json.load(fd)
     except IOError as err:
         print("Cannot open input file: {0}".format(str(err)))
         sys.exit(1)
