@@ -108,7 +108,8 @@ class DCConfigureTask(Task):
             dc['vm_id'], = self.join_subtasks(self.run_subtask('vm.create', {
                 'name': 'zentyal_domain_controller',
                 'template': {'name': 'zentyal-4.2'},
-                'target': node['volume']
+                'target': node['volume'],
+                'autostart': True
             }))
 
         try:
