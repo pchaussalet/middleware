@@ -99,13 +99,16 @@ class SystemInfoProvider(Provider):
         'cpu_cores': int,
         'cpu_clockrate': int,
         'memory_size': int,
+        'vm_guest': h.one_of(str, None)
     }))
     def hardware(self):
+        vm_guest = get_sysctl("kern.vm_guest")
         return {
             'cpu_model': get_sysctl("hw.model"),
             'cpu_cores': get_sysctl("hw.ncpu"),
             'cpu_clockrate': get_sysctl("hw.clockrate"),
-            'memory_size': get_sysctl("hw.physmem")
+            'memory_size': get_sysctl("hw.physmem"),
+            'vm_guest': None if vm_guest == 'none' else vm_guest
         }
 
     @accepts()
