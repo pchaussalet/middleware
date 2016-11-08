@@ -1157,7 +1157,7 @@
     {
         "metadata": {
             "name": "docker.collections",
-            "migration": "keep",
+            "migration": "merge-preserve",
             "pkey-type": "uuid",
             "attributes": {
                 "type": "config"
