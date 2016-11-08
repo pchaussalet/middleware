@@ -1164,6 +1164,11 @@
             }
         },
         "data": {
+            "7f4d5a8d-b8dd-4ffa-a866-b074067b381d": {
+                "name": "freenas",
+                "collection": "freenas",
+                "match_expr": ""
+            }
         }
     },
     {
