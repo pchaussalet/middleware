@@ -1462,18 +1462,20 @@ def update_smart_info(dispatcher, disk):
     if updated_disk != disk:
         diskinfo_cache.put(disk['id'], updated_disk)
         updated = True
-        if updated_disk['smart_info']['smart_status'] in ('FAIL', 'WARN'):
+        smart_status = updated_disk['smart_info']['smart_status']
+        disk_name = disk['gdisk_name']
+
+        existing_smart_alerts = dispatcher.call_sync(
+            'alert.query',
+            [
+                ('active', '=', True),
+                ('or', ('class', 'in', ('SmartFail', 'SmartWarn')), ('target', '=', disk_name))
+            ]
+        )
+
+        if smart_status in ('FAIL', 'WARN'):
             # We need to issue a S.M.A.R.T alert for this disk
-            smart_status = updated_disk['smart_status']
-            disk_name = disk['gdisk_name']
             alert_class, title = SMART_ALERT_MAP[smart_status]
-            existing_smart_alerts = dispatcher.call_sync(
-                'alert.query',
-                [
-                    ('active', '=', True),
-                    ('or', ('class', '=', alert_class), ('target', '=', disk_name))
-                ]
-            )
             alert_payload = {
                 'class': alert_class,
                 'title': title,
@@ -1492,6 +1494,11 @@ def update_smart_info(dispatcher, disk):
 
             if not alert_exists:
                 dispatcher.call_sync('alert.emit', alert_payload)
+        elif smart_status == 'PASS':
+            # for various reasons the SMART status of this disk (or a disk with this name)
+            # may have a previous 'FAIL' | 'WARN' smart status in which case clear those alerts
+            for smart_alert in existing_smart_alerts:
+                dispatcher.call_sync('alert.cancel', smart_alert['id'])
 
     return updated
 
