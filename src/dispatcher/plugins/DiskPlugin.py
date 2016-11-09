@@ -1454,15 +1454,14 @@ def configure_disk(datastore, id):
 
 def update_smart_info(dispatcher, disk):
     updated = False
-    smart_info = Device(disk['gdisk_name'])
-    updated_disk = disk.copy()
     # setting all_info to False below makes pySMART skip over fields we already
     # have in the disk dict (like name, path, serial number, is_ssd, max_roation and so on)
-    updated_disk.update({'smart_info': smart_info.__getstate__(all_info=False)})
-    if updated_disk != disk:
-        diskinfo_cache.put(disk['id'], updated_disk)
+    smart_info = Device(disk['gdisk_name']).__getstate__(all_info=False)
+    if disk.get('smart_info') != smart_info:
+        disk['smart_info'] = smart_info
+        diskinfo_cache.update_one(disk['id'], smart_info=smart_info)
         updated = True
-        smart_status = updated_disk['smart_info']['smart_status']
+        smart_status = smart_info['smart_status']
         disk_name = disk['gdisk_name']
 
         existing_smart_alerts = dispatcher.call_sync(
