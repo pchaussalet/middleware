@@ -124,6 +124,7 @@ class BootEnvironmentUpdate(Task):
         return ['system']
 
     def run(self, id, updated_params):
+        new_id = updated_params.get('id', id)
         be = FindClone(id)
         if not be:
             raise TaskException(errno.ENOENT, 'Boot environment {0} not found'.format(id))
@@ -146,7 +147,7 @@ class BootEnvironmentUpdate(Task):
 
         self.dispatcher.exec_and_wait_for_event(
             'boot.environment.changed',
-            lambda args: args['operation'] == 'update' and id in args['ids'],
+            lambda args: args['operation'] == 'update' and (id in args['ids'] or new_id in args['ids']),
             doit,
             600
         )
