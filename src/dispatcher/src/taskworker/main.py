@@ -185,9 +185,9 @@ class Context(object):
                 pass
 
     def run_task_hooks(self, instance, task, type, **extra_env):
-        for hook in task['hooks'].get(type, {}):
+        for hook, props in task['hooks'].get(type, {}).items():
             try:
-                if hook['condition'] and not hook['condition'](*task['args']):
+                if props['condition'] and not props['condition'](*task['args']):
                     continue
             except BaseException as err:
                 print(err)
