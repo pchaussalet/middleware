@@ -529,6 +529,15 @@ class DockerContainerCreateTask(DockerBaseTask):
         host = self.datastore.get_by_id('vms', container.get('host')) or {}
         hostname = host.get('name')
 
+        for v in container.get('volumes', []):
+            if v.get('source') and v['source'] != 'HOST' and v['host_path'].startswith('/mnt'):
+                raise VerifyException(
+                    errno.EINVAL,
+                    '{0} is living inside /mnt, but its source is a {1} path'.format(
+                        v['host_path'], v['source'].lower()
+                    )
+                )
+
         if hostname:
             return ['docker:{0}'.format(hostname)]
         else:
@@ -1411,13 +1420,19 @@ def _init(dispatcher, plugin):
         'properties': {
             'container_path': {'type': 'string'},
             'host_path': {'type': 'string'},
-            'readonly': {'type': 'boolean'}
+            'readonly': {'type': 'boolean'},
+            'source': {'$ref': 'docker-volume-host-path-source'}
         }
     })
 
     plugin.register_schema_definition('docker-port-protocol', {
         'type': 'string',
         'enum': ['TCP', 'UDP']
+    })
+
+    plugin.register_schema_definition('docker-volume-host-path-source', {
+        'type': 'string',
+        'enum': ['HOST', 'VM']
     })
 
     if 'containerd.docker' in dispatcher.call_sync('discovery.get_services'):

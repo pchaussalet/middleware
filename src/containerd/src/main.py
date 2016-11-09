@@ -139,7 +139,8 @@ def get_docker_volumes(details):
         yield {
             'host_path': mnt['Source'],
             'container_path': mnt['Destination'],
-            'readonly': not mnt['RW']
+            'readonly': not mnt['RW'],
+            'source': 'HOST' if mnt['Source'].startswith('/mnt') else 'VM'
         }
 
 
@@ -1224,6 +1225,15 @@ class DockerService(RpcService):
         port_bindings = {
             str(i['container_port']) + '/' + i.get('protocol', 'tcp').lower(): i['host_port'] for i in container['ports']
         }
+
+        for v in container.get('volumes', []):
+            if v.get('source') and v['source'] != 'HOST' and v['host_path'].startswith('/mnt'):
+                raise RpcException(
+                    errno.EINVAL,
+                    '{0} is living inside /mnt, but its source is a {1} path'.format(
+                        v['host_path'], v['source'].lower()
+                    )
+                )
 
         create_args = {
             'name': container['name'],
