@@ -479,7 +479,7 @@ class DiskConfigureTask(Task):
                 # toggled then do not regenerate entier smartd conf for that, just toggle that
                 # disk's smart enabled thing.
                 disk_status = self.dispatcher.call_sync('disk.get_disk_config_by_id', id)
-                if not disk_status['smart_capable']:
+                if not disk_status['smart_info']['smart_capable']:
                     raise TaskException(errno.EINVAL, 'Disk is not SMART capable')
 
                 device_smart_handle = Device(disk_status['gdisk_name'], abridged=True)
@@ -1405,7 +1405,7 @@ def persist_disk(dispatcher, disk):
         ds_disk.update({'acoustic_level': 'DISABLED'})
 
     if 'smart' not in ds_disk:
-        ds_disk.update({'smart': True if disk['smart_capable'] else False})
+        ds_disk.update({'smart': True if disk['smart_info']['smart_capable'] else False})
 
     if 'smart_options' not in ds_disk:
         ds_disk.update({'smart_options': None})
