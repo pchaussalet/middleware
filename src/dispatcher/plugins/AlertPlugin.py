@@ -202,6 +202,9 @@ class AlertFilterCreateTask(Task):
 
     def run(self, alertfilter):
         id = self.datastore.insert('alert.filters', alertfilter)
+        normalize(alertfilter, {
+            'predicates': []
+        })
 
         self.dispatcher.dispatch_event('alert.filter.changed', {
             'operation': 'create',
