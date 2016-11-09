@@ -1485,7 +1485,7 @@ class VolumeAutoReplaceTask(ProgressTask):
         spares = vol['topology'].get('spare', [])
         for spare in spares:
             disk = self.dispatcher.call_sync('disk.query', [('path', '=', spare['path'])], {'single': True})
-            if not disk['online']:
+            if not disk or not disk['online']:
                 continue
 
             self.join_subtasks(self.run_subtask('volume.replace', id, failed_vdev, disk['path']))
