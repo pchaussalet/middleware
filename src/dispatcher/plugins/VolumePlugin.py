@@ -784,7 +784,7 @@ class VolumeDestroyTask(Task):
                         [('id', '=', disk_id)],
                         {'single': True, 'select': 'status.encrypted'}
                     )
-                    if disk_encrypted or volume_encrypted:
+                    if (disk_encrypted or volume_encrypted) and disk_id:
                         subtasks.append(self.run_subtask('disk.geli.kill', disk_id))
                 self.join_subtasks(*subtasks)
 
