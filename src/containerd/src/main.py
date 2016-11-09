@@ -730,7 +730,10 @@ class DockerHost(object):
 
                         p = pf.PF()
 
-                        if ev['Action'] == 'destroy':
+                        if ev['Action'] in ('destroy', 'die'):
+                            self.logger.debug(
+                                'Container {0} has been stopped - cleaning port redirections'.format(name)
+                            )
                             for i in self.mapped_ports.get(ev['id'], {}):
                                 rule = first_or_default(lambda r: r.proxy_ports[0] == i, p.get_rules('rdr'))
                                 if rule:
