@@ -44,10 +44,12 @@ class DCProvider(Provider):
 
     def service_start(self):
         dc_vm = self.get_config()
+        self.check_dc_vm_availability()
         self.dispatcher.call_task_sync('vm.start', dc_vm['vm_id'])
 
     def service_status(self):
         dc_vm = self.get_config()
+        self.check_dc_vm_availability()
         state = self.dispatcher.call_sync(
             'vm.query',
             [('id', '=', dc_vm['vm_id'])],
@@ -57,10 +59,12 @@ class DCProvider(Provider):
 
     def service_stop(self):
         dc_vm = self.get_config()
+        self.check_dc_vm_availability()
         self.dispatcher.call_task_sync('vm.stop', dc_vm['vm_id'])
 
     def service_restart(self):
         dc_vm = self.get_config()
+        self.check_dc_vm_availability()
         self.dispatcher.call_task_sync('vm.reboot', dc_vm['vm_id'])
 
     def provide_dc_url(self):
@@ -81,6 +85,13 @@ class DCProvider(Provider):
                        "virtual machine state was altered manually."
         else:
             return "Please configure and enable the Domain Controller vm service."
+
+    def check_dc_vm_availability(self):
+        dc_vm = self.get_config()
+        if not self.dispatcher.call_sync('vm.query', [('id', '=', dc_vm['vm_id'])], {'single': True}):
+            raise RpcException(errno.ENOENT, "Domain Controller vm is deleted or not configured")
+        else:
+            return True
 
 
 @description('Configure Domain Controller vm service')
