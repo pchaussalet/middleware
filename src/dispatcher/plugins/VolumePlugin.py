@@ -1488,7 +1488,7 @@ class VolumeAutoReplaceTask(ProgressTask):
             if not disk or not disk['online']:
                 continue
 
-            self.join_subtasks(self.run_subtask('volume.replace', id, failed_vdev, disk['path']))
+            self.join_subtasks(self.run_subtask('volume.vdev.replace', id, failed_vdev, disk['path']))
             return
 
         # Now into global hot-sparing mode
@@ -1500,7 +1500,7 @@ class VolumeAutoReplaceTask(ProgressTask):
             if disk:
                 self.join_subtasks(self.run_subtask('disk.format.gpt', disk['id'], 'freebsd-zfs', {'swapsize': 2048}))
                 self.join_subtasks(self.run_subtask(
-                    'volume.replace',
+                    'volume.vdev.replace',
                     id, failed_vdev, disk['path'], password,
                     progress_callback=self.set_progress
                 ))
