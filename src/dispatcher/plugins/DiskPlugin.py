@@ -1619,7 +1619,7 @@ def _init(dispatcher, plugin):
             'encrypted': {'type': 'boolean'},
             'gdisk_name': {'type': 'string'},
             'enclosure': {'type': ['string', 'null']},
-            'smart_info': {'$ref': 'smart_info'},
+            'smart_info': {'$ref': 'smart-info'},
         }
     })
 
@@ -1710,7 +1710,7 @@ def _init(dispatcher, plugin):
         }
     })
 
-    plugin.register_schema_definition('smart_info', {
+    plugin.register_schema_definition('smart-info', {
         'type': 'object',
         'additionalProperties': False,
         'properties': {
@@ -1721,12 +1721,12 @@ def _init(dispatcher, plugin):
             'smart_status': {'type': ['string', 'null']},
             'firmware': {'type': ['string', 'null']},
             'messages': h.array(str),
-            'test_capabilities': {'$ref': 'supported_smart_tests'},
+            'test_capabilities': {'$ref': 'supported-smart-tests'},
             'tests': {
                 'oneOf': [
                     {
                         'type': 'array',
-                        'items': {'$ref': 'smart_test_result'},
+                        'items': {'$ref': 'smart-test-result'},
                     },
                     {'type': 'null'}
                 ]
@@ -1735,14 +1735,14 @@ def _init(dispatcher, plugin):
             'temperature': {'type': 'integer'},
             'attributes': {
                 'type': 'array',
-                'items': {'oneOf': [{'$ref': 'smart_attribute'}, {'type': 'null'}]},
+                'items': {'oneOf': [{'$ref': 'smart-attribute'}, {'type': 'null'}]},
                 'minItems': 255,
                 'maxItems': 255
             }
         }
     })
 
-    plugin.register_schema_definition('smart_test_result', {
+    plugin.register_schema_definition('smart-test-result', {
         'type': 'object',
         'additonalProperties': False,
         'properties': {
@@ -1759,7 +1759,7 @@ def _init(dispatcher, plugin):
         }
     })
 
-    plugin.register_schema_definition('supported_smart_tests', {
+    plugin.register_schema_definition('supported-smart-tests', {
         'type': 'object',
         'additionalProperties': False,
         'properties': {
@@ -1771,7 +1771,7 @@ def _init(dispatcher, plugin):
         }
     })
 
-    plugin.register_schema_definition('smart_attribute', {
+    plugin.register_schema_definition('smart-attribute', {
         'type': 'object',
         'additionalProperties': False,
         'properties': {
