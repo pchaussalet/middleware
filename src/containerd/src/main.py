@@ -751,6 +751,9 @@ class DockerHost(object):
 
                             for i in get_docker_ports(details):
 
+                                if i['host_port'] in mapped_ports:
+                                    continue
+
                                 if first_or_default(
                                     lambda r: r.proxy_ports[0] == i['host_port'],
                                     p.get_rules('rdr')
