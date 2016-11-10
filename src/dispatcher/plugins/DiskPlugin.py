@@ -1376,7 +1376,7 @@ def purge_disk_cache(dispatcher, path):
     if disk['is_multipath']:
         # Looks like one path was removed
         logger.info('Path %s to disk <%s> (%s) was removed', path, disk['id'], disk['description'])
-        q.get(disk, 'multipath.members').remove(path)
+        q.get(disk, 'multipath.members').pop(path, None)
 
         # Was this last path?
         if len(q.get(disk, 'multipath.members')) == 0:
@@ -1635,7 +1635,7 @@ def _init(dispatcher, plugin):
                     'status': {'type': 'string'},
                     'node': {'type': 'string'},
                     'members': {
-                        'type': 'array',
+                        'type': 'object',
                         'items': {'type': 'string'},
                     },
                 }
