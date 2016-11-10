@@ -50,7 +50,12 @@ class BackupProvider(Provider):
         def extend(backup):
             return backup
 
-        return self.datastore.query_stream('backup', *(filter or []), callback=extend, **(params or {}))
+        return q.query(
+            self.datastore.query_stream('backup', callback=extend),
+            *(filter or []),
+            stream=True,
+            **(params or {})
+        )
 
     @description("Returns list of supported backup providers")
     @accepts()
