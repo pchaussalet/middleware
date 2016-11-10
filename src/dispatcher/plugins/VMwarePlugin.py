@@ -34,7 +34,7 @@ from datetime import datetime
 from pyVim import connect, task
 from pyVmomi import vim, vmodl
 from mako.template import Template
-from freenas.dispatcher.rpc import SchemaHelper as h, generator, accepts, returns, description
+from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, generator, accepts, returns, description
 from freenas.utils import normalize, query as q
 from task import Provider, Task, TaskDescription, TaskException, ProgressTask, query
 
@@ -61,12 +61,16 @@ class VMwareProvider(Provider):
     def get_datastores(self, address, username, password):
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         ssl_context.verify_mode = ssl.CERT_NONE
-        si = connect.SmartConnect(host=address, user=username, pwd=password, sslContext=ssl_context)
-        content = si.RetrieveContent()
-        vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
 
         try:
-            for datastore in content.viewManager.CreateContainerView(content.rootFolder, vim.Datastore, True).view:
+            si = connect.SmartConnect(host=address, user=username, pwd=password, sslContext=ssl_context)
+            content = si.RetrieveContent()
+            vm_view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
+        except vmodl.MethodFault as err:
+            raise RpcException(errno.EFAULT, err.msg)
+
+        try:
+            for datastore in content.viewManager.CreateContainerView(content.rootFolder, [vim.Datastore], True).view:
                 vms = []
                 for vm in vm_view.view:
                     if datastore not in vm.datastore:
