@@ -1496,8 +1496,10 @@ def update_smart_info(dispatcher, disk):
     existing_smart_alerts = dispatcher.call_sync(
         'alert.query',
         [
-            ('and', [('active', '=', True), ('dismissed', '=', False)]),
-            ('and', [('class', 'in', ('SmartFail', 'SmartWarn')), ('target', '=', disk_name)])
+            ('active', '=', True),
+            ('dismissed', '=', False),
+            ('class', 'in', ('SmartFail', 'SmartWarn')),
+            ('target', '=', disk_name)
         ]
     )
 
