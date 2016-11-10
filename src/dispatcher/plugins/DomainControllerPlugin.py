@@ -28,7 +28,7 @@ import errno
 import logging
 from datastore.config import ConfigNode
 from freenas.dispatcher.rpc import RpcException, SchemaHelper as h, description, accepts, returns
-from task import Task, Provider, TaskException, TaskDescription
+from task import ProgressTask, Provider, TaskException, TaskDescription
 
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ class DCProvider(Provider):
 
 @description('Configure Domain Controller vm service')
 @accepts(h.ref('service-dc'))
-class DCConfigureTask(Task):
+class DCConfigureTask(ProgressTask):
     @classmethod
     def early_describe(cls):
         return 'Configuring DC service'
@@ -108,6 +108,7 @@ class DCConfigureTask(Task):
         return ['system']
 
     def run(self, dc):
+        self.set_progress(0, 'Checking Domain Controller service state')
         node = ConfigNode('service.dc', self.configstore).__getstate__()
         node.update(dc)
         if node['enable'] and not node.get('volume'):
@@ -120,8 +121,11 @@ class DCConfigureTask(Task):
                 'name': 'zentyal_domain_controller',
                 'template': {'name': 'zentyal-4.2'},
                 'target': node['volume'],
-                'autostart': True
-            }))
+                'autostart': True },
+                progress_callback=lambda p, m, e=None: self.chunk_progress(
+                    20, 100, 'Creating Domain Controller virtual machine: ', p, m, e
+                )
+            ))
 
         try:
             node = ConfigNode('service.dc', self.configstore)
