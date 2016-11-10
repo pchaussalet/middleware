@@ -1485,47 +1485,48 @@ def update_smart_info(dispatcher, disk):
     # setting all_info to False below makes pySMART skip over fields we already
     # have in the disk dict (like name, path, serial number, is_ssd, max_roation and so on)
     smart_info = Device(disk['gdisk_name']).__getstate__(all_info=False)
+    disk_name = disk['gdisk_name']
+    smart_status = smart_info['smart_status']
+
     if disk.get('smart_info') != smart_info:
         disk['smart_info'] = smart_info
         diskinfo_cache.update_one(disk['id'], smart_info=smart_info)
         updated = True
-        smart_status = smart_info['smart_status']
-        disk_name = disk['gdisk_name']
 
-        existing_smart_alerts = dispatcher.call_sync(
-            'alert.query',
-            [
-                ('active', '=', True),
-                ('or', ('class', 'in', ('SmartFail', 'SmartWarn')), ('target', '=', disk_name))
-            ]
-        )
+    existing_smart_alerts = dispatcher.call_sync(
+        'alert.query',
+        [
+            ('and', [('active', '=', True), ('dismissed', '=', False)]),
+            ('and', [('class', 'in', ('SmartFail', 'SmartWarn')), ('target', '=', disk_name)])
+        ]
+    )
 
-        if smart_status in ('FAIL', 'WARN'):
-            # We need to issue a S.M.A.R.T alert for this disk
-            alert_class, title = SMART_ALERT_MAP[smart_status]
-            alert_payload = {
-                'class': alert_class,
-                'title': title,
-                'target': disk_name,
-                'description': 'Disk {0} S.M.A.R.T status: {1}.\
-                See disk nnfo in GUI/CLI for details'.format(disk_name, smart_status)
-            }
+    if smart_status in ('FAIL', 'WARN'):
+        # We need to issue a S.M.A.R.T alert for this disk
+        alert_class, title = SMART_ALERT_MAP[smart_status]
+        alert_payload = {
+            'class': alert_class,
+            'title': title,
+            'target': disk_name,
+            'description': 'Disk {0} S.M.A.R.T status: {1}.\
+            See disk info in GUI/CLI for details'.format(disk_name, smart_status)
+        }
 
-            alert_exists = False
+        alert_exists = False
 
-            for smart_alert in existing_smart_alerts:
-                if smart_alert['class'] == alert_class and smart_alert['target'] == disk_name:
-                    alert_exists = True
-                    continue
-                dispatcher.call_sync('alert.cancel', smart_alert['id'])
+        for smart_alert in existing_smart_alerts:
+            if smart_alert['class'] == alert_class and smart_alert['target'] == disk_name:
+                alert_exists = True
+                continue
+            dispatcher.call_sync('alert.cancel', smart_alert['id'])
 
-            if not alert_exists:
-                dispatcher.call_sync('alert.emit', alert_payload)
-        elif smart_status == 'PASS':
-            # for various reasons the SMART status of this disk (or a disk with this name)
-            # may have a previous 'FAIL' | 'WARN' smart status in which case clear those alerts
-            for smart_alert in existing_smart_alerts:
-                dispatcher.call_sync('alert.cancel', smart_alert['id'])
+        if not alert_exists:
+            dispatcher.call_sync('alert.emit', alert_payload)
+    elif smart_status == 'PASS':
+        # for various reasons the SMART status of this disk (or a disk with this name)
+        # may have a previous 'FAIL' | 'WARN' smart status in which case clear those alerts
+        for smart_alert in existing_smart_alerts:
+            dispatcher.call_sync('alert.cancel', smart_alert['id'])
 
     return updated
 
