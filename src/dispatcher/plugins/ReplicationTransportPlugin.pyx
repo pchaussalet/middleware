@@ -560,8 +560,10 @@ class TransportReceiveTask(ProgressTask):
         cdef int header_wr
 
         progress_t = None
+        addr = None
 
-        server_address = self.environment['SENDER_ADDRESS']
+        server_address = self.environment['SENDER_ADDRESS'].split(',')[0]
+        logger.debug('Receive from {0} has started'.format(server_address))
         try:
             buffer_size = transport.get('buffer_size', 1024*1024)
 
@@ -715,19 +717,25 @@ class TransportReceiveTask(ProgressTask):
                             'Data write failed during transmission from {0}:{1}'.format(*self.addr)
                         )
 
-                    logger.debug('All data fetched for transfer from {0}:{1}. Waiting for plugins to close.'.format(*addr))
+                    if addr:
+                        logger.debug(
+                            'All data fetched for transfer from {0}:{1}. Waiting for plugins to close.'.format(*addr)
+                        )
                     self.join_subtasks(*subtasks)
             finally:
                 self.running = False
                 if progress_t:
                     progress_t.join()
-                logger.debug('Receive from {0}:{1} finished. Closing connection'.format(*addr))
+                if addr:
+                    logger.debug('Receive from {0}:{1} finished. Closing connection'.format(*addr))
+                    if self.sock:
+                        self.sock.shutdown(socket.SHUT_RDWR)
+                        self.sock.close()
+                        self.sock = None
+                else:
+                    logger.debug('Receive has failed. Closing connection')
                 free(buffer)
                 free(header_buffer)
-                if self.sock:
-                    self.sock.shutdown(socket.SHUT_RDWR)
-                    self.sock.close()
-                    self.sock = None
                 close_fds(self.fds)
 
     def count_progress(self):
