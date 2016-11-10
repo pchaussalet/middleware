@@ -304,7 +304,7 @@ class LDAPPlugin(DirectoryServicePlugin):
                                 self.conn.start_tls()
 
                         if not self.conn.bind():
-                            raise RuntimeError('Bind failed: {0}'.format(self.conn.result))
+                            raise RuntimeError('Bind failed: wrong credentials')
 
                         self.directory.put_state(DirectoryState.BOUND)
                         continue
