@@ -256,7 +256,7 @@ class CreateShareTask(Task):
         else:
             raise AssertionError('Invalid target type')
 
-        if share.get('permissions'):
+        if share.get('permissions') and share['target_type'] not in ('ZVOL', 'FILE'):
             self.join_subtasks(self.run_subtask('file.set_permissions', path, share.pop('permissions')))
 
         ids = self.join_subtasks(self.run_subtask('share.{0}.create'.format(share['type']), share))
