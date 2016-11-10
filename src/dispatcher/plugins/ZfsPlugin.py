@@ -514,11 +514,6 @@ class ZpoolDestroyTask(ZpoolBaseTask):
 )
 @description('Extends ZFS pool with a new disks')
 class ZpoolExtendTask(ZpoolBaseTask, ScanStatusTaskMixin):
-    def __init__(self, dispatcher, datastore):
-        super(ZpoolExtendTask, self).__init__(dispatcher, datastore)
-        self.pool = None
-        self.started = False
-
     @classmethod
     def early_describe(cls):
         return 'Extending ZFS pool'
@@ -528,7 +523,6 @@ class ZpoolExtendTask(ZpoolBaseTask, ScanStatusTaskMixin):
 
     def run(self, pool, new_vdevs, updated_vdevs):
         try:
-            self.pool = pool
             zfs = get_zfs()
             pool = zfs.get(pool)
 
@@ -546,7 +540,7 @@ class ZpoolExtendTask(ZpoolBaseTask, ScanStatusTaskMixin):
                     new_vdev.path = i['vdev']['path']
                     vdev.attach(new_vdev)
 
-                self.start_watch(pool, libzfs.ScanFunction.RESILVER)
+                self.start_watch(pool.name, libzfs.ScanFunction.RESILVER)
 
                 # Wait for resilvering process to complete
                 self.dispatcher.test_or_wait_for_event(
@@ -630,7 +624,7 @@ class ZpoolReplaceTask(ZpoolBaseTask, ScanStatusTaskMixin):
 
             def doit():
                 ovdev.replace(new_vdev)
-                self.start_watch(pool, libzfs.ScanFunction.RESILVER)
+                self.start_watch(pool.name, libzfs.ScanFunction.RESILVER)
 
             self.dispatcher.exec_and_wait_for_event(
                 'fs.zfs.resilver.finished',
