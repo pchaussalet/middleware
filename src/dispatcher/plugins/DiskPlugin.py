@@ -152,6 +152,34 @@ class DiskProvider(Provider):
 
         raise RpcException(errno.ENOENT, "Partition {0} not found".format(part_name))
 
+    @accepts(str, bool)
+    def identify(self, id, on):
+        disk = diskinfo_cache.get(id)
+        if not disk:
+            raise RpcException(errno.ENOENT, 'Disk {0} not found'.format(id))
+
+        enclosure = self.dispatcher.call_sync(
+            'disk.enclosure.query',
+            [('id', '=', disk.get('enclosure'))],
+            {'single': True}
+        )
+        if not enclosure:
+            raise RpcException(errno.EINVAL, 'No enclosure found for disk {0}'.format(id))
+
+        element = first_or_default(lambda e: e['disk_name'] == disk['path'], enclosure['devices'])
+        if not element:
+            raise RpcException(errno.EINVAL, 'Disk not found in enclosure')
+
+        enc = CamEnclosure(os.path.join('/dev', enclosure['name']))
+        dev = first_or_default(lambda d: d.index == element['index'], enc.devices)
+        if not dev:
+            raise RpcException(errno.EINVAL, 'Disk not found in enclosure')
+
+        try:
+            self.dispatcher.threaded(dev.identify, on, False)
+        except OSError as err:
+            raise RpcException(err.errno, err.strerror)
+
     @private
     def update_disk_cache(self, disk):
         with self.dispatcher.get_lock('diskcache:{0}'.format(disk)):
