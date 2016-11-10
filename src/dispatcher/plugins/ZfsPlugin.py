@@ -541,16 +541,7 @@ class ZpoolExtendTask(ZpoolBaseTask, ScanStatusTaskMixin):
                     vdev.attach(new_vdev)
 
                 self.start_watch(pool.name, libzfs.ScanFunction.RESILVER)
-
-                # Wait for resilvering process to complete
-                self.dispatcher.test_or_wait_for_event(
-                    'fs.zfs.resilver.finished',
-                    lambda args: args['guid'] == str(pool.guid),
-                    lambda:
-                        pool.scrub.state == libzfs.ScanState.SCANNING and
-                        pool.scrub.function == libzfs.ScanFunction.RESILVER
-                )
-
+                self.wait_watch()
                 self.stop_watch()
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
@@ -622,16 +613,9 @@ class ZpoolReplaceTask(ZpoolBaseTask, ScanStatusTaskMixin):
             new_vdev = libzfs.ZFSVdev(zfs, vdev['type'])
             new_vdev.path = vdev['path']
 
-            def doit():
-                ovdev.replace(new_vdev)
-                self.start_watch(pool.name, libzfs.ScanFunction.RESILVER)
-
-            self.dispatcher.exec_and_wait_for_event(
-                'fs.zfs.resilver.finished',
-                lambda args: args['guid'] == str(pool.guid),
-                doit
-            )
-
+            ovdev.replace(new_vdev)
+            self.start_watch(pool.name, libzfs.ScanFunction.RESILVER)
+            self.wait_watch()
             self.stop_watch()
         except libzfs.ZFSException as err:
             raise TaskException(zfs_error_to_errno(err.code), str(err))
