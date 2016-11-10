@@ -495,8 +495,8 @@ class UpdateProvider(Provider):
         existing_update_alerts = self.dispatcher.call_sync(
             'alert.query',
             [
-                ('active', '=', True),
-                ('or', ('class', '=', update_class), ('target', '=', update_version))
+                ('and', [('active', '=', True), ('dismissed', '=', False)]),
+                ('or', [('class', '=', update_class), ('target', '=', update_version)])
             ]
         )
         title = UPDATE_ALERT_TITLE_MAP.get(update_class, 'Update Alert')
