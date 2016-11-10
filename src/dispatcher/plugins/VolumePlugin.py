@@ -3031,11 +3031,13 @@ def _init(dispatcher, plugin):
 
     @sync
     def on_vdev_remove(args):
+        """
         dispatcher.call_sync('alert.emit', {
             'name': 'volume.disk_removed',
             'description': 'Some disk was removed from the system',
             'severity': 'WARNING'
         })
+        """
 
     @sync
     def on_vdev_state_change(args):
