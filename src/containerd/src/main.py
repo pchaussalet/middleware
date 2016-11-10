@@ -570,6 +570,10 @@ class VirtualMachine(object):
 
         self.cleanup_vnc()
         self.set_state(VirtualMachineState.STOPPED)
+        if self.docker_host:
+            self.logger.debug('VM {0} was a Docker host - shutting down Docker facilities'.format(self.name))
+            self.docker_host.shutdown()
+            self.context.docker_hosts.pop(self.id, None)
 
     def console_worker(self):
         self.logger.debug('Opening console at {0}'.format(self.nmdm[1]))
@@ -820,6 +824,14 @@ class DockerHost(object):
             self.active_consoles[id] = ContainerConsole(self, id)
 
         return self.active_consoles[id]
+
+    def shutdown(self):
+        p = pf.PF()
+        for container_ports in self.mapped_ports.values():
+            for i in container_ports:
+                rule = first_or_default(lambda r: r.proxy_ports[0] == i, p.get_rules('rdr'))
+                if rule:
+                    p.delete_rule('rdr', rule.index)
 
 
 class ContainerConsole(object):
