@@ -910,6 +910,9 @@ class Main(object):
         if interface not in self.dhcp_clients:
             raise RpcException(errno.ENXIO, 'Interface {0} is not configured for DHCP'.format(interface))
 
+        if not self.dhcp_clients[interface].lease:
+            raise RpcException(errno.ENOENT, 'Cannot renew without a lease')
+
         self.dhcp_clients[interface].request(renew=True, timeout=30)
 
     def interface_detached(self, name):
