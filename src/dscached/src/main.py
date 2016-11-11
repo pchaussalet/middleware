@@ -46,7 +46,7 @@ from datastore.config import ConfigStore
 from freenas.dispatcher.client import Client, ClientError
 from freenas.dispatcher.server import Server
 from freenas.dispatcher.rpc import RpcContext, RpcService, RpcException, generator, get_sender, accepts, returns
-from freenas.utils import first_or_default, configure_logging, extend, load_module_from_file
+from freenas.utils import first_or_default, configure_logging, extend, load_module_from_file, list_startswith
 from freenas.utils.debug import DebugService
 from freenas.utils.query import query
 from plugin import DirectoryState
@@ -133,6 +133,18 @@ def annotate(user, directory, name_field, cache=None):
             'ttl': None
         }
     })
+
+
+def exclude_from_filter(filter, *props):
+    for i in list(filter):
+        if len(i) == 3:
+            name, _, _ = i
+            for p in props:
+                if list_startswith(name.split('.'), p.split('.')):
+                    filter.remove(i)
+        if len(i) == 2:
+            _, pred = i
+            exclude_from_filter(pred, props)
 
 
 class CacheItem(object):
@@ -419,9 +431,11 @@ class AccountService(RpcService):
 
     @generator
     def query(self, filter=None, params=None):
+        filter = filter or []
         params = params or {}
         params.pop('select', None)
         single = params.pop('single', False)
+        exclude_from_filter(filter, 'origin')
         for d in self.context.get_searched_directories():
             try:
                 result = d.instance.getpwent(filter, params)
@@ -571,8 +585,10 @@ class GroupService(RpcService):
 
     @generator
     def query(self, filter=None, params=None):
+        filter = filter or []
         params = params or {}
         single = params.pop('single', False)
+        exclude_from_filter(filter, 'origin')
         for d in self.context.get_searched_directories():
             try:
                 result = d.instance.getgrent(filter, params)
