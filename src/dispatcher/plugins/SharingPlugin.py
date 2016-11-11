@@ -160,23 +160,24 @@ class SharesProvider(Provider):
     h.one_of(
         h.ref('volume-dataset-properties'),
         None
-    )
+    ),
+    bool
 )
 class CreateShareTask(Task):
     @classmethod
     def early_describe(cls):
         return "Creating share"
 
-    def describe(self, share, dataset_properties=None):
+    def describe(self, share, dataset_properties=None, enable_service=False):
         return TaskDescription("Creating share {name}", name=share.get('name') if share else '')
 
-    def verify(self, share, dataset_properties=None):
+    def verify(self, share, dataset_properties=None, enable_service=False):
         if not self.dispatcher.call_sync('share.supported_types').get(share['type']):
             raise VerifyException(errno.ENXIO, 'Unknown sharing type {0}'.format(share['type']))
 
         return ['system']
 
-    def run(self, share, dataset_properties=None):
+    def run(self, share, dataset_properties=None, enable_service=False):
         if share['target_type'] == 'ZVOL':
             parent_ds = '/'.join(share['target_path'].split('/')[:-1])
             shareable = bool(self.dispatcher.call_sync('volume.dataset.query', [('name', '=', parent_ds)]))
@@ -278,10 +279,15 @@ class CreateShareTask(Task):
 
         service_state = self.dispatcher.call_sync('service.query', [('name', '=', share['type'])], {'single': True})
         if service_state['state'] != 'RUNNING':
-            self.add_warning(TaskWarning(
-                errno.ENXIO, "Share has been created but the service {0} is not currently running "
-                             "Please enable the {0} service.".format(share['type'])
-            ))
+            if enable_service:
+                config = service_state['config']
+                config['enable'] = True
+                self.join_subtasks(self.run_subtask('service.update', service_state['id'], {'config': config}))
+            else:
+                self.add_warning(TaskWarning(
+                    errno.ENXIO, "Share has been created but the service {0} is not currently running "
+                                 "Please enable the {0} service.".format(share['type'])
+                ))
 
         return ids[0]
 
