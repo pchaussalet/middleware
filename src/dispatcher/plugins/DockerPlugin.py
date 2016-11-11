@@ -1174,6 +1174,13 @@ def _init(dispatcher, plugin):
             else:
                 sync_cache(containers, CONTAINERS_QUERY, args['ids'])
 
+    def on_collection_change(args):
+        if args['operation'] == 'delete':
+            node = ConfigNode('container.docker', dispatcher.configstore)
+            default_collection = node.__getstate__().get('default_collection')
+            if default_collection and default_collection in args['ids']:
+                node.update({'default_collection': None})
+
     def sync_caches():
         interval = dispatcher.configstore.get('container.cache_refresh_interval')
         while True:
@@ -1238,6 +1245,7 @@ def _init(dispatcher, plugin):
     plugin.register_event_handler('vm.changed', on_vm_change)
     plugin.register_event_handler('plugin.service_registered',
                                   lambda a: init_cache() if a['service-name'] == 'containerd.docker' else None)
+    plugin.register_event_handler('docker.collection.changed', on_collection_change)
 
     plugin.attach_hook('vm.pre_destroy', vm_pre_destroy)
 
