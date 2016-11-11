@@ -127,7 +127,7 @@ class CreateISCSIShareTask(Task):
         else:
             raise VerifyException(errno.EINVAL, 'Unsupported target type {0}'.format(share['target_type']))
 
-        return ['service:ctl']
+        return ['system']
 
     def run(self, share):
         props = share['properties']
@@ -170,7 +170,7 @@ class UpdateISCSIShareTask(Task):
         return TaskDescription("Updating iSCSI share {name}", name=share.get('name', id) if share else id)
 
     def verify(self, id, updated_fields):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, id, updated_fields):
         share = self.datastore.get_by_id('shares', id)
@@ -197,7 +197,7 @@ class DeleteiSCSIShareTask(Task):
         return TaskDescription("Deleting iSCSI share {name}", name=share.get('name', id) if share else id)
 
     def verify(self, id):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, id):
         share = self.datastore.get_by_id('shares', id)
@@ -252,7 +252,7 @@ class CreateISCSITargetTask(Task):
         return TaskDescription('Creating iSCSI share target {name}', name=target.get('id', '') if target else '')
 
     def verify(self, target):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, target):
         for i in target.get('extents', []):
@@ -288,7 +288,7 @@ class UpdateISCSITargetTask(Task):
         return TaskDescription('Updating iSCSI share target {name}', name=id)
 
     def verify(self, id, updated_params):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, id, updated_params):
         if not self.datastore.exists('iscsi.targets', ('id', '=', id)):
@@ -327,7 +327,7 @@ class DeleteISCSITargetTask(Task):
         return TaskDescription('Deleting iSCSI share target {name}', name=id)
 
     def verify(self, id):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, id):
         if not self.datastore.exists('iscsi.targets', ('id', '=', id)):
@@ -358,7 +358,7 @@ class CreateISCSIAuthGroupTask(Task):
         return TaskDescription('Creating iSCSI auth group {name}', name=auth_group.get('id', ''))
 
     def verify(self, auth_group):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, auth_group):
         normalize(auth_group, {
@@ -389,7 +389,7 @@ class UpdateISCSIAuthGroupTask(Task):
         return TaskDescription('Updating iSCSI auth group {name}', name=id)
 
     def verify(self, id, updated_params):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, id, updated_params):
         if not self.datastore.exists('iscsi.auth', ('id', '=', id)):
@@ -417,7 +417,7 @@ class DeleteISCSIAuthGroupTask(Task):
         return TaskDescription('Deleting iSCSI auth group {name}', name=id)
 
     def verify(self, id):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, id):
         if not self.datastore.exists('iscsi.auth', ('id', '=', id)):
@@ -443,7 +443,7 @@ class CreateISCSIPortalTask(Task):
         return TaskDescription('Creating iSCSI portal {name}', name=portal.get('id', ''))
 
     def verify(self, portal):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, portal):
         normalize(portal, {
@@ -474,7 +474,7 @@ class UpdateISCSIPortalTask(Task):
         return TaskDescription('Updating iSCSI portal {name}', name=id)
 
     def verify(self, id, updated_params):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, id, updated_params):
         if not self.datastore.exists('iscsi.portals', ('id', '=', id)):
@@ -502,7 +502,7 @@ class DeleteISCSIPortalTask(Task):
         return TaskDescription('Deleting iSCSI portal {name}', name=id)
 
     def verify(self, id):
-        return ['service:ctl']
+        return ['system']
 
     def run(self, id):
         if not self.datastore.exists('iscsi.portals', ('id', '=', id)):
