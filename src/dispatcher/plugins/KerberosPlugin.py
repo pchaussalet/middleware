@@ -51,15 +51,17 @@ class KerberosKeytabsProvider(Provider):
         ctx = krb5.Context()
 
         def extend(keytab):
-            kt = krb5.Keytab(ctx, contents=keytab['keytab'])
             keytab['entries'] = []
-
-            for i in kt.entries:
-                keytab['entries'].append({
-                    'vno': i.vno,
-                    'principal': i.principal,
-                    'enctype': i.enctype
-                })
+            try:
+                kt = krb5.Keytab(ctx, contents=keytab['keytab'])
+                for i in kt.entries:
+                    keytab['entries'].append({
+                        'vno': i.vno,
+                        'principal': i.principal,
+                        'enctype': i.enctype
+                    })
+            except krb5.KrbException:
+                pass
 
             del keytab['keytab']
             return keytab
