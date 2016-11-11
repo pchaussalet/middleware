@@ -903,6 +903,7 @@ class Main(object):
     def deconfigure_dhcp(self, interface):
         client = self.dhcp_clients[interface]
         client.release()
+        client.stop()
         del self.dhcp_clients[interface]
 
     def renew_dhcp(self, interface):
