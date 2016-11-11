@@ -209,6 +209,7 @@
             "service.ups.auxiliary": null,
             "service.dc.enable": false,
             "service.dc.vm_id": null,
+            "service.dc.volume": null,
             "service.sshd.allow_pubkey_auth": true,
             "service.sshd.allow_password_auth": true,
             "service.sshd.allow_gssapi_auth": true,
