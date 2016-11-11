@@ -144,7 +144,7 @@ def exclude_from_filter(filter, *props):
                     filter.remove(i)
         if len(i) == 2:
             _, pred = i
-            exclude_from_filter(pred, props)
+            exclude_from_filter(pred, *props)
 
 
 class CacheItem(object):
