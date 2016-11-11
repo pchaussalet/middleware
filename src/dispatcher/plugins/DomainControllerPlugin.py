@@ -149,6 +149,7 @@ def _init(dispatcher, plugin):
             'type': {'enum': ['service-dc']},
             'enable': {'type': 'boolean'},
             'volume': {'type': 'string'},
+            'vm_id': {'type': 'string'},
         },
         'additionalProperties': False,
     })
