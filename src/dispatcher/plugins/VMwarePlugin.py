@@ -56,9 +56,9 @@ Following VMware snapshot operations failed during creation of snapshot ${id}:
 
 class VMwareProvider(Provider):
     @generator
-    @accepts(str, str, str)
+    @accepts(str, str, str, bool)
     @returns(h.ref('vmware-datastore'))
-    def get_datastores(self, address, username, password):
+    def get_datastores(self, address, username, password, full=False):
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         ssl_context.verify_mode = ssl.CERT_NONE
 
@@ -72,16 +72,17 @@ class VMwareProvider(Provider):
         try:
             for datastore in content.viewManager.CreateContainerView(content.rootFolder, [vim.Datastore], True).view:
                 vms = []
-                for vm in vm_view.view:
-                    if datastore not in vm.datastore:
-                        continue
+                if full:
+                    for vm in vm_view.view:
+                        if datastore not in vm.datastore:
+                            continue
 
-                    vms.append({
-                        'id': vm.config.uuid,
-                        'name': vm.summary.config.name,
-                        'on': vm.summary.runtime.powerState == 'poweredOn',
-                        'snapshottable': can_be_snapshotted(vm)
-                    })
+                        vms.append({
+                            'id': vm.config.uuid,
+                            'name': vm.summary.config.name,
+                            'on': vm.summary.runtime.powerState == 'poweredOn',
+                            'snapshottable': can_be_snapshotted(vm)
+                        })
 
                 yield {
                     'id': datastore.info.url,
