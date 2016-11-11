@@ -48,7 +48,7 @@ from freenas.dispatcher.server import Server
 from freenas.dispatcher.rpc import RpcContext, RpcService, RpcException, generator, get_sender, accepts, returns
 from freenas.utils import first_or_default, configure_logging, extend, load_module_from_file, list_startswith
 from freenas.utils.debug import DebugService
-from freenas.utils.query import query
+from freenas.utils.query import query, test_filter, pop_filter, exclude_from_filter
 from plugin import DirectoryState
 
 
@@ -133,18 +133,6 @@ def annotate(user, directory, name_field, cache=None):
             'ttl': None
         }
     })
-
-
-def exclude_from_filter(filter, *props):
-    for i in list(filter):
-        if len(i) == 3:
-            name, _, _ = i
-            for p in props:
-                if list_startswith(name.split('.'), p.split('.')):
-                    filter.remove(i)
-        if len(i) == 2:
-            _, pred = i
-            exclude_from_filter(pred, *props)
 
 
 class CacheItem(object):
@@ -435,8 +423,16 @@ class AccountService(RpcService):
         params = params or {}
         params.pop('select', None)
         single = params.pop('single', False)
+
+        # Optimize filtering on directory name and domain name
+        origin_directory = pop_filter(filter, 'origin.directory')
+        origin_domain = pop_filter(filter, 'origin.domain')
         exclude_from_filter(filter, 'origin')
+
         for d in self.context.get_searched_directories():
+            if not test_filter(origin_directory, d.name) or not test_filter(origin_domain, d.domain_name):
+                continue
+
             try:
                 result = d.instance.getpwent(filter, params)
                 for user in result:
@@ -588,8 +584,16 @@ class GroupService(RpcService):
         filter = filter or []
         params = params or {}
         single = params.pop('single', False)
+
+        # Optimize filtering on directory name and domain name
+        origin_directory = pop_filter(filter, 'origin.directory')
+        origin_domain = pop_filter(filter, 'origin.domain')
         exclude_from_filter(filter, 'origin')
+
         for d in self.context.get_searched_directories():
+            if not test_filter(origin_directory, d.name) or not test_filter(origin_domain, d.domain_name):
+                continue
+
             try:
                 result = d.instance.getgrent(filter, params)
                 for group in result:
