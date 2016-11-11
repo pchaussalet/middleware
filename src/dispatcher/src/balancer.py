@@ -594,6 +594,25 @@ class Balancer(object):
         self.logger.info("Task %d submitted (type: %s, class: %s)", task.id, name, task.clazz)
         return task.id
 
+    def submit_with_upload(self, task_name, args, sender, env=None):
+        if len(args) == 0 or (len(args) >= 1 and not isinstance(args[0], list)):
+            raise RpcException(
+                errno.EINVAL,
+                "Please supply the upload file token list as an array in the args list"
+            )
+        upload_token_list = args.pop(0)
+        fd_list = []
+        for f in upload_token_list:
+            upload_token = self.dispatcher.token_store.lookup_token_id(f)
+            if upload_token is None:
+                raise RpcException(
+                    errno.ENOENT,
+                    "Token '{0}' does not exist or is already expired"
+                )
+            fd_list.append(FileDescriptor(upload_token.file))
+        task_id = self.submit(task_name, fd_list + args, sender, env)
+        return task_id
+
     def submit_with_download(self, task_name, args, sender, env=None):
         if len(args) == 0 or (len(args) >= 1 and not isinstance(args[0], list)):
             raise RpcException(

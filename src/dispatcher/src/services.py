@@ -393,6 +393,10 @@ class TaskService(RpcService):
         return tid
 
     @pass_sender
+    def submit_with_upload(self, task_name, args, sender):
+        return self.__balancer.submit_with_upload(task_name, args, sender)
+
+    @pass_sender
     def submit_with_download(self, task_name, args, sender):
         tid, url_list = self.__balancer.submit_with_download(task_name, args, sender)
         return tid, url_list
