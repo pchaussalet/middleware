@@ -115,16 +115,18 @@ class DCConfigureTask(ProgressTask):
         node = ConfigNode('service.dc', self.configstore).__getstate__()
         node.update(dc)
         if node['enable'] and not node.get('volume'):
-            raise TaskException(errno.ENXIO,
-                                'Domain controller service is hosted by the virutal machine.'
-                                'Please provide the valid zfs pool name for the virtual machine volume creation.')
+            raise TaskException(
+                errno.ENXIO,
+                'Domain controller service is hosted by the virutal machine.'
+                'Please provide the valid zfs pool name for the virtual machine volume creation.'
+            )
 
         if node['enable'] and not node['vm_id']:
             dc['vm_id'], = self.join_subtasks(self.run_subtask('vm.create', {
                 'name': 'zentyal_domain_controller',
                 'template': {'name': 'zentyal-4.2'},
                 'target': node['volume'],
-                'autostart': True },
+                'config': {'autostart': True }},
                 progress_callback=lambda p, m, e=None: self.chunk_progress(
                     20, 100, 'Creating Domain Controller virtual machine: ', p, m, e
                 )
