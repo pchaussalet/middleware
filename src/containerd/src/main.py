@@ -954,7 +954,7 @@ class ContainerConsole(object):
                     write(ch)
 
                 if fd_e in r:
-                    ch = self.stderr.read(1024)
+                    ch = gevent.os.tp_read(fd_e)
                     if ch == b'':
                         return
                     write(ch)
