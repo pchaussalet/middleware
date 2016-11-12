@@ -1353,10 +1353,13 @@ class ShellConnection(WebSocketApplication, EventEmitter):
                 return
 
             self.token = self.dispatcher.token_store.lookup_token(message['token'])
-            self.authenticated = True
+            if not self.token:
+                self.ws.send(dumps({'status': 'error'}))
+                return
 
-            gevent.spawn(self.worker, self.token.user.name, self.token.shell, self.token.width, self.token.height)
+            self.authenticated = True
             self.ws.send(dumps({'status': 'ok'}))
+            gevent.spawn(self.worker, self.token.user.name, self.token.shell, self.token.width, self.token.height)
             return
 
         for i in message:
