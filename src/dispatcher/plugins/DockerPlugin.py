@@ -1404,6 +1404,16 @@ def _init(dispatcher, plugin):
                 'type': 'array',
                 'items': {'$ref': 'docker-volume'}
             },
+            'bridge': {
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'enable': {'type': 'boolean'},
+                    'address': {'type': ['string', 'null']},
+                    'netmask': {'type': ['string', 'null']},
+                    'broadcast': {'type': ['string', 'null']},
+                }
+            },
             'parent_directory': {'type': 'string'}
         }
     })
