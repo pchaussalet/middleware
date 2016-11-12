@@ -84,10 +84,10 @@ class DCProvider(Provider):
                 return addresses
 
             except RpcException:
-                return "Please wait - Domain Controller vm service is not ready or the zentyal_domain_controller " +\
-                       "virtual machine state was altered manually."
+                raise RpcException(errno.ENOENT, "Please wait - Domain Controller vm service is not ready or the zentyal_domain_controller " +\
+                       "virtual machine state was altered manually.")
         else:
-            return "Please configure and enable the Domain Controller vm service."
+            raise RpcException(errno.ENOENT, 'Please configure and enable the Domain Controller vm service.')
 
     def check_dc_vm_availability(self):
         dc_vm = self.get_config()
@@ -128,7 +128,7 @@ class DCConfigureTask(ProgressTask):
                 'target': node['volume'],
                 'config': {'autostart': True }},
                 progress_callback=lambda p, m, e=None: self.chunk_progress(
-                    20, 100, 'Creating Domain Controller virtual machine: ', p, m, e
+                    5, 100, 'Creating Domain Controller virtual machine: ', p, m, e
                 )
             ))
 
