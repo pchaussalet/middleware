@@ -2127,6 +2127,7 @@ def _init(dispatcher, plugin):
         'type': 'object',
         'additionalProperties': False,
         'properties': {
+            'id': {'type': 'string'},
             'driver': {'type': 'string'},
             'url': {'type': 'string'}
         }
