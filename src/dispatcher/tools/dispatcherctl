@@ -34,7 +34,7 @@ import time
 import socket
 import shutil
 from freenas.dispatcher.client import Client
-from freenas.dispatcher.jsonenc import dump
+from freenas.dispatcher.jsonenc import dump, dumps
 from freenas.dispatcher.rpc import RpcException
 from texttable import Texttable
 
@@ -112,6 +112,10 @@ def enum(server=DEFAULT_SERVER):
 def listen(events, server=DEFAULT_SERVER):
     def callback(name, args):
         print("New event: {0}".format(name))
+        print("Payload:")
+        dump(args, sys.stdout, indent=4)
+        print()
+        print("--------")
 
     c = create_client(server)
     c.event_callback = callback
