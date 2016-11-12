@@ -1603,7 +1603,7 @@ def _init(dispatcher, plugin):
         while True:
             gevent.sleep(interval)
             with dispatcher.get_lock('zfs-cache'):
-                for key, i in pools.itervalid()
+                for key, i in pools.itervalid():
                     try:
                         zfspool = dispatcher.threaded(lambda: zfs.get(key).__getstate__(False))
                         if zfspool != i:
