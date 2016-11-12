@@ -297,6 +297,7 @@ class DockerImagesProvider(Provider):
             'web_ui_port': labels.get('org.freenas.web-ui-port'),
             'web_ui_path': labels.get('org.freenas.web-ui-path'),
             'version': labels.get('org.freenas.version'),
+            'bridged': labels.get('org.freenas.bridged') == 'true',
             'ports': [],
             'volumes': [],
             'static_volumes': [],
