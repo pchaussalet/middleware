@@ -31,7 +31,11 @@ myrsyncnodel() {
 }
 
 freenasrsync_ws4py() {
-	myrsync ${REPO_PARENT_PATH}/WebSocket-for-Python/ws4py "root@${1}":/usr/local/lib/python3.4/site-packages/
+	myrsyncnodel ${REPO_PARENT_PATH}/WebSocket-for-Python/ws4py "root@${1}":/usr/local/lib/python3.4/site-packages/
+}
+
+freenasrsync_smart() {
+	myrsyncnodel ${REPO_PARENT_PATH}/py-SMART/pySMART "root@${1}:/usr/local/lib/python3.4/site-packages/"
 }
 
 freenasrsync_cli() {
