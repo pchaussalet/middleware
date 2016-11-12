@@ -1603,10 +1603,13 @@ def _init(dispatcher, plugin):
         while True:
             gevent.sleep(interval)
             with dispatcher.get_lock('zfs-cache'):
-                for key, i in pools.itervalid():
-                    zfspool = dispatcher.threaded(lambda: zfs.get(key).__getstate__(False))
-                    if zfspool != i:
-                        pools.put(key, zfspool)
+                for key, i in pools.itervalid()
+                    try:
+                        zfspool = dispatcher.threaded(lambda: zfs.get(key).__getstate__(False))
+                        if zfspool != i:
+                            pools.put(key, zfspool)
+                    except libzfs.ZFSException:
+                        pass
 
                 for key, i in datasets.itervalid():
                     def doit():
@@ -1621,8 +1624,11 @@ def _init(dispatcher, plugin):
 
                         return changed
 
-                    if dispatcher.threaded(doit):
-                        datasets.put(key, i)
+                    try:
+                        if dispatcher.threaded(doit):
+                            datasets.put(key, i)
+                    except libzfs.ZFSException:
+                        pass
 
     plugin.register_schema_definition('zfs-vdev', {
         'type': 'object',
