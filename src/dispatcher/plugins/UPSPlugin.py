@@ -72,9 +72,9 @@ class UPSProvider(Provider):
                 last = -1
             if row[last].find(' (experimental)') != -1:
                 row[last] = row[last].replace(' (experimental)', '').strip()
-            drivers.append((row[last], '{0} ({1})'.format(
+            drivers.append({'driver_name': row[last], 'description': '{0} ({1})'.format(
                 ' '.join(row[0:last]), row[last]
-            )))
+            )})
         return drivers
 
     @accepts()
@@ -86,8 +86,8 @@ class UPSProvider(Provider):
             if not usbconfig_output.startswith('No device match'):
                 for device in usbconfig_output.rstrip().split('\n'):
                     device_path = os.path.join('/dev', device.split()[0][:-1])
-                    device_description = re.findall(r'<.*?>', device)[0]
-                    usb_devices_list.append([device_path, device_description])
+                    device_description = re.findall(r'<.*?>', device)[0].strip('><')
+                    usb_devices_list.append({'device': device_path, 'description': device_description})
 
         except SubprocessException as e:
             raise TaskException(errno.EBUSY, e.err)
