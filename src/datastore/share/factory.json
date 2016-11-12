@@ -374,6 +374,7 @@
             "replication.auto_recovery_ping_interval": 60,
             "container.network.management": "172.31.254.0/24",
             "container.network.nat": "172.31.255.0/24",
+            "container.network.additional_templates": [],
             "container.docker.default_host": null,
             "container.docker.api_forwarding": null,
             "container.docker.api_forwarding_enable": false,

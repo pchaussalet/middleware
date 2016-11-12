@@ -1710,6 +1710,7 @@ class VMTemplateFetchTask(ProgressTask):
         progress = 0
         self.set_progress(progress, 'Downloading templates')
         template_sources = self.datastore.query('vm.template_sources')
+        template_sources.extend(self.dispatcher.call_sync('vm.config.get_config').get('additional_templates', []))
 
         if len(template_sources):
             progress_per_source = 100 / len(template_sources)
@@ -2114,7 +2115,20 @@ def _init(dispatcher, plugin):
                     'management': {'type': 'string'},
                     'nat': {'type': 'string'}
                 }
+            },
+            'additional_templates': {
+                'type': 'array',
+                'items': {'$ref': 'vm-template-source'}
             }
+        }
+    })
+
+    plugin.register_schema_definition('vm-template-source', {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'driver': {'type': 'string'},
+            'url': {'type': 'string'}
         }
     })
 
