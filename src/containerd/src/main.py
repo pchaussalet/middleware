@@ -1254,6 +1254,7 @@ class DockerService(RpcService):
             'volumes': [i['container_path'] for i in container['volumes']],
             'labels': labels,
             'host_config': host.connection.create_host_config(
+                cap_add=['NET_ADMIN'] if q.get(container, 'bridge.enable') else [],
                 port_bindings=port_bindings,
                 binds={
                     i['host_path'].replace('/mnt', '/host'): {
