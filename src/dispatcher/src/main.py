@@ -1427,8 +1427,6 @@ class FileConnection(WebSocketApplication, EventEmitter):
 
     def on_open(self, *args, **kwargs):
         self.logger.info("FileConnection Opened")
-        # issue keepalive
-        self.dispatcher.token_store.keepalive_token(self.token)
 
     def on_close(self, *args, **kwargs):
         self.inq.put(StopIteration)
