@@ -297,7 +297,10 @@ class DockerImagesProvider(Provider):
             'web_ui_port': labels.get('org.freenas.web-ui-port'),
             'web_ui_path': labels.get('org.freenas.web-ui-path'),
             'version': labels.get('org.freenas.version'),
-            'bridged': labels.get('org.freenas.bridged') == 'true',
+            'bridge': {
+                'enable': labels.get('org.freenas.bridged') == 'true',
+                'address': None
+            },
             'ports': [],
             'volumes': [],
             'static_volumes': [],
@@ -1410,9 +1413,7 @@ def _init(dispatcher, plugin):
                 'additionalProperties': False,
                 'properties': {
                     'enable': {'type': 'boolean'},
-                    'address': {'type': ['string', 'null']},
-                    'netmask': {'type': ['string', 'null']},
-                    'broadcast': {'type': ['string', 'null']},
+                    'address': {'type': ['string', 'null']}
                 }
             },
             'parent_directory': {'type': 'string'}
