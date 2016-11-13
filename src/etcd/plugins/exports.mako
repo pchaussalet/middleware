@@ -31,6 +31,8 @@
                 result.append('-maproot={maproot_user}:{maproot_group}'.format(**properties))
             else:
                 result.append('-maproot={maproot_user}'.format(**properties))
+        if properties.get('hosts'):
+            result.append(' '.join(properties['hosts']))
 
         if network:
             if '/' in network:
