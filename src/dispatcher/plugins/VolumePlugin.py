@@ -44,7 +44,7 @@ import uuid
 from datetime import datetime
 from event import sync
 from cache import EventCacheStore
-from lib.system import system, SubprocessException
+from lib.system import SubprocessException
 from lib.freebsd import fstyp
 from task import (
     Provider, Task, ProgressTask, TaskException, TaskWarning, VerifyException, query,
@@ -58,6 +58,7 @@ from datastore import DuplicateKeyException
 from freenas.utils import include, exclude, normalize, chunks, yesno_to_bool, remove_unchanged, query as q
 from freenas.utils.copytree import count_files, copytree
 from cryptography.fernet import Fernet, InvalidToken
+from freenas.dispatcher.fd import FileDescriptor
 
 
 VOLUME_LAYOUTS = {
@@ -1885,23 +1886,24 @@ class VolumeRekeyTask(Task):
             })
 
 
-@description("Creates a backup file of Master Keys of encrypted volume")
-@accepts(str, str)
+@description("Creates a backup of Master Keys of encrypted volume")
+@accepts(str, FileDescriptor)
+@returns(str)
 class VolumeBackupKeysTask(Task):
     @classmethod
     def early_describe(cls):
         return "Creating a backup of the keys of encrypted volume"
 
-    def describe(self, id, out_path=None):
+    def describe(self, id, fd):
         return TaskDescription("Creating a backup of the keys of the encrypted volume {name}", name=id)
 
-    def verify(self, id, out_path=None):
+    def verify(self, id, fd):
         if not self.datastore.exists('volumes', ('id', '=', id)):
             raise VerifyException(errno.ENOENT, 'Volume {0} not found'.format(id))
 
         return ['disk:{0}'.format(d) for d in self.dispatcher.call_sync('volume.get_volume_disks', id)]
 
-    def run(self, id, out_path=None):
+    def run(self, id, fd):
         if not self.datastore.exists('volumes', ('id', '=', id)):
             raise TaskException(errno.ENOENT, 'Volume {0} not found'.format(id))
 
@@ -1913,7 +1915,7 @@ class VolumeBackupKeysTask(Task):
         if vol.get('providers_presence', 'NONE') != 'ALL':
             raise TaskException(errno.EINVAL, 'Every provider associated with volume {0} must be online'.format(id))
 
-        if out_path is None:
+        if not fd:
             raise TaskException(errno.EINVAL, 'Output file is not specified')
 
         with self.dispatcher.get_lock('volumes'):
@@ -1932,23 +1934,51 @@ class VolumeBackupKeysTask(Task):
         password = str(uuid.uuid4())
         enc_data = fernet_encrypt(password, json.dumps(out_data).encode('utf-8'))
 
-        with open(out_path, 'wb') as out_file:
+        with os.fdopen(fd.fd, 'wb') as out_file:
             out_file.write(enc_data)
 
         return password
 
 
-@description("Loads a backup file of Master Keys of encrypted volume")
-@accepts(str, h.one_of(str, None), str)
+@description("Creates a backup file of Master Keys of encrypted volume")
+@accepts(str, str)
+@returns(str)
+class VolumeBackupKeysToFileTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return "Creating a backup of the keys of encrypted volume"
+
+    def describe(self, id, out_path=None):
+        return TaskDescription("Creating a backup of the keys of the encrypted volume {name}", name=id)
+
+    def verify(self, id, out_path=None):
+        if not self.datastore.exists('volumes', ('id', '=', id)):
+            raise VerifyException(errno.ENOENT, 'Volume {0} not found'.format(id))
+
+        return ['disk:{0}'.format(d) for d in self.dispatcher.call_sync('volume.get_volume_disks', id)]
+
+    def run(self, id, out_path=None):
+        with open(out_path, 'wb') as out_file:
+            password, = self.join_subtasks(self.run_subtask(
+                'volume.keys.backup',
+                id,
+                FileDescriptor(out_file.fileno())
+            ))
+
+        return password
+
+
+@description("Loads a backup of Master Keys of encrypted volume")
+@accepts(str, FileDescriptor, h.one_of(str, None))
 class VolumeRestoreKeysTask(Task):
     @classmethod
     def early_describe(cls):
         return "Uploading the keys from backup to encrypted volume"
 
-    def describe(self, id, password=None, in_path=None):
+    def describe(self, id, fd, password=None):
         return TaskDescription("Uploading the keys from backup to the encrypted volume {name}", name=id)
 
-    def verify(self, id, password=None, in_path=None):
+    def verify(self, id, fd, password=None):
         if not self.datastore.exists('volumes', ('id', '=', id)):
             raise VerifyException(errno.ENOENT, 'Volume {0} not found'.format(id))
 
@@ -1956,7 +1986,7 @@ class VolumeRestoreKeysTask(Task):
 
         return ['disk:{0}'.format(d) for d, _ in get_disks(vol['topology'])]
 
-    def run(self, id, password=None, in_path=None):
+    def run(self, id, fd, password=None):
         if not self.datastore.exists('volumes', ('id', '=', id)):
             raise TaskException(errno.ENOENT, 'Volume {0} not found'.format(id))
 
@@ -1968,14 +1998,14 @@ class VolumeRestoreKeysTask(Task):
         if vol.get('providers_presence', 'ALL') != 'NONE':
             raise TaskException(errno.EINVAL, 'Volume {0} cannot have any online providers'.format(id))
 
-        if in_path is None:
+        if not fd:
             raise TaskException(errno.EINVAL, 'Input file is not specified')
 
         if password is None:
             raise TaskException(errno.EINVAL, 'Password is not specified')
 
         vol = self.datastore.get_by_id('volumes', id)
-        with open(in_path, 'rb') as in_file:
+        with os.fdopen(fd.fd, 'rb') as in_file:
             enc_data = in_file.read()
 
         try:
@@ -1997,6 +2027,34 @@ class VolumeRestoreKeysTask(Task):
                 subtasks.append(self.run_subtask('disk.geli.mkey.restore', disk_id, disk))
 
             self.join_subtasks(*subtasks)
+
+
+@description("Loads a backup file of Master Keys of encrypted volume")
+@accepts(str, str, h.one_of(str, None))
+class VolumeRestoreKeysFromFileTask(Task):
+    @classmethod
+    def early_describe(cls):
+        return "Uploading the keys from backup to encrypted volume"
+
+    def describe(self, id, in_path, password=None):
+        return TaskDescription("Uploading the keys from backup to the encrypted volume {name}", name=id)
+
+    def verify(self, id, in_path, password=None):
+        if not self.datastore.exists('volumes', ('id', '=', id)):
+            raise VerifyException(errno.ENOENT, 'Volume {0} not found'.format(id))
+
+        vol = self.dispatcher.call_sync('volume.query', [('id', '=', id)], {'single': True})
+
+        return ['disk:{0}'.format(d) for d, _ in get_disks(vol['topology'])]
+
+    def run(self, id, in_path, password=None):
+        with open(in_path, 'rb') as in_file:
+            self.join_subtasks(self.run_subtask(
+                'volume.keys.restore',
+                id,
+                FileDescriptor(in_file.fileno()),
+                password
+            ))
 
 
 @description("Scrubs the volume")
@@ -3329,7 +3387,9 @@ def _init(dispatcher, plugin):
     plugin.register_task_handler('volume.unlock', VolumeUnlockTask)
     plugin.register_task_handler('volume.rekey', VolumeRekeyTask)
     plugin.register_task_handler('volume.keys.backup', VolumeBackupKeysTask)
+    plugin.register_task_handler('volume.keys.backup_to_file', VolumeBackupKeysToFileTask)
     plugin.register_task_handler('volume.keys.restore', VolumeRestoreKeysTask)
+    plugin.register_task_handler('volume.keys.restore_from_file', VolumeRestoreKeysFromFileTask)
     plugin.register_task_handler('volume.scrub', VolumeScrubTask)
     plugin.register_task_handler('volume.vdev.replace', VolumeReplaceTask)
     plugin.register_task_handler('volume.vdev.online', VolumeOnlineVdevTask)
