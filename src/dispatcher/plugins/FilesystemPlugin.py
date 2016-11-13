@@ -144,7 +144,7 @@ class FilesystemProvider(Provider):
         return token
 
     @pass_sender
-    @accepts(str, int, str)
+    @accepts(str, h.one_of(int, None), str)
     @returns(str)
     def upload(self, dest_path, size, mode, sender):
         try:
