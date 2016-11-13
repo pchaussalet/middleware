@@ -121,16 +121,19 @@ class DCConfigureTask(ProgressTask):
                 'Please provide the valid zfs pool name for the virtual machine volume creation.'
             )
 
-        if node['enable'] and not node['vm_id']:
-            dc['vm_id'], = self.join_subtasks(self.run_subtask('vm.create', {
-                'name': 'zentyal_domain_controller',
-                'template': {'name': 'zentyal-4.2'},
-                'target': node['volume'],
-                'config': {'autostart': True }},
-                progress_callback=lambda p, m, e=None: self.chunk_progress(
-                    5, 100, 'Creating Domain Controller virtual machine: ', p, m, e
-                )
-            ))
+        if node['enable']:
+            try:
+                self.dispatcher.call_sync('service.dc.check_dc_vm_availability')
+            except RpcException:
+                dc['vm_id'], = self.join_subtasks(self.run_subtask('vm.create', {
+                    'name': 'zentyal_domain_controller',
+                    'template': {'name': 'zentyal-4.2'},
+                    'target': node['volume'],
+                    'config': {'autostart': True }},
+                    progress_callback=lambda p, m, e=None: self.chunk_progress(
+                        5, 100, 'Creating Domain Controller virtual machine: ', p, m, e
+                    )
+                ))
 
         try:
             node = ConfigNode('service.dc', self.configstore)
