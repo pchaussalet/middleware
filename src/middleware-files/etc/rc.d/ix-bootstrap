@@ -18,6 +18,24 @@ bootstrap_start()
 	# Invoking "/etc/rc.d/cleanvar" manually before the dispatcher starts
 	/usr/sbin/service cleanvar onestart
 	/usr/sbin/service ldconfig start
+	# If there are update-related scripts, run themm, clean up, and reboot
+	if [ -d /update-scripts ]; then
+	    if [ -f /update-scripts/order ]; then
+		cat /update-scripts/order | while read name
+		do
+		    sh -x /update-scripts/${name}
+		done
+	    else
+		# Just run them alphabetically
+		for name in /update-scripts/*
+		do
+		    sh -x ${name}
+		done
+	    fi
+	    rm -rf /update-scripts
+	    read -p "Remove this when you know it works " foo
+	    reboot
+	fi
 }
 
 name="ix-bootstrap"
