@@ -655,6 +655,30 @@ class DockerHost(object):
             except requests.exceptions.ConnectionError:
                 gevent.sleep(1)
 
+        # Initialize the bridge network
+        alias = first_or_default(lambda a: a['type'] == 'INET', q.get(self.context.default_if, 'status.aliases'))
+        network_config = self.context.client.call_sync('network.get_config')
+
+        if alias and q.get(network_config, 'gateway.ipv4'):
+            subnet = '{address}/{netmask}'.format(**alias)
+            external = first_or_default(lambda n: n['Name'] == 'external', self.connection.networks())
+            if external and q.get(external, 'Config.Subnet') != subnet:
+                if external:
+                    self.connection.remove_network('external')
+
+                self.connection.create_network(
+                    name='external',
+                    driver='macvlan',
+                    ipam=docker.utils.create_ipam_config(
+                        pool_configs=[
+                            docker.utils.create_ipam_pool(
+                                subnet=subnet,
+                                gateway=q.get(network_config, 'gateway.ipv4')
+                            )
+                        ]
+                    )
+                )
+
         self.notify()
         self.init_autostart()
 
